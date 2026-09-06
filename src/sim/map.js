@@ -187,6 +187,22 @@ function buildObstacleGrid(map) {
   return { cols, cells };
 }
 
+/**
+ * Obstacles in the 3x3 cell neighbourhood of a point.
+ *
+ * KNOWN ISSUE: a rock wider than one cell is filed in every cell it covers,
+ * so this can return the same obstacle several times, and `resolveCollisions`
+ * below then pushes once per copy — flinging a hero out two to four times
+ * harder than intended.
+ *
+ * De-duplicating it is correct and was tried. It makes movement measurably
+ * worse: the over-strong push is currently acting as the main thing that
+ * frees a hero wedged into a corner, and removing it took the worst pinned
+ * stretch from 164s to 649s. Neither a terrain-normal escape nor wall sliding
+ * compensated (661s and 1019s respectively). Fixing this properly means
+ * giving `steer` a real character controller rather than move-then-unpenetrate,
+ * so the de-duplication should land together with that, not before it.
+ */
 export function obstaclesNear(map, x, y) {
   const { cols, cells } = map.grid;
   const gx = Math.max(0, Math.min(cols - 1, Math.floor(x / GRID_CELL)));

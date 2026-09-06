@@ -105,6 +105,8 @@ export function makeEnemyEntity(defId, { pos, tierScale = 1, level = 1, isBoss =
     alive: true,
     homePos: { ...pos },
     ownerPoi,
+    // Set once dragged past the leash; cleared only on reaching home again.
+    evading: false,
     aggroRange: def.aggroRange ?? 300,
     leash: isBoss ? 900 : 700,
     statuses: [],

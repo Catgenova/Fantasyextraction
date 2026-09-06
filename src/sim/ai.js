@@ -17,10 +17,15 @@ import { itemScore } from '../data/gear.js';
 const OUT_OF_COMBAT_AFTER = 5;
 const THINK_HERO = 0.2;      // seconds between hero decisions
 const THINK_MONSTER = 0.3;   // monsters are dumber, so they think less often
+const EVADE_HOME = 45;       // how close to home ends an evade
+const EVADE_SPEED = 1.5;     // monsters give up and go home briskly
+const CHASE_PATIENCE = 9;    // seconds chasing one target without landing a hit
+const UNREACHABLE_FOR = 20;  // how long a hero ignores a target it cannot catch
 const PERCEPTION = 820;      // how far a hero looks for targets
 const PICKUP_RANGE = 110;    // must exceed the widest formation spacing
 const LOOT_SEARCH_RADIUS = 900;
-const LOOT_PATIENCE = 5;     // seconds standing on a pile before writing it off
+const LOOT_PATIENCE = 5;      // seconds standing on a pile before writing it off
+const LOOT_TRAVEL_LIMIT = 25; // seconds pursuing one pile, arrived or not
 
 // Steering around scenery. Without these a hero walks straight into a rock,
 // gets pushed back out by collision resolution, and walks into it again —
@@ -88,6 +93,7 @@ function think(match, e, inCombat) {
   const enemies = match.hostilesNear(e, PERCEPTION);
   const target = pickTarget(match, e, squad, enemies);
   e.target = target?.id ?? null;
+  trackChase(match, e, target);
 
   if (e.globalCooldown <= 0) tryCast(match, e, squad, target, enemies);
 
@@ -104,6 +110,10 @@ function think(match, e, inCombat) {
 // ---------------------------------------------------------------------------
 
 export function pickTarget(match, e, squad, enemies) {
+  // A monster running home has dropped aggro and cannot be caught before it
+  // resets, and anything already proven uncatchable is not worth a second
+  // attempt. Chasing either is how a hero ends up jogging on the spot.
+  enemies = enemies.filter((t) => !t.evading && !isUnreachable(e, match, t));
   if (!enemies.length) return null;
 
   // A taunt overrides everything the player configured.
@@ -115,7 +125,8 @@ export function pickTarget(match, e, squad, enemies) {
   // Focus fire: stick to the squad's called target while it is reachable.
   if (e.tactics.focusFire && squad?.focusTargetId) {
     const focus = match.byId(squad.focusTargetId);
-    if (focus?.alive && dist(e.pos, focus.pos) < 800) return focus;
+    if (focus?.alive && !focus.evading && !isUnreachable(e, match, focus)
+        && dist(e.pos, focus.pos) < 800) return focus;
   }
 
   const priority = TARGET_PRIORITIES[e.tactics.priority] ? e.tactics.priority : 'closest';
@@ -195,6 +206,38 @@ function buildContext(match, e, squad, target, enemies, allies) {
     emergency: hpFrac(e) < 0.4 || avgHp < 0.5 || (lowest && hpFrac(lowest) < 0.35),
     extracting: squad?.order?.mode === 'extract',
   };
+}
+
+/** Has this hero already given up on catching that target? */
+function isUnreachable(e, match, t) {
+  const until = e._unreachable?.get(t.id);
+  if (until === undefined) return false;
+  if (match.time > until) { e._unreachable.delete(t.id); return false; }
+  return true;
+}
+
+/**
+ * Give up on a target that never comes within reach. The leash reset handles
+ * monsters fleeing home; this covers everything else that outruns a hero,
+ * so no one spends the raid jogging after something they will never touch.
+ */
+function trackChase(match, e, target) {
+  if (!target) { e._chaseId = null; return; }
+  if (e._chaseId !== target.id) {
+    e._chaseId = target.id;
+    e._chaseSince = match.time;
+    return;
+  }
+  const reach = e.stats.attackRange + e.radius + target.radius;
+  if (dist(e.pos, target.pos) <= reach) {
+    e._chaseSince = match.time;          // landed within reach; still worth it
+    return;
+  }
+  if (match.time - e._chaseSince > CHASE_PATIENCE) {
+    (e._unreachable ??= new Map()).set(target.id, match.time + UNREACHABLE_FOR);
+    e._chaseId = null;
+    e.target = null;
+  }
 }
 
 /** Translate a spell's `hint` into a desirability score. 0 = do not cast. */
@@ -674,6 +717,7 @@ function detourAround(match, e, desired) {
 
   if (orbiting || (e._stuckTime ?? 0) > STUCK_TRIGGER) {
     const dir = norm(sub(desired.pos, e.pos));
+
     // If the last detour timed out, that side was wrong — try the other.
     const side = e._detourFailed ? -preferredSide(match, e, dir) : preferredSide(match, e, dir);
     e._detour = {
@@ -829,6 +873,23 @@ export function updateMonster(match, e, dt) {
 
   if (e.kind === 'boss') updateBossAbilities(match, e, target, dt);
 
+  // Evading monsters are going home and nothing else — no target, no attacks.
+  if (e.evading) {
+    if (dist(e.pos, e.homePos) > EVADE_HOME) {
+      steer(match, e, e.homePos, dt, EVADE_SPEED);
+    } else {
+      e.vel.x = 0;
+      e.vel.y = 0;
+      e.evading = false;
+      // Reset on arrival, the way a leash is meant to work: whoever pulled it
+      // out of its camp does not get to keep the damage they did on the way.
+      e.hp = e.maxHp;
+      e.shield = 0;
+      e.threat.clear();
+    }
+    return;
+  }
+
   if (!target) {
     // Nothing to fight: walk home and forget who annoyed us.
     if (dist(e.pos, e.homePos) > 24) steer(match, e, e.homePos, dt);
@@ -845,8 +906,13 @@ export function updateMonster(match, e, dt) {
 }
 
 function monsterThink(match, e) {
-  // Leashed monsters drop aggro entirely and head home.
+  // Dragged too far from its camp: give up and go home. This is a state
+  // rather than a distance test — testing the line each think meant a monster
+  // re-aggroed the moment it stepped back inside it, turned around, got
+  // pulled out again, and never actually got home.
+  if (e.evading) return;
   if (dist(e.pos, e.homePos) > e.leash) {
+    e.evading = true;
     e.target = null;
     e.threat.clear();
     return;
@@ -934,7 +1000,8 @@ export function squadObjective(match, squad) {
   // Committing to every squad you bump into turns a raid into a deathmatch,
   // so PvP is a decision: your plan wants it, they are on top of you, or they
   // already shot first.
-  const contact = match.neighbours(centroid, 640).filter((t) => t.alive && t.team !== squad.team);
+  const contact = match.neighbours(centroid, 640)
+    .filter((t) => t.alive && t.team !== squad.team && !t.evading);
   if (contact.length) {
     const pve = contact.filter((t) => t.team === 'pve');
     const rivals = contact.filter((t) => t.kind === 'hero');
@@ -963,20 +1030,28 @@ export function squadObjective(match, squad) {
   // 4. Sweep up nearby loot — but only a pile somebody can actually lift.
   const pile = nearestTakeablePile(match, squad, members, centroid);
   if (pile) {
-    // Patience guard. `canTake` should mean the pile always clears, but if
-    // anything ever stops it the squad must give up rather than stand on it
-    // for the rest of the raid.
+    // Two patience guards, because a squad can fail to clear a pile in two
+    // different ways.
     //
-    // The clock only starts once they have arrived. Crossing the search
-    // radius takes about as long as the whole budget, so timing the walk too
-    // would write off every distant pile before anyone reached it.
+    // Standing on one and taking nothing is timed from arrival: crossing the
+    // search radius takes about as long as that budget, so timing the walk on
+    // the same clock would write off every distant pile before anyone got
+    // there.
+    //
+    // Never arriving at all needs its own, longer limit. Without it a pile the
+    // squad cannot reach — behind scenery, or across a fight — holds them in
+    // loot mode for the rest of the raid.
     if (squad.lootTargetId !== pile.id) {
       squad.lootTargetId = pile.id;
       squad.lootSince = null;
+      squad.lootTargetSince = match.time;
     }
     const arrived = dist(centroid, pile.pos) <= PICKUP_RANGE;
     if (arrived && squad.lootSince == null) squad.lootSince = match.time;
-    if (arrived && match.time - squad.lootSince > LOOT_PATIENCE) {
+
+    const stoodTooLong = arrived && match.time - squad.lootSince > LOOT_PATIENCE;
+    const chasedTooLong = match.time - squad.lootTargetSince > LOOT_TRAVEL_LIMIT;
+    if (stoodTooLong || chasedTooLong) {
       (squad.ignoredPiles ??= new Set()).add(pile.id);
       squad.lootTargetId = null;
     }
