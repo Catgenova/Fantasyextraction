@@ -11,7 +11,7 @@ import { STANCES, TARGET_PRIORITIES, LOOT_POLICIES, FORMATIONS, SQUAD_PLANS, EXT
 import { dealDamage, spawnProjectile, resolveEffects, isControlled, hasStatus, applyStatus, GLOBAL_COOLDOWN } from './combat.js';
 import { hpFrac, manaFrac, recomputeStats } from './entity.js';
 import { dist, dist2, dirTo, norm, add, scale, sub } from '../core/vec.js';
-import { resolveCollisions, bestExtract } from './map.js';
+import { resolveCollisions, obstaclesNear, bestExtract } from './map.js';
 import { itemScore } from '../data/gear.js';
 
 const OUT_OF_COMBAT_AFTER = 5;
@@ -21,6 +21,23 @@ const PERCEPTION = 820;      // how far a hero looks for targets
 const PICKUP_RANGE = 110;    // must exceed the widest formation spacing
 const LOOT_SEARCH_RADIUS = 900;
 const LOOT_PATIENCE = 5;     // seconds standing on a pile before writing it off
+
+// Steering around scenery. Without these a hero walks straight into a rock,
+// gets pushed back out by collision resolution, and walks into it again —
+// making no progress at all for the rest of the raid.
+const AVOID_LOOKAHEAD = 95;  // how far ahead to notice something in the way
+const AVOID_WEIGHT = 2.1;    // how hard to lean around it
+const STUCK_SAMPLE = 0.4;    // seconds between progress checks
+const MIN_PROGRESS = 8;      // metres closer to the goal per sample, or it is not progress
+const STUCK_TRIGGER = 1.2;   // seconds of no progress before forcing a way out
+const DETOUR_DISTANCE = 300; // how far to the side a detour waypoint is placed
+const DETOUR_TIME = 5;       // give up on a detour after this long
+const ORBIT_WINDOW = 6;      // seconds over which to check for real displacement
+const ORBIT_DISTANCE = 90;   // net ground covered in that window, or it is a loop
+const ORBIT_MIN_GOAL = 150;  // only applies when the hero has somewhere to be
+const ARRIVED_DISTANCE = 24;  // genuinely standing on the spot
+const BLOCKED_TICKS = 8;     // ticks of cancelled movement before backing out
+const BLOCKED_RATIO = 0.25;  // fraction of intended movement that counts as moving
 
 // ---------------------------------------------------------------------------
 // Hero update
@@ -74,7 +91,7 @@ function think(match, e, inCombat) {
 
   if (e.globalCooldown <= 0) tryCast(match, e, squad, target, enemies);
 
-  e._desired = desiredPosition(match, e, squad, target, enemies, stance);
+  e._desired = detourAround(match, e, desiredPosition(match, e, squad, target, enemies, stance));
 
   // Grab anything underfoot. Heroes fight over camps and the drops land where
   // they are already standing, so gating this on being out of combat meant
@@ -426,7 +443,7 @@ export function steer(match, e, dest, dt, speedMult = 1) {
   const d = Math.hypot(to.x, to.y);
   if (d < 6) { e.vel.x *= 0.6; e.vel.y *= 0.6; return; }
 
-  let dir = { x: to.x / d, y: to.y / d };
+  const dir = { x: to.x / d, y: to.y / d };
 
   // Separation so a squad does not collapse into one pixel.
   const sep = { x: 0, y: 0 };
@@ -439,15 +456,239 @@ export function steer(match, e, dest, dt, speedMult = 1) {
       sep.y += (e.pos.y - other.pos.y) / dd * (min - dd) * 0.12;
     }
   }
-  dir = norm({ x: dir.x + sep.x, y: dir.y + sep.y });
+
+  const avoid = avoidObstacles(match, e, dir);
+  const escape = stuckEscape(match, e, dir);
+
+  const heading = norm({
+    x: dir.x + sep.x + avoid.x * AVOID_WEIGHT + escape.x * 1.6,
+    y: dir.y + sep.y + avoid.y * AVOID_WEIGHT + escape.y * 1.6,
+  });
 
   const speed = e.stats.moveSpeed * speedMult;
-  e.vel.x = dir.x * speed;
-  e.vel.y = dir.y * speed;
+  e.vel.x = heading.x * speed;
+  e.vel.y = heading.y * speed;
+
+  const fromX = e.pos.x;
+  const fromY = e.pos.y;
   e.pos.x += e.vel.x * dt;
   e.pos.y += e.vel.y * dt;
-  e.facing = Math.atan2(dir.y, dir.x);
+  e.facing = Math.atan2(heading.y, heading.x);
   resolveCollisions(match.map, e.pos, e.radius);
+
+  // Wedged in a corner, collision resolution pushes a hero back exactly as
+  // far as they stepped, landing them on the same point every tick forever.
+  // No steering fixes that — the way out is along the collision normal, so
+  // once the cancellation is obvious, back straight out and ignore the goal.
+  const intended = speed * dt;
+  const actual = Math.hypot(e.pos.x - fromX, e.pos.y - fromY);
+  e._blocked = actual < intended * BLOCKED_RATIO ? (e._blocked ?? 0) + 1 : 0;
+
+  if (e._blocked > BLOCKED_TICKS) {
+    const out = escapeVector(match, e);
+    if (out) {
+      e.pos.x += out.x * intended * 1.6;
+      e.pos.y += out.y * intended * 1.6;
+      resolveCollisions(match.map, e.pos, e.radius);
+      e.facing = Math.atan2(out.y, out.x);
+    }
+  }
+}
+
+/**
+ * Direction straight out of whatever scenery is pinning a hero: the sum of
+ * the push-out normals, weighted by how deeply each one has them. Returns
+ * null in open ground.
+ */
+function escapeVector(match, e) {
+  let x = 0;
+  let y = 0;
+  for (const o of obstaclesNear(match.map, e.pos.x, e.pos.y)) {
+    const dx = e.pos.x - o.x;
+    const dy = e.pos.y - o.y;
+    const d = Math.hypot(dx, dy);
+    const contact = o.r + e.radius + 4;
+    if (d > contact || d < 1e-4) continue;
+    const depth = (contact - d) / contact;
+    x += (dx / d) * (0.35 + depth);
+    y += (dy / d) * (0.35 + depth);
+  }
+  const len = Math.hypot(x, y);
+  return len < 1e-4 ? null : { x: x / len, y: y / len };
+}
+
+/**
+ * A lateral nudge around anything blocking the path ahead. Only obstacles in
+ * front of us and close enough to the line of travel to actually be hit
+ * contribute, so open ground costs nothing.
+ */
+function avoidObstacles(match, e, dir) {
+  let ax = 0;
+  let ay = 0;
+  for (const o of obstaclesNear(match.map, e.pos.x, e.pos.y)) {
+    const ox = o.x - e.pos.x;
+    const oy = o.y - e.pos.y;
+
+    const along = ox * dir.x + oy * dir.y;
+    if (along <= 0) continue;                       // already behind us
+
+    const clearance = o.r + e.radius + 8;
+    if (along > clearance + AVOID_LOOKAHEAD) continue;
+
+    // Distance from the obstacle centre to our line of travel.
+    const perpX = ox - dir.x * along;
+    const perpY = oy - dir.y * along;
+    const perp = Math.hypot(perpX, perpY);
+    if (perp > clearance) continue;                 // we will pass it cleanly
+
+    // Lean away from the side the obstacle sits on. Dead ahead has no side,
+    // so pick one consistently rather than stalling head-on.
+    let awayX;
+    let awayY;
+    if (perp < 1e-3) { awayX = -dir.y; awayY = dir.x; }
+    else { awayX = -perpX / perp; awayY = -perpY / perp; }
+
+    const centred = 1 - perp / clearance;                          // 1 = head-on
+    const near = 1 - along / (clearance + AVOID_LOOKAHEAD);        // 1 = right here
+    ax += awayX * centred * near;
+    ay += awayY * centred * near;
+  }
+  return { x: ax, y: ay };
+}
+
+/**
+ * A lean toward open ground while a hero is being slowed by scenery. Purely
+ * a steering force — it cannot escape a local minimum on its own, which is
+ * what `detourAround` is for.
+ */
+function stuckEscape(match, e, dir) {
+  if ((e._stuckTime ?? 0) <= STUCK_SAMPLE) return { x: 0, y: 0 };
+  const side = preferredSide(match, e, dir);
+  return { x: -dir.y * side, y: dir.x * side };
+}
+
+/** Which way around has more open ground: +1 for left, -1 for right. */
+function preferredSide(match, e, dir) {
+  let left = 0;
+  let right = 0;
+  for (const o of obstaclesNear(match.map, e.pos.x, e.pos.y)) {
+    const ox = o.x - e.pos.x;
+    const oy = o.y - e.pos.y;
+    const along = ox * dir.x + oy * dir.y;
+    if (along <= 0 || along > 280) continue;
+    const weight = o.r / Math.max(40, along);
+    // Cross product sign says which side of our heading it lies on.
+    if (dir.x * oy - dir.y * ox > 0) left += weight;
+    else right += weight;
+  }
+  return left > right ? -1 : 1;
+}
+
+/**
+ * Detects a hero who is not getting anywhere and moves their destination to
+ * break the deadlock.
+ *
+ * Progress is measured as ground gained *toward the goal*, not ground
+ * covered. A hero pinned against a rock cluster orbits it at full walking
+ * speed, so any test based on how far they moved says they are fine while
+ * they sit at the same spot for the rest of the raid.
+ *
+ * Once detected, the destination is replaced with a waypoint off to the
+ * clearer side and committed to. Moving the goal is the part that matters:
+ * no steering force escapes a local minimum while the goal pulls back into
+ * it.
+ */
+function detourAround(match, e, desired) {
+  if (!desired) {
+    e._detour = null;
+    e._stuckTime = 0;
+    e._progressGoal = null;
+    return desired;
+  }
+
+  if (e._detour) {
+    if (dist(e.pos, e._detour) < 45) {
+      e._detour = null;              // made it round; resume the real goal
+      e._detourFailed = false;
+    } else if (match.time > e._detour.until) {
+      e._detour = null;              // that way was no good either
+      e._detourFailed = true;
+    } else {
+      return { pos: { x: e._detour.x, y: e._detour.y }, speedMult: desired.speedMult };
+    }
+  }
+
+  const goalDist = dist(e.pos, desired.pos);
+
+  // Holding position can be the objective rather than a failure to move.
+  // Extraction is exactly that: stand inside the zone for eight seconds.
+  // Counting it as lack of progress detoured heroes straight back out of the
+  // zone and stopped them ever getting off the map. Judge it by what they are
+  // doing, not by distance alone — a wide distance exemption also excused
+  // heroes genuinely wedged just short of their destination.
+  if (e.extractingAt || goalDist < ARRIVED_DISTANCE) {
+    e._stuckTime = 0;
+    e._orbitAt = undefined;
+    e._progressGoal = { x: desired.pos.x, y: desired.pos.y };
+    e._progressAt = match.time;
+    e._progressDist = goalDist;
+    return desired;
+  }
+
+  // A destination that jumped is a new plan, not a failure to reach the old
+  // one, so restart the measurement rather than blaming the hero for it.
+  const goalMoved = !e._progressGoal || dist(desired.pos, e._progressGoal) > 150;
+  if (goalMoved || e._progressAt === undefined) {
+    e._progressGoal = { x: desired.pos.x, y: desired.pos.y };
+    e._progressAt = match.time;
+    e._progressDist = goalDist;
+    e._stuckTime = 0;
+    e._orbitAt = undefined;
+    return desired;
+  }
+
+  if (match.time - e._progressAt >= STUCK_SAMPLE) {
+    const gained = e._progressDist - goalDist;
+    e._stuckTime = gained < MIN_PROGRESS ? (e._stuckTime ?? 0) + (match.time - e._progressAt) : 0;
+    e._progressAt = match.time;
+    e._progressDist = goalDist;
+  }
+
+  // Second, slower check. The per-sample test above compares distance to the
+  // goal, which a hero circling an obstacle can satisfy over and over while
+  // ending up exactly where it started. This one asks whether they are
+  // anywhere new after several seconds.
+  let orbiting = false;
+  if (goalDist > ORBIT_MIN_GOAL) {
+    if (e._orbitAt === undefined) {
+      e._orbitAt = match.time;
+      e._orbitAnchor = { x: e.pos.x, y: e.pos.y };
+    } else if (match.time - e._orbitAt >= ORBIT_WINDOW) {
+      orbiting = dist(e.pos, e._orbitAnchor) < ORBIT_DISTANCE;
+      e._orbitAt = match.time;
+      e._orbitAnchor = { x: e.pos.x, y: e.pos.y };
+    }
+  } else {
+    e._orbitAt = undefined;
+  }
+
+  if (orbiting || (e._stuckTime ?? 0) > STUCK_TRIGGER) {
+    const dir = norm(sub(desired.pos, e.pos));
+    // If the last detour timed out, that side was wrong — try the other.
+    const side = e._detourFailed ? -preferredSide(match, e, dir) : preferredSide(match, e, dir);
+    e._detour = {
+      // Mostly sideways, with a little forward bias so the detour still makes
+      // progress rather than simply retreating.
+      x: e.pos.x - dir.y * side * DETOUR_DISTANCE + dir.x * 70,
+      y: e.pos.y + dir.x * side * DETOUR_DISTANCE + dir.y * 70,
+      until: match.time + DETOUR_TIME,
+    };
+    e._stuckTime = 0;
+    e._orbitAt = undefined;
+    return { pos: { x: e._detour.x, y: e._detour.y }, speedMult: desired.speedMult };
+  }
+
+  return desired;
 }
 
 function nearest(e, list) {

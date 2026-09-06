@@ -91,6 +91,7 @@ node tools/simulate.js 8 --seed 300 --plan farm --level 5
 node tools/simulate.js 5 --plan boss --level 14 --verbose
 node tools/test-progression.js
 node tools/test-loot.js
+node tools/test-movement.js
 node tools/test-layout.mjs      # needs Playwright; skips if absent
 ```
 
@@ -108,6 +109,13 @@ a hero's policy *wanted* an item but never whether they had room — and then
 stand on it for the rest of the raid. Nothing crashed; the squad just stopped
 playing. So the test measures behaviour: how long is spent in loot mode, and
 whether that time produces pickups.
+
+`test-movement.js` guards the steering. Heroes used to walk straight at their
+destination and let collision resolution push them back out of whatever they
+hit, which against a rock is a closed loop — some spent entire raids pinned to
+one spot. It measures ground actually covered, because the hardest case looks
+fine to any simpler check: a hero wedged in a corner is running at full speed
+and going nowhere.
 
 `test-layout.mjs` serves the game and checks it at eleven viewport sizes, from
 a small phone up to a desktop. The game runs a fixed-height shell on desktop
