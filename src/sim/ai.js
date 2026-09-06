@@ -11,7 +11,7 @@ import { STANCES, TARGET_PRIORITIES, LOOT_POLICIES, FORMATIONS, SQUAD_PLANS, EXT
 import { dealDamage, spawnProjectile, resolveEffects, isControlled, hasStatus, applyStatus, GLOBAL_COOLDOWN } from './combat.js';
 import { hpFrac, manaFrac, recomputeStats } from './entity.js';
 import { dist, dist2, dirTo, norm, add, scale, sub } from '../core/vec.js';
-import { resolveCollisions, obstaclesNear, bestExtract } from './map.js';
+import { resolveCollisions, obstaclesNear, bestExtract, extractIsOpen } from './map.js';
 import { itemScore } from '../data/gear.js';
 
 const OUT_OF_COMBAT_AFTER = 5;
@@ -426,6 +426,9 @@ function desiredPosition(match, e, squad, target, enemies, stance) {
 function paceForSquad(match, e, squad, want) {
   if (!want || !squad || squad.leaderId !== e.id || e.extractingAt) return want;
   if (!squad.regrouping) return want;
+  // Not during an extraction: the whole squad is converging on one point, so
+  // they close up without the leader dawdling, and dawdling gets them killed.
+  if (squad.order?.mode === 'extract') return want;
   return { ...want, speedMult: (want.speedMult ?? 1) * COHESION.slowPace };
 }
 
@@ -436,6 +439,15 @@ function pickDestination(match, e, squad, target, enemies, stance) {
   // themselves until the match hands the role on.
   const isLeader = !leader || !leader.alive || leader.extracted || leader.id === e.id;
   const anchor = isLeader ? null : leader.pos;
+
+  // Extraction is a committed run and comes before everything else, cohesion
+  // included. Every check below pulls heroes off the exit: retreating runs
+  // away from the enemy rather than toward the door, rejoining chases a
+  // leader who is themselves running, and the leader turning back stops the
+  // dash dead. Tried keeping the rejoin here — it quadrupled the time to get
+  // out. The squad converges at the door anyway, because they are all walking
+  // to the same point.
+  if (order.mode === 'extract') return { pos: order.pos, speedMult: 1 };
 
   // Retreat: below the configured floor, break for the leader / exit.
   if (hpFrac(e) < (e.tactics.retreatHpPct ?? 0.2) + stance.retreatBias) {
@@ -466,9 +478,6 @@ function pickDestination(match, e, squad, target, enemies, stance) {
     const rally = followerCentroid(match, squad, e);
     if (rally) return { pos: rally, speedMult: 1.05 };
   }
-
-  // Extraction overrides combat positioning once the squad has committed.
-  if (order.mode === 'extract') return { pos: order.pos, speedMult: 1 };
 
   if (target) {
     const d = dist(e.pos, target.pos);
@@ -1111,7 +1120,13 @@ export function squadObjective(match, squad) {
   if (squad.manualOrder) {
     const mo = squad.manualOrder;
     if (mo.mode === 'extract') {
-      const ex = mo.extract ?? bestExtract(match.map, centroid, match.time);
+      // Re-resolve if the chosen exit has since shut. Holding the original
+      // choice left squads waiting at a closed door for the rest of the raid.
+      let ex = mo.extract;
+      if (!ex || !extractIsOpen(ex, match.time)) {
+        ex = bestExtract(match.map, centroid, match.time);
+        mo.extract = ex;
+      }
       return { mode: 'extract', pos: { x: ex.x, y: ex.y }, label: `Extract: ${ex.name}`, extract: ex };
     }
     // A heading is open-ended: keep projecting a point out ahead of the squad

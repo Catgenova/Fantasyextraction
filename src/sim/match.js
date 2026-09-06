@@ -560,10 +560,12 @@ export class Match {
         const ex = this.map.extracts.find((x) => dist(m.pos, x) <= x.radius && extractIsOpen(x, this.time));
         if (!ex) { m.extractProgress = 0; m.extractingAt = null; continue; }
 
-        // Taking damage interrupts the channel.
-        if (this.time - m.lastDamageAt < 1.2) { m.extractProgress = 0; m.extractingAt = ex.id; continue; }
-
+        // Taking damage pauses the channel; it does not wipe it. Resetting to
+        // zero meant anything that could land a hit once every eight seconds
+        // kept a hero at the door indefinitely, and being chased to the exit
+        // is the normal way to arrive at one.
         m.extractingAt = ex.id;
+        if (this.time - m.lastDamageAt < 1.2) continue;
         m.extractProgress = (m.extractProgress ?? 0) + dt;
         if (m.extractProgress >= ex.channelSeconds) {
           m.extracted = true;

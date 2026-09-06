@@ -57,9 +57,14 @@ that way until the map runs out — while the landmarks are a single trip, after
 which the raid plan resumes. Clicking the map still works too.
 
 Packs are managed from the **Bags** panel mid-raid — equip what you find,
-throw away what you don't, and move looted potions onto a hero's belt so they
-will actually drink them. The clock keeps running while it is open, so the
-panel carries its own pause.
+throw away what you don't, hand something to a squadmate standing nearby, and
+move looted potions onto a hero's belt so they will actually drink them. The
+clock keeps running while it is open, so the panel carries its own pause.
+
+**Extract now** is a committed run. The squad walks through whatever is in the
+way and takes the hits rather than stopping to fight, swinging at anything in
+reach on the way past. It outranks retreating, regrouping and chasing, all of
+which otherwise pull heroes off the door.
 
 Loot on the ground is colour-coded by rarity, and anything your squad will
 refuse — filtered out by policy, or simply no room — is drawn faded, so what
@@ -115,6 +120,7 @@ node tools/test-loot.js
 node tools/test-movement.js
 node tools/test-bags.mjs        # needs Playwright; skips if absent
 node tools/test-navigation.mjs  # needs Playwright; skips if absent
+node tools/test-extraction.js
 node tools/test-layout.mjs      # needs Playwright; skips if absent
 ```
 
@@ -139,6 +145,11 @@ hit, which against a rock is a closed loop — some spent entire raids pinned to
 one spot. It measures ground actually covered, because the hardest case looks
 fine to any simpler check: a hero wedged in a corner is running at full speed
 and going nowhere.
+
+`test-extraction.js` guards the priority order that makes "extract now" mean
+it. That order is fragile — putting retreat, regrouping or chasing ahead of it
+takes a squad from 77 seconds to reach a door to 306, or leaves them milling
+outside one for twenty minutes.
 
 `test-bags.mjs` drives the in-raid pack panel against a live match, because
 equipping mid-raid has to rebuild a hero's stat block — gear feeds `baseMods`,

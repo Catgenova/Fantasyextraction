@@ -141,6 +141,31 @@ for (const [label, opts] of [
         `${before} -> ${await packCount()}`);
     }
 
+    // Handing an item to a squadmate. Only offered while they are close
+    // enough to take it, so an enabled button is the precondition.
+    const give = page.locator('.bags-body button:not([disabled])')
+      .filter({ hasText: /^→/ }).first();
+    if (await give.count()) {
+      const before = await packCount();
+      const label = (await give.textContent()).replace('→', '').trim();
+      await give.click();
+      await page.waitForTimeout(400);
+      check(`${label ? 'giving an item away' : 'transfer'} leaves the giver's pack`,
+        (await packCount()) === before - 1, `${before} -> ${await packCount()}`);
+
+      // And it arrived: the recipient's tab count went up.
+      const tabs = await page.locator('.bags-tabs button').all();
+      let landed = false;
+      for (const tab of tabs) {
+        const text = (await tab.textContent()) ?? '';
+        if (text.includes(label)) {
+          landed = Number((text.match(/(\d+)\/8/) ?? [0, 0])[1]) > 0;
+          break;
+        }
+      }
+      check(`${label} actually received it`, landed);
+    }
+
     const remove = page.getByRole('button', { name: 'Remove' }).first();
     if (await remove.count()) {
       const before = await packCount();

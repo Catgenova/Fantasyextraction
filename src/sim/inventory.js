@@ -6,6 +6,7 @@
 // they landed with.
 
 import { canEquip, SLOTS } from '../data/gear.js';
+import { dist } from '../core/vec.js';
 import { rebuildHeroMods } from './entity.js';
 import { BACKPACK_SLOTS } from '../data/tactics.js';
 import { CONSUMABLE_SLOTS, CONSUMABLES } from '../data/consumables.js';
@@ -14,6 +15,9 @@ import { CONSUMABLE_SLOTS, CONSUMABLES } from '../data/consumables.js';
 // would pick it straight back up. Give the pile a moment to be genuinely
 // discarded.
 export const DROP_GRACE = 10;
+
+/** Close enough to hand something over. Loot does not teleport across a raid. */
+export const TRANSFER_RANGE = 260;
 
 /** Can this hero use the item at all? */
 export function canEquipItem(e, item) {
@@ -100,6 +104,31 @@ export function dropConsumable(match, e, index) {
   if (!stack) return false;
   e.consumables.splice(index, 1);
   dropItem(match, e, stack);
+  return true;
+}
+
+/** Why a handover is not possible, or null when it is. */
+export function transferBlocker(from, to, item) {
+  if (!item || !to || to.id === from.id) return 'No one to give it to';
+  if (!to.alive) return `${to.name} is down`;
+  if (to.extracted) return `${to.name} has extracted`;
+  if (to.inventory.length >= BACKPACK_SLOTS) return `${to.name}'s pack is full`;
+  if (dist(from.pos, to.pos) > TRANSFER_RANGE) return `${to.name} is too far away`;
+  return null;
+}
+
+/**
+ * Hand a pack item to a squadmate. Requires them to be nearby and alive, so
+ * this is a real handover rather than an inventory teleport — and a hero about
+ * to die cannot magic their haul to safety.
+ */
+export function transferItem(match, from, to, index) {
+  const item = from.inventory[index];
+  if (transferBlocker(from, to, item)) return false;
+
+  from.inventory.splice(index, 1);
+  to.inventory.push(item);
+  match.pushFloat(to.pos, `+${item.name}`, match.rarityColor(item));
   return true;
 }
 

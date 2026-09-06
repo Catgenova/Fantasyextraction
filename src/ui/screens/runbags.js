@@ -14,6 +14,7 @@ import { hpFrac } from '../../sim/entity.js';
 import {
   canEquipItem, equipFromBackpack, unequipToBackpack,
   dropFromBackpack, dropConsumable, canPackConsumable, packConsumable,
+  transferItem, transferBlocker,
 } from '../../sim/inventory.js';
 
 /**
@@ -39,7 +40,13 @@ export function createRunBags(match, controls = null) {
         e.inventory.map((i) => i.id).join(','),
         e.consumables.map((c) => `${c.defId}:${c.count}`).join(','),
       ].join('|');
-    }).join(';') + `#${heroIndex}#${controls?.isPaused() ? 'p' : 'r'}`;
+      // Rounded position: whether a mate is close enough to hand something to
+      // changes as the squad moves, and the buttons have to follow that.
+    }).join(';') + `#${heroIndex}#${controls?.isPaused() ? 'p' : 'r'}#`
+      + match.playerSquad.memberIds.map((id) => {
+        const m = match.byId(id);
+        return m ? `${Math.round(m.pos.x / 60)},${Math.round(m.pos.y / 60)}` : '-';
+      }).join('/');
   }
 
   function members() {
@@ -123,6 +130,15 @@ export function createRunBags(match, controls = null) {
             packable
               ? el('button.sm', { onclick: () => act(() => packConsumable(match, hero, i)) }, 'Use')
               : null,
+            // Hand-offs to whoever is standing close enough to take it.
+            ...squad.filter((m) => m.id !== hero.id).map((mate) => {
+              const blocked = transferBlocker(hero, mate, item);
+              return el('button.sm', {
+                disabled: !!blocked,
+                title: blocked ?? `Give to ${mate.name}`,
+                onclick: () => act(() => transferItem(match, hero, mate, i)),
+              }, `→ ${mate.name.split(' ').pop()}`);
+            }),
             el('button.sm.danger', { onclick: () => act(() => dropFromBackpack(match, hero, i)) }, 'Drop'),
           ]),
         });
@@ -156,8 +172,9 @@ export function createRunBags(match, controls = null) {
     }
 
     body.appendChild(el('p.tiny.muted', { style: { marginTop: '12px' } },
-      'The clock is still running. Anything dropped stays where you leave it, and '
-      + 'anything worn is lost with the hero if they do not extract.'));
+      'The clock is still running. Items can only be handed to a squadmate standing '
+      + 'nearby. Anything dropped stays where you leave it, and anything worn is '
+      + 'lost with the hero if they do not extract.'));
   }
 
   function refresh() {
