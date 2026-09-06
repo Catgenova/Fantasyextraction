@@ -308,6 +308,48 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
 }
 @keyframes fadein { from { opacity: 0; transform: translate(-50%, -6px); } to { opacity: 1; transform: translate(-50%, 0); } }
 
+/* --- In-raid pack panel and map key ------------------------------------- */
+
+.bags {
+  position: absolute; z-index: 12;
+  top: 12px; right: 276px; width: 400px; bottom: 64px;
+  display: flex; flex-direction: column;
+  background: rgba(16,14,12,.95);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  backdrop-filter: blur(6px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.bags[hidden] { display: none !important; }
+.bags-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 8px 10px; border-bottom: 1px solid var(--line-soft); flex-shrink: 0;
+}
+.bags-tabs { display: flex; gap: 4px; flex-wrap: wrap; min-width: 0; }
+.bags-body { padding: 10px 12px; overflow-y: auto; flex: 1; min-height: 0; }
+.bags .item { align-items: center; }
+.bags .item .nm { font-size: 12.5px; }
+
+.legend {
+  position: absolute; z-index: 12;
+  right: 276px; bottom: 64px; width: 244px;
+  background: rgba(16,14,12,.95);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 12px; font-size: 12px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.legend[hidden] { display: none !important; }
+.legend-row { display: flex; align-items: center; gap: 8px; padding: 2px 0; color: var(--muted); }
+.legend-row.faded { opacity: .45; }
+.legend-gem {
+  width: 11px; height: 11px; flex-shrink: 0;
+  transform: rotate(45deg); border-radius: 2px;
+}
+.legend-ring {
+  width: 13px; height: 13px; flex-shrink: 0; border-radius: 50%;
+  border: 2px solid rgba(230,120,100,.85);
+}
+
 /* --- Results ------------------------------------------------------------ */
 
 .results { max-width: 940px; margin: 0 auto; padding: 24px 16px; width: 100%; }
@@ -430,14 +472,29 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
   /* Mouse-centric hint; on touch you just tap the map. */
   .hud-right .tiny { display: none; }
 
+  /* One row that scrolls sideways rather than wrapping to two or three.
+     A predictable height is what lets the panels above sit clear of it. */
   .hud-bottom {
     left: 6px; right: 6px; bottom: 6px; transform: none;
-    flex-wrap: wrap; justify-content: center; gap: 5px; padding: 6px;
+    flex-wrap: nowrap; justify-content: flex-start; gap: 5px; padding: 6px;
+    overflow-x: auto; scrollbar-width: none;
   }
+  .hud-bottom::-webkit-scrollbar { display: none; }
+  .hud-bottom button { flex: 0 0 auto; }
   .hud-bottom button { padding: 5px 9px; font-size: 12px; }
   .hud-bottom > div[style] { display: none; }
 
   .banner { top: 96px; font-size: 13px; padding: 6px 12px; max-width: calc(100% - 24px); text-align: center; }
+
+  /* Sheets fill the space between the squad strip and the control bar, which
+     now has a fixed height and so can be cleared reliably. */
+  .bags, .legend {
+    top: 44px; bottom: 54px; left: 6px; right: 6px;
+    width: auto; max-height: none; z-index: 20;
+  }
+  .bags-body { padding: 9px 10px; }
+  .bags .item { flex-wrap: wrap; }
+  .legend { overflow-y: auto; }
 }
 
 /* Landscape phones: the HUD would eat the whole map, so trim it further. */

@@ -5,6 +5,7 @@
 import { WORLD_SIZE, RING_CORE, RING_MID, CENTER, BIOMES, extractIsOpen } from '../sim/map.js';
 import { RARITIES } from '../data/gear.js';
 import { hpFrac, manaFrac } from '../sim/entity.js';
+import { canTake } from '../sim/ai.js';
 import { dist } from '../core/vec.js';
 
 const BG_SCALE = 10;                  // world units per baked background pixel
@@ -422,8 +423,12 @@ export function createRenderer(canvas, minimapCanvas) {
       if (!inView(view, pile.pos.x, pile.pos.y, 30)) continue;
       const colour = RARITIES[pile.best?.rarity]?.color ?? '#b9bfc9';
       const bob = Math.sin(match.time * 3 + pile.pos.x * 0.01) * 2;
+
+      // Loot the squad will refuse — filtered out by policy, or simply no room
+      // — fades back, so what still glows is what they are going to collect.
+      const wanted = squadWantsPile(match, pile);
       ctx.fillStyle = colour;
-      ctx.globalAlpha = 0.9;
+      ctx.globalAlpha = wanted ? 0.9 : 0.22;
       ctx.beginPath();
       ctx.moveTo(pile.pos.x, pile.pos.y - 9 + bob);
       ctx.lineTo(pile.pos.x + 7, pile.pos.y + bob);
@@ -431,19 +436,39 @@ export function createRenderer(canvas, minimapCanvas) {
       ctx.lineTo(pile.pos.x - 7, pile.pos.y + bob);
       ctx.closePath();
       ctx.fill();
-      ctx.globalAlpha = 0.25;
+      ctx.globalAlpha = wanted ? 0.25 : 0.07;
       ctx.beginPath();
       ctx.arc(pile.pos.x, pile.pos.y, 15, 0, Math.PI * 2);
       ctx.fill();
       ctx.globalAlpha = 1;
       if (pile.fromHero) {
-        ctx.strokeStyle = 'rgba(230,120,100,.8)';
+        ctx.strokeStyle = wanted ? 'rgba(230,120,100,.8)' : 'rgba(230,120,100,.25)';
         ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(pile.pos.x, pile.pos.y, 19, 0, Math.PI * 2);
         ctx.stroke();
       }
     }
+  }
+
+  /**
+   * Would any living member of the player's squad take something from here?
+   * Cached briefly — it is asked of every visible pile every frame, and the
+   * answer only changes when a pack fills or a policy is edited.
+   */
+  function squadWantsPile(match, pile) {
+    if (pile._wantCheckedAt !== undefined && match.time - pile._wantCheckedAt < 0.5) {
+      return pile._wanted;
+    }
+    let wanted = false;
+    for (const id of match.playerSquad.memberIds) {
+      const m = match.byId(id);
+      if (!m?.alive || m.extracted) continue;
+      if (pile.items.some((it) => canTake(m, it))) { wanted = true; break; }
+    }
+    pile._wanted = wanted;
+    pile._wantCheckedAt = match.time;
+    return wanted;
   }
 
   function drawTelegraphs(match) {

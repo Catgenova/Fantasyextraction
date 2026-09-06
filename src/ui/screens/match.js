@@ -4,6 +4,8 @@
 
 import { el, clear, fmtTime, hideTooltip } from '../dom.js';
 import { createRenderer } from '../render.js';
+import { createRunBags } from './runbags.js';
+import { RARITIES, RARITY_ORDER } from '../../data/gear.js';
 import { CLASSES } from '../../data/classes.js';
 import { MATCH_SECONDS } from '../../data/enemies.js';
 import { bestExtract } from '../../sim/map.js';
@@ -21,6 +23,8 @@ export function matchScreen(app, match) {
   const renderer = createRenderer(canvas, minimap);
 
   const hud = el('div.hud');
+  const bags = createRunBags(match, { isPaused: () => paused, togglePause });
+  const legend = buildLegend();
   const clock = el('div.clock', null, '00:00');
   const objective = el('div.small.muted', null, '');
   const unitList = el('div.hud-squad');
@@ -32,6 +36,10 @@ export function matchScreen(app, match) {
 
   // --- HUD chrome ----------------------------------------------------------
 
+  const bagsBtn = el('button.sm', { onclick: () => { bags.toggle(); legend.hidden = true; } }, 'Bags');
+  const legendBtn = el('button.sm', {
+    onclick: () => { legend.hidden = !legend.hidden; if (!legend.hidden) bags.hide(); },
+  }, 'Legend');
   const followBtn = el('button.sm', { onclick: toggleFollow }, 'Following');
   const speedBtn = el('button.sm', { onclick: cycleSpeed }, '1×');
   const pauseBtn = el('button.sm', { onclick: togglePause }, 'Pause');
@@ -61,13 +69,47 @@ export function matchScreen(app, match) {
     el('button.primary.sm', { onclick: orderExtract }, 'Extract now'),
     el('button.sm', { onclick: clearOrder }, 'Resume plan'),
     el('div', { style: { width: '1px', height: '20px', background: 'var(--line)' } }),
+    bagsBtn, legendBtn,
+    el('div', { style: { width: '1px', height: '20px', background: 'var(--line)' } }),
     pauseBtn, speedBtn, followBtn,
     el('div', { style: { width: '1px', height: '20px', background: 'var(--line)' } }),
     el('button.sm.ghost', { onclick: () => app.confirmAbandon(match) }, 'Abandon'),
   ]));
 
   hud.appendChild(bannerHost);
+  hud.appendChild(legend);
+  hud.appendChild(bags.node);
   root.appendChild(hud);
+
+  function buildLegend() {
+    const swatch = (colour, label) => el('div.legend-row', null, [
+      el('span.legend-gem', { style: { background: colour } }),
+      el('span', null, label),
+    ]);
+    return el('div.legend', { hidden: true }, [
+      el('div.spread', { style: { marginBottom: '6px' } }, [
+        el('strong', null, 'Map key'),
+        el('button.sm.ghost', { onclick: () => { legend.hidden = true; } }, '✕'),
+      ]),
+      el('div.tiny.dim', { style: { margin: '4px 0 3px' } }, 'LOOT ON THE GROUND'),
+      ...RARITY_ORDER.map((id) => swatch(RARITIES[id].color, RARITIES[id].name)),
+      el('div.legend-row.faded', null, [
+        el('span.legend-gem', { style: { background: 'var(--common)' } }),
+        el('span', null, 'Faded — your squad will skip it'),
+      ]),
+      el('div.legend-row', null, [
+        el('span.legend-ring'),
+        el('span', null, "A fallen hero's kit"),
+      ]),
+      el('div.tiny.dim', { style: { margin: '7px 0 3px' } }, 'ZONES'),
+      swatch('#7cd89a', 'Extraction — open'),
+      swatch('rgba(160,130,120,.7)', 'Extraction — shut'),
+      swatch('#8fc4ea', 'World event'),
+      swatch('#e6574a', 'The Collapse closing in'),
+      el('p.tiny.muted', { style: { marginTop: '7px' } },
+        'Change what a hero picks up on their Tactics tab, back at camp.'),
+    ]);
+  }
 
   // --- Input ---------------------------------------------------------------
 
@@ -126,6 +168,8 @@ export function matchScreen(app, match) {
     if (e.key === ' ') { e.preventDefault(); togglePause(); }
     else if (e.key === 'f' || e.key === 'F') toggleFollow();
     else if (e.key === 'e' || e.key === 'E') orderExtract();
+    else if (e.key === 'b' || e.key === 'B') { bags.toggle(); legend.hidden = true; }
+    else if (e.key === 'l' || e.key === 'L') { legend.hidden = !legend.hidden; if (!legend.hidden) bags.hide(); }
     else if (e.key === '+' || e.key === '=') renderer.zoomBy(1.15);
     else if (e.key === '-' || e.key === '_') renderer.zoomBy(1 / 1.15);
     else if (e.key >= '1' && e.key <= '3') { speedIndex = Number(e.key) - 1; applySpeed(); }
@@ -214,6 +258,8 @@ export function matchScreen(app, match) {
         e.alive && !e.extracted && e.maxMana > 0 ? el('div.bar.mp', null, el('i', { style: { width: `${manaFrac(e) * 100}%` } })) : null,
       ]));
     }
+
+    bags.refresh();
 
     if (match.feed.length !== lastFeedLength) {
       lastFeedLength = match.feed.length;

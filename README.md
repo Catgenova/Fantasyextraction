@@ -43,7 +43,18 @@ squad-wide auras, or unlock spells. Four spells can be slotted at a time.
 ## Tactics are the game
 
 Your input during a raid is deliberately narrow: a move order, an extract
-order, and the speed control. Everything else was decided in camp.
+order, the speed control, and your squad's packs. Everything else was decided
+in camp.
+
+Packs are managed from the **Bags** panel mid-raid — equip what you find,
+throw away what you don't, and move looted potions onto a hero's belt so they
+will actually drink them. The clock keeps running while it is open, so the
+panel carries its own pause.
+
+Loot on the ground is colour-coded by rarity, and anything your squad will
+refuse — filtered out by policy, or simply no room — is drawn faded, so what
+still glows is what they are going to collect. The **Legend** button explains
+the map's markings.
 
 **Per hero:** stance (aggressive / balanced / defensive / evasive), target
 priority, loot filter, retreat threshold, potion threshold, focus fire, and a
@@ -92,6 +103,7 @@ node tools/simulate.js 5 --plan boss --level 14 --verbose
 node tools/test-progression.js
 node tools/test-loot.js
 node tools/test-movement.js
+node tools/test-bags.mjs        # needs Playwright; skips if absent
 node tools/test-layout.mjs      # needs Playwright; skips if absent
 ```
 
@@ -116,6 +128,10 @@ hit, which against a rock is a closed loop — some spent entire raids pinned to
 one spot. It measures ground actually covered, because the hardest case looks
 fine to any simpler check: a hero wedged in a corner is running at full speed
 and going nowhere.
+
+`test-bags.mjs` drives the in-raid pack panel against a live match, because
+equipping mid-raid has to rebuild a hero's stat block — gear feeds `baseMods`,
+which is otherwise computed once at spawn.
 
 `test-layout.mjs` serves the game and checks it at eleven viewport sizes, from
 a small phone up to a desktop. The game runs a fixed-height shell on desktop

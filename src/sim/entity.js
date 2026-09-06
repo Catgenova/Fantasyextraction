@@ -16,24 +16,36 @@ export function resetIds() { nextId = 1; }
 // Heroes
 // ---------------------------------------------------------------------------
 
+/**
+ * Rebuild everything a hero's stats derive from except auras and statuses:
+ * class growth, gear, and skill-tree passives. Gear can change mid-raid now,
+ * so this has to be re-runnable rather than computed once at spawn.
+ */
+export function rebuildHeroMods(e) {
+  const cls = CLASSES[e.classId];
+  const { passive } = treeMods(e.classId, e.alloc ?? {});
+
+  const mods = emptyMods();
+  for (const key of ['might', 'agility', 'spirit', 'vitality']) {
+    mods[key] += cls.base[key] + cls.growth[key] * ((e.level ?? 1) - 1);
+  }
+  mods.armor += cls.baseArmor;
+  mods.resist += cls.baseResist;
+  addMods(mods, gearMods(e.equipped));
+  addMods(mods, passive);
+
+  const stance = STANCES[e.tactics?.stance ?? 'balanced'];
+  if (stance) {
+    mods.damagePct += stance.damagePct;
+    mods.damageTakenPct += stance.damageTakenPct;
+  }
+
+  e.baseMods = mods;
+  return recomputeStats(e);
+}
+
 export function makeHeroEntity(hero, { team, squadId, isPlayer = false, pos = { x: 0, y: 0 } }) {
   const cls = CLASSES[hero.classId];
-  const { passive } = treeMods(hero.classId, hero.alloc);
-
-  const baseMods = emptyMods();
-  for (const key of ['might', 'agility', 'spirit', 'vitality']) {
-    baseMods[key] += cls.base[key] + cls.growth[key] * ((hero.level ?? 1) - 1);
-  }
-  baseMods.armor += cls.baseArmor;
-  baseMods.resist += cls.baseResist;
-  addMods(baseMods, gearMods(hero.equipped));
-  addMods(baseMods, passive);
-
-  const stance = STANCES[hero.tactics?.stance ?? 'balanced'];
-  if (stance) {
-    baseMods.damagePct += stance.damagePct;
-    baseMods.damageTakenPct += stance.damageTakenPct;
-  }
 
   const e = {
     id: freshId('h'),
@@ -49,7 +61,9 @@ export function makeHeroEntity(hero, { team, squadId, isPlayer = false, pos = { 
     vel: { x: 0, y: 0 },
     facing: 0,
     alive: true,
-    baseMods,
+    // Kept so gear changes during the raid can rebuild the tree passives too.
+    alloc: { ...(hero.alloc ?? {}) },
+    baseMods: emptyMods(),
     auraMods: emptyMods(),
     statuses: [],
     stats: null,
@@ -74,7 +88,7 @@ export function makeHeroEntity(hero, { team, squadId, isPlayer = false, pos = { 
     extracted: false,
   };
 
-  recomputeStats(e);
+  rebuildHeroMods(e);
   e.hp = e.maxHp;
   e.mana = e.maxMana;
   return e;
