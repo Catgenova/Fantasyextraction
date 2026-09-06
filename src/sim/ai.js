@@ -19,6 +19,8 @@ const THINK_HERO = 0.2;      // seconds between hero decisions
 const THINK_MONSTER = 0.3;   // monsters are dumber, so they think less often
 const PERCEPTION = 820;      // how far a hero looks for targets
 const PICKUP_RANGE = 110;    // must exceed the widest formation spacing
+const LOOT_SEARCH_RADIUS = 900;
+const LOOT_PATIENCE = 5;     // seconds standing on a pile before writing it off
 
 // ---------------------------------------------------------------------------
 // Hero update
@@ -383,8 +385,14 @@ function desiredPosition(match, e, squad, target, enemies, stance) {
     return null;
   }
 
-  // Looting means standing on the pile, not holding formation around it.
-  if (order.mode === 'loot') return { pos: order.pos };
+  // Looting means standing on the pile, not holding formation around it —
+  // but once within arm's reach, stop. Three heroes steering at one exact
+  // point spend their time shoving each other off it instead of picking
+  // anything up.
+  if (order.mode === 'loot') {
+    if (dist(e.pos, order.pos) <= PICKUP_RANGE * 0.75) return null;
+    return { pos: order.pos };
+  }
 
   // No target — take up formation on the squad objective.
   return { pos: formationSlot(match, e, squad, order) };
@@ -486,11 +494,24 @@ export function autoAttack(match, e, target) {
 // Looting
 // ---------------------------------------------------------------------------
 
-/** Would this hero's loot policy accept this item? */
+/** Would this hero's loot policy accept this item? Ignores bag space. */
 export function wantsItem(e, item) {
   const policy = LOOT_POLICIES[e.tactics.lootPolicy] ?? LOOT_POLICIES.greedy;
   if (!policy.minRarity) return false;
   return rarityRank(item.rarity) >= rarityRank(policy.minRarity);
+}
+
+/**
+ * Could this hero actually end up holding the item? Wanting it is not enough:
+ * with a full pack the only way to take something is to drop something worse,
+ * and a squad that walks to loot it cannot lift stands there forever.
+ */
+export function canTake(e, item) {
+  if (!wantsItem(e, item)) return false;
+  if (e.inventory.length < BACKPACK_SLOTS) return true;
+  let worst = Infinity;
+  for (const held of e.inventory) worst = Math.min(worst, valueOf(held));
+  return valueOf(item) > worst * SWAP_MARGIN;
 }
 
 export function tryPickup(match, e) {
@@ -503,7 +524,7 @@ export function tryPickup(match, e) {
 
     for (let i = pile.items.length - 1; i >= 0; i--) {
       const item = pile.items[i];
-      if (!wantsItem(e, item)) continue;
+      if (!canTake(e, item)) continue;
 
       if (e.inventory.length < BACKPACK_SLOTS) {
         pile.items.splice(i, 1);
@@ -521,7 +542,7 @@ export function tryPickup(match, e) {
         const score = valueOf(e.inventory[j]);
         if (score < worstScore) { worstScore = score; worstIdx = j; }
       }
-      if (worstIdx >= 0 && valueOf(item) > worstScore * 1.15) {
+      if (worstIdx >= 0 && valueOf(item) > worstScore * SWAP_MARGIN) {
         const dropped = e.inventory[worstIdx];
         e.inventory[worstIdx] = item;
         pile.items[i] = dropped;
@@ -532,6 +553,9 @@ export function tryPickup(match, e) {
     if (!pile.items.length) pile.dead = true;
   }
 }
+
+/** How much better a find must be before it is worth dropping something. */
+const SWAP_MARGIN = 1.15;
 
 /** Rough desirability, used only for full-bag swaps. */
 function valueOf(item) {
@@ -695,11 +719,32 @@ export function squadObjective(match, squad) {
   }
   squad.focusTargetId = null;
 
-  // 4. Sweep up nearby loot the squad would actually accept before moving on.
-  const pile = match.lootPiles.find((p) => !p.dead && p.items.length
-    && dist(centroid, p.pos) < 900
-    && members.some((m) => p.items.some((it) => wantsItem(m, it))));
-  if (pile) return { mode: 'loot', pos: { ...pile.pos }, label: 'Looting' };
+  // 4. Sweep up nearby loot — but only a pile somebody can actually lift.
+  const pile = nearestTakeablePile(match, squad, members, centroid);
+  if (pile) {
+    // Patience guard. `canTake` should mean the pile always clears, but if
+    // anything ever stops it the squad must give up rather than stand on it
+    // for the rest of the raid.
+    //
+    // The clock only starts once they have arrived. Crossing the search
+    // radius takes about as long as the whole budget, so timing the walk too
+    // would write off every distant pile before anyone reached it.
+    if (squad.lootTargetId !== pile.id) {
+      squad.lootTargetId = pile.id;
+      squad.lootSince = null;
+    }
+    const arrived = dist(centroid, pile.pos) <= PICKUP_RANGE;
+    if (arrived && squad.lootSince == null) squad.lootSince = match.time;
+    if (arrived && match.time - squad.lootSince > LOOT_PATIENCE) {
+      (squad.ignoredPiles ??= new Set()).add(pile.id);
+      squad.lootTargetId = null;
+    }
+    if (squad.lootTargetId) {
+      return { mode: 'loot', pos: { ...pile.pos }, label: 'Looting', pileId: pile.id };
+    }
+  } else {
+    squad.lootTargetId = null;
+  }
 
   // 5. Follow the plan.
   if (plan.chaseEvents) {
@@ -716,6 +761,26 @@ export function squadObjective(match, squad) {
     squad.roamGoal = match.pickRoamGoal(centroid, plan.zoneBias);
   }
   return { mode: 'travel', pos: squad.roamGoal ?? centroid, label: planLabel(plan) };
+}
+
+/**
+ * The closest pile holding something a living member could actually carry.
+ * Nearest rather than first-found: array order shifts as piles are created and
+ * retired, and picking off that made the squad flip between two piles.
+ */
+function nearestTakeablePile(match, squad, members, centroid) {
+  let best = null;
+  let bestD = LOOT_SEARCH_RADIUS;
+  for (const pile of match.lootPiles) {
+    if (pile.dead || !pile.items.length) continue;
+    if (squad.ignoredPiles?.has(pile.id)) continue;
+    const d = dist(centroid, pile.pos);
+    if (d >= bestD) continue;
+    if (!members.some((m) => pile.items.some((it) => canTake(m, it)))) continue;
+    bestD = d;
+    best = pile;
+  }
+  return best;
 }
 
 function planLabel(plan) {

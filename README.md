@@ -90,6 +90,7 @@ The simulation has no dependency on the DOM. `tools/` drives it directly.
 node tools/simulate.js 8 --seed 300 --plan farm --level 5
 node tools/simulate.js 5 --plan boss --level 14 --verbose
 node tools/test-progression.js
+node tools/test-loot.js
 node tools/test-layout.mjs      # needs Playwright; skips if absent
 ```
 
@@ -100,6 +101,13 @@ squads rather than a half-built squad against fully-built ones; pass
 `--starter-gear` to test the level-1 kit instead. `test-progression.js` asserts the parts that tie a
 raid back to the profile: determinism, XP and levelling, loot reaching the
 stash, and gear actually being lost on death.
+
+`test-loot.js` guards the squad's loot behaviour. A squad could once commit to
+a pile it was physically unable to lift — the squad-level filter asked whether
+a hero's policy *wanted* an item but never whether they had room — and then
+stand on it for the rest of the raid. Nothing crashed; the squad just stopped
+playing. So the test measures behaviour: how long is spent in loot mode, and
+whether that time produces pickups.
 
 `test-layout.mjs` serves the game and checks it at eleven viewport sizes, from
 a small phone up to a desktop. The game runs a fixed-height shell on desktop
