@@ -4,7 +4,8 @@ import { makeRng } from '../core/rng.js';
 import { createHero, sanitizeHero, addXp } from '../sim/heroes.js';
 import { defaultSquadTactics } from '../data/tactics.js';
 import { makeConsumable } from '../data/consumables.js';
-import { rollItem } from '../data/gear.js';
+import { rollItem, RARITY_ORDER } from '../data/gear.js';
+import { salvageValue } from '../data/economy.js';
 
 export const STASH_LIMIT = 120;
 
@@ -34,6 +35,8 @@ export function newProfile(seed = Date.now() >>> 0) {
     squadTactics: defaultSquadTactics(),
     stash,
     gold: 0,
+    // Salvage currency. Repair will spend it; nothing does yet.
+    scrap: 0,
     history: [],
   };
 }
@@ -64,6 +67,7 @@ export function sanitizeProfile(profile) {
   }
   profile.history = profile.history ?? [];
   profile.gold = profile.gold ?? 0;
+  profile.scrap = profile.scrap ?? 0;
   return profile;
 }
 
@@ -77,6 +81,37 @@ export function addToStash(profile, item) {
   if (profile.stash.length >= STASH_LIMIT) return false;
   profile.stash.push(item);
   return true;
+}
+
+/**
+ * Break a stashed item down for Scrap. Gear only — consumables get used, not
+ * dismantled — and it is gone afterwards, so callers should confirm first.
+ * @returns {number} scrap gained, or 0 if nothing was salvaged
+ */
+export function salvageFromStash(profile, itemId) {
+  const idx = profile.stash.findIndex((i) => i.id === itemId);
+  if (idx < 0) return 0;
+  const value = salvageValue(profile.stash[idx]);
+  if (value <= 0) return 0;
+  profile.stash.splice(idx, 1);
+  profile.scrap = (profile.scrap ?? 0) + value;
+  return value;
+}
+
+/** Break down everything in the stash at or below a rarity. Returns the total. */
+export function salvageAllUpTo(profile, maxRarity) {
+  const limit = RARITY_ORDER.indexOf(maxRarity);
+  if (limit < 0) return 0;
+  let gained = 0;
+  for (let i = profile.stash.length - 1; i >= 0; i--) {
+    const item = profile.stash[i];
+    if (item.kind !== 'gear') continue;
+    if (RARITY_ORDER.indexOf(item.rarity) > limit) continue;
+    gained += salvageValue(item);
+    profile.stash.splice(i, 1);
+  }
+  profile.scrap = (profile.scrap ?? 0) + gained;
+  return gained;
 }
 
 export function removeFromStash(profile, itemId) {

@@ -195,6 +195,13 @@ button.sm { padding: 4px 9px; font-size: 12px; }
 .item .slot-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 .item .mods { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
+.scrap { display: inline-flex; align-items: center; gap: 5px; font-size: 12px; color: var(--accent); }
+.scrap-pip {
+  width: 9px; height: 9px; border-radius: 2px;
+  background: linear-gradient(135deg, #d9a44b, #8a6a2f);
+  transform: rotate(45deg);
+}
+
 .pill {
   display: inline-block; padding: 1px 7px; border-radius: 10px;
   background: var(--panel-3); border: 1px solid var(--line);

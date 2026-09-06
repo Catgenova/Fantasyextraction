@@ -28,6 +28,10 @@ Then open <http://localhost:8080>. Progress is saved to `localStorage`.
 3. **After-action** — anything an extracted hero carried goes into the stash.
    Anything a dead hero carried *or was wearing* is gone, and drops on the
    field for whoever killed them.
+4. **Salvage** — stash space is finite, so gear you do not want breaks down
+   into **Scrap**. What a piece is worth scales with its rarity, from 5 for a
+   common to 180 for a legendary, plus 5% per item level. Scrap is the
+   currency repairs will be paid in.
 
 ## Classes
 
@@ -124,6 +128,7 @@ node tools/test-bags.mjs        # needs Playwright; skips if absent
 node tools/test-navigation.mjs  # needs Playwright; skips if absent
 node tools/test-extraction.js
 node tools/test-layout.mjs      # needs Playwright; skips if absent
+node tools/test-salvage.mjs     # needs Playwright; skips if absent
 ```
 
 `simulate.js` runs whole raids headless and reports outcomes — the fastest way
@@ -156,6 +161,13 @@ outside one for twenty minutes.
 `test-bags.mjs` drives the in-raid pack panel against a live match, because
 equipping mid-raid has to rebuild a hero's stat block — gear feeds `baseMods`,
 which is otherwise computed once at spawn.
+
+`test-salvage.mjs` drives stash salvaging against a seeded stash holding one
+piece of every rarity. Salvaging cannot be undone, so most of what it checks
+are the guard rails rather than the arithmetic: the first tap only arms a
+button, an armed button that is never confirmed keeps the item, consumables
+are not offered at all, and the balance moves by exactly the number the row
+promised.
 
 `test-layout.mjs` serves the game and checks it at eleven viewport sizes, from
 a small phone up to a desktop. The game runs a fixed-height shell on desktop
@@ -194,3 +206,6 @@ reachable.
 Everything above is implemented and playable. Rival squads are bots built from
 the same hero records and driven by the same tactics AI as the player's squad,
 which is what makes looting one meaningful — they are wearing real gear.
+
+Scrap accumulates but has nothing to spend it on yet: item repair is the next
+thing to build on it.

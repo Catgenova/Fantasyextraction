@@ -8,16 +8,32 @@ import { XP_PER_LEVEL, MAX_LEVEL } from '../../data/classes.js';
 import { FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS } from '../../data/tactics.js';
 import { computeStats } from '../../sim/stats.js';
 import { availablePoints } from '../../sim/heroes.js';
-import { heroById, squadHeroes, STASH_LIMIT } from '../../game/profile.js';
+import { heroById, squadHeroes, STASH_LIMIT, salvageFromStash, salvageAllUpTo } from '../../game/profile.js';
+import { salvageValue, canSalvage, salvageTable } from '../../data/economy.js';
 import { itemScore } from '../../data/gear.js';
 
 export function hubScreen(app) {
   const root = el('div.screen');
+  // Salvaging cannot be undone, so it takes two taps: the first arms this.
+  let armed = null;
 
   function render() {
     hideTooltip();
     clear(root);
     const profile = app.profile;
+
+    function salvage(key, run) {
+      if (armed === key) {
+        const gained = run();
+        armed = null;
+        app.save();
+        render();
+        return gained;
+      }
+      armed = key;
+      render();
+      return 0;
+    }
 
     root.appendChild(el('div.hub', null, [
       el('div.hub-main', null, [squadPanel(), rosterPanel()]),
@@ -171,15 +187,49 @@ export function hubScreen(app) {
         if (b.kind === 'consumable' && a.kind !== 'consumable') return -1;
         return itemScore(b) - itemScore(a);
       });
+      const commons = profile.stash.filter((i) => i.kind === 'gear' && i.rarity === 'common');
+      const commonScrap = commons.reduce((sum, i) => sum + salvageValue(i), 0);
+      const bulkArmed = armed === 'bulk:common';
+
       return el('div.panel.grow.scroll', { style: { minHeight: '0' } }, [
         el('div.panel-head', null, [
           el('h2', null, 'Stash'),
-          el('span.small.muted', null, `${profile.stash.length} / ${STASH_LIMIT}`),
+          el('div.row', { style: { gap: '10px' } }, [
+            el('span.scrap', {
+              title: `Scrap, for repairing gear later. Salvage pays ${
+                salvageTable().map((r) => `${r.rarity} ${r.scrap}`).join(', ')}, +5% per item level.`,
+            }, [
+              el('span.scrap-pip'),
+              el('span', null, String(profile.scrap ?? 0)),
+            ]),
+            el('span.small.muted', null, `${profile.stash.length} / ${STASH_LIMIT}`),
+          ]),
         ]),
-        el('div.panel-body.col', { style: { gap: '6px' } },
-          sorted.length
-            ? sorted.map((item) => itemRow(item, {}))
+        el('div.panel-body.col', { style: { gap: '6px' } }, [
+          commons.length
+            ? el('button.sm' + (bulkArmed ? '.danger.armed' : ''), {
+              onclick: () => salvage('bulk:common', () => salvageAllUpTo(profile, 'common')),
+            }, bulkArmed
+              ? `Break down ${commons.length} commons for ${commonScrap} scrap?`
+              : `Salvage all commons (${commons.length}) — ${commonScrap} scrap`)
+            : null,
+          ...(sorted.length
+            ? sorted.map((item) => {
+              const worth = salvageValue(item);
+              const key = `item:${item.id}`;
+              return itemRow(item, {
+                right: canSalvage(item)
+                  ? el('button.sm' + (armed === key ? '.danger.armed' : ''), {
+                    title: armed === key
+                      ? 'Tap again — the item is gone for good'
+                      : `Break down for ${worth} scrap`,
+                    onclick: () => salvage(key, () => salvageFromStash(profile, item.id)),
+                  }, armed === key ? 'Sure?' : `Salvage ${worth}`)
+                  : el('span.tiny.dim', null, 'used, not salvaged'),
+              });
+            })
             : [el('div.item.empty', null, 'Empty. Extract with loot to fill it.')]),
+        ]),
       ]);
     }
   }
