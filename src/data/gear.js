@@ -175,7 +175,9 @@ function roundStat(stat, v) {
 
 /** Rough single number for "is this an upgrade" sorting and bot budgets. */
 export function itemScore(item) {
-  if (!item) return 0;
+  // Consumables and anything without a stat block score zero rather than
+  // throwing — callers sort mixed stash contents through here.
+  if (!item?.mods) return 0;
   const w = {
     might: 3, agility: 3, spirit: 3, vitality: 2.5, armor: 0.6, resist: 0.6,
     weaponDamage: 4, maxHpFlat: 0.35, manaRegen: 3,

@@ -497,6 +497,9 @@ export class Match {
     if (target.kind === 'hero') {
       this.stats.heroKills++;
       const drops = lootableFrom(target);
+      // Keep a record for the after-action report: the entity itself is
+      // stripped here, so buildResult would otherwise have nothing to show.
+      target.lostOnDeath = drops.slice();
       target.inventory = [];
       target.equipped = {};
       target.consumables = [];
@@ -764,7 +767,7 @@ export class Match {
       kept: m.extracted ? [...m.inventory] : [],
       keptEquipped: m.extracted ? { ...m.equipped } : {},
       keptConsumables: m.extracted ? m.consumables.filter((c) => c.count > 0) : [],
-      lost: m.extracted ? [] : [...m.inventory, ...Object.values(m.equipped).filter(Boolean)],
+      lost: m.extracted ? [] : (m.lostOnDeath ?? [...m.inventory, ...Object.values(m.equipped).filter(Boolean)]),
     }));
 
     const extractedCount = heroes.filter((h) => h.extracted).length;

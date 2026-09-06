@@ -5,6 +5,7 @@ import { mitigation } from './stats.js';
 import { recomputeStats, hpFrac } from './entity.js';
 import { dist, dirTo, norm } from '../core/vec.js';
 import { chance } from '../core/rng.js';
+import { isInsideAnySpawn, SPAWN_PROTECTION_SECONDS } from './map.js';
 
 export const GLOBAL_COOLDOWN = 0.9;
 
@@ -19,6 +20,15 @@ export const GLOBAL_COOLDOWN = 0.9;
  */
 export function dealDamage(match, attacker, target, spec) {
   if (!target?.alive || !attacker) return { amount: 0, crit: false, dodged: false, blocked: false };
+
+  // Landing zones are safe ground early on: no squad can be spawn-camped out
+  // of the raid before it has had a chance to move.
+  if (attacker.kind === 'hero' && target.kind === 'hero'
+      && match.time < SPAWN_PROTECTION_SECONDS
+      && isInsideAnySpawn(match.map, target.pos)) {
+    match.pushFloat(target.pos, 'protected', '#8fd6ff');
+    return { amount: 0, crit: false, dodged: false, blocked: false };
+  }
 
   const aStats = attacker.stats;
   const tStats = target.stats;

@@ -163,7 +163,7 @@ export function statSummary(stats) {
     ['Crit', `${Math.round(stats.critChance * 100)}%`],
     ['Crit damage', `${Math.round(stats.critDamage * 100)}%`],
     ['Move speed', Math.round(stats.moveSpeed)],
-    ['Dodge', `${Math.round(stats.dodge * 100)}%`],
-    ['Cooldown', `-${Math.round(stats.cooldownPct * 100)}%`],
+    ['Dodge', stats.dodge > 0 ? `${Math.round(stats.dodge * 100)}%` : '—'],
+    ['Cooldown', stats.cooldownPct > 0 ? `-${Math.round(stats.cooldownPct * 100)}%` : '—'],
   ];
 }

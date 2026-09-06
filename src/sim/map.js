@@ -29,11 +29,11 @@ export function tierAt(pos) {
 }
 
 export const BIOMES = {
-  fields: { id: 'fields', name: 'Ashen Fields', ground: '#2b3128', accent: '#3a4234' },
-  forest: { id: 'forest', name: 'Blackwood', ground: '#232c26', accent: '#2f3b31' },
-  ruins: { id: 'ruins', name: 'Sunken Ruins', ground: '#2c2b31', accent: '#3a3942' },
-  waste: { id: 'waste', name: 'The Waste', ground: '#332c26', accent: '#443a30' },
-  sanctum: { id: 'sanctum', name: 'Inner Sanctum', ground: '#2a2436', accent: '#3b3350' },
+  fields: { id: 'fields', name: 'Ashen Fields', ground: '#48503c', accent: '#5d6650' },
+  forest: { id: 'forest', name: 'Blackwood', ground: '#34432f', accent: '#46583f' },
+  ruins: { id: 'ruins', name: 'Sunken Ruins', ground: '#464350', accent: '#585469' },
+  waste: { id: 'waste', name: 'The Waste', ground: '#584b3b', accent: '#6d5d49' },
+  sanctum: { id: 'sanctum', name: 'Inner Sanctum', ground: '#413456', accent: '#54446e' },
 };
 
 /**
@@ -54,7 +54,7 @@ export function generateMap(seed) {
   };
 
   // --- Regions: a coarse Voronoi-ish grid used only for ground colour. ------
-  const regionCount = 60;
+  const regionCount = 110;
   for (let i = 0; i < regionCount; i++) {
     const p = { x: rand(rng, 200, WORLD_SIZE - 200), y: rand(rng, 200, WORLD_SIZE - 200) };
     const t = tierAt(p);
@@ -226,6 +226,9 @@ export function resolveCollisions(map, pos, radius) {
   pos.y = Math.max(radius, Math.min(WORLD_SIZE - radius, pos.y));
   return pos;
 }
+
+/** How long a landing zone protects the squads that dropped there. */
+export const SPAWN_PROTECTION_SECONDS = 90;
 
 export function isInsideAnySpawn(map, pos) {
   return map.spawns.some((s) => dist(pos, s) < s.radius);

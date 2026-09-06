@@ -88,5 +88,8 @@ export const CLASS_IDS = Object.keys(CLASSES);
 export const XP_PER_LEVEL = (level) => Math.round(120 * Math.pow(1.35, level - 1));
 export const MAX_LEVEL = 20;
 
-/** Skill points are the currency of the tree: one per level after the first. */
-export const skillPointsForLevel = (level) => Math.max(0, level - 1);
+/**
+ * Skill points are the currency of the tree: one per level, including the
+ * first — a brand new hero should have a decision to make, not a locked screen.
+ */
+export const skillPointsForLevel = (level) => Math.max(0, level);

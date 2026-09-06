@@ -1,0 +1,13 @@
+{
+  "name": "ashenveil",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A browser-based PvPvE extraction looter autobattler.",
+  "type": "module",
+  "scripts": {
+    "start": "npx --yes http-server -p 8080 -c-1 .",
+    "sim": "node tools/simulate.js",
+    "test": "node tools/test-progression.js"
+  },
+  "engines": { "node": ">=18" }
+}

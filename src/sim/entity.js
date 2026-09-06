@@ -44,7 +44,7 @@ export function makeHeroEntity(hero, { team, squadId, isPlayer = false, pos = { 
     team, squadId, isPlayer,
     level: hero.level ?? 1,
     color: cls.color,
-    radius: 14,
+    radius: 16,
     pos: { ...pos },
     vel: { x: 0, y: 0 },
     facing: 0,
