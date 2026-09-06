@@ -57,6 +57,11 @@ export function sanitizeProfile(profile) {
     if (!next) break;
     profile.squad.push(next.id);
   }
+  // A leader must be one of the three actually deploying; swapping the squad
+  // clears a stale choice rather than quietly promoting somebody.
+  if (!profile.squad.includes(profile.squadTactics.leaderId)) {
+    profile.squadTactics.leaderId = null;
+  }
   profile.history = profile.history ?? [];
   profile.gold = profile.gold ?? 0;
   return profile;

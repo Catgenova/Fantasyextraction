@@ -5,6 +5,7 @@
 import { el, clear, fmtTime, hideTooltip } from '../dom.js';
 import { createRenderer } from '../render.js';
 import { createRunBags } from './runbags.js';
+import { createNavPad } from './navpad.js';
 import { RARITIES, RARITY_ORDER } from '../../data/gear.js';
 import { CLASSES } from '../../data/classes.js';
 import { MATCH_SECONDS } from '../../data/enemies.js';
@@ -24,7 +25,15 @@ export function matchScreen(app, match) {
 
   const hud = el('div.hud');
   const bags = createRunBags(match, { isPaused: () => paused, togglePause });
+  const navpad = createNavPad(match);
   const legend = buildLegend();
+
+  // Only one overlay at a time — on a phone they occupy the same space.
+  function openOnly(which) {
+    if (which !== 'bags') bags.hide();
+    if (which !== 'nav') navpad.hide();
+    if (which !== 'legend') legend.hidden = true;
+  }
   const clock = el('div.clock', null, '00:00');
   const objective = el('div.small.muted', null, '');
   const unitList = el('div.hud-squad');
@@ -36,9 +45,14 @@ export function matchScreen(app, match) {
 
   // --- HUD chrome ----------------------------------------------------------
 
-  const bagsBtn = el('button.sm', { onclick: () => { bags.toggle(); legend.hidden = true; } }, 'Bags');
+  const navBtn = el('button.sm', {
+    onclick: () => { const open = navpad.isOpen(); openOnly('nav'); if (open) navpad.hide(); else navpad.show(); },
+  }, 'Navigate');
+  const bagsBtn = el('button.sm', {
+    onclick: () => { const open = bags.isOpen(); openOnly('bags'); if (open) bags.hide(); else bags.show(); },
+  }, 'Bags');
   const legendBtn = el('button.sm', {
-    onclick: () => { legend.hidden = !legend.hidden; if (!legend.hidden) bags.hide(); },
+    onclick: () => { const wasOpen = !legend.hidden; openOnly('legend'); legend.hidden = wasOpen; },
   }, 'Legend');
   const followBtn = el('button.sm', { onclick: toggleFollow }, 'Following');
   const speedBtn = el('button.sm', { onclick: cycleSpeed }, '1×');
@@ -69,7 +83,7 @@ export function matchScreen(app, match) {
     el('button.primary.sm', { onclick: orderExtract }, 'Extract now'),
     el('button.sm', { onclick: clearOrder }, 'Resume plan'),
     el('div', { style: { width: '1px', height: '20px', background: 'var(--line)' } }),
-    bagsBtn, legendBtn,
+    navBtn, bagsBtn, legendBtn,
     el('div', { style: { width: '1px', height: '20px', background: 'var(--line)' } }),
     pauseBtn, speedBtn, followBtn,
     el('div', { style: { width: '1px', height: '20px', background: 'var(--line)' } }),
@@ -78,6 +92,7 @@ export function matchScreen(app, match) {
 
   hud.appendChild(bannerHost);
   hud.appendChild(legend);
+  hud.appendChild(navpad.node);
   hud.appendChild(bags.node);
   root.appendChild(hud);
 
@@ -168,8 +183,9 @@ export function matchScreen(app, match) {
     if (e.key === ' ') { e.preventDefault(); togglePause(); }
     else if (e.key === 'f' || e.key === 'F') toggleFollow();
     else if (e.key === 'e' || e.key === 'E') orderExtract();
-    else if (e.key === 'b' || e.key === 'B') { bags.toggle(); legend.hidden = true; }
-    else if (e.key === 'l' || e.key === 'L') { legend.hidden = !legend.hidden; if (!legend.hidden) bags.hide(); }
+    else if (e.key === 'b' || e.key === 'B') bagsBtn.click();
+    else if (e.key === 'l' || e.key === 'L') legendBtn.click();
+    else if (e.key === 'g' || e.key === 'G') navBtn.click();
     else if (e.key === '+' || e.key === '=') renderer.zoomBy(1.15);
     else if (e.key === '-' || e.key === '_') renderer.zoomBy(1 / 1.15);
     else if (e.key >= '1' && e.key <= '3') { speedIndex = Number(e.key) - 1; applySpeed(); }
@@ -260,6 +276,7 @@ export function matchScreen(app, match) {
     }
 
     bags.refresh();
+    navpad.refresh();
 
     if (match.feed.length !== lastFeedLength) {
       lastFeedLength = match.feed.length;

@@ -7,7 +7,7 @@
 
 import { SPELLS } from '../data/spells.js';
 import { CONSUMABLES } from '../data/consumables.js';
-import { STANCES, TARGET_PRIORITIES, LOOT_POLICIES, FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, BACKPACK_SLOTS } from '../data/tactics.js';
+import { STANCES, TARGET_PRIORITIES, LOOT_POLICIES, FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, BACKPACK_SLOTS, COHESION, HEADINGS, HEADING_REACH } from '../data/tactics.js';
 import { dealDamage, spawnProjectile, resolveEffects, isControlled, hasStatus, applyStatus, GLOBAL_COOLDOWN } from './combat.js';
 import { hpFrac, manaFrac, recomputeStats } from './entity.js';
 import { dist, dist2, dirTo, norm, add, scale, sub } from '../core/vec.js';
@@ -40,6 +40,8 @@ const DETOUR_TIME = 5;       // give up on a detour after this long
 const ORBIT_WINDOW = 6;      // seconds over which to check for real displacement
 const ORBIT_DISTANCE = 90;   // net ground covered in that window, or it is a loop
 const ORBIT_MIN_GOAL = 150;  // only applies when the hero has somewhere to be
+const DETOUR_GIVE_UP = 3;    // failed detours before giving the idea a rest
+const DETOUR_COOLDOWN = 12;  // seconds of heading straight at the goal instead
 const ARRIVED_DISTANCE = 24;  // genuinely standing on the spot
 const BLOCKED_TICKS = 8;     // ticks of cancelled movement before backing out
 const BLOCKED_RATIO = 0.25;  // fraction of intended movement that counts as moving
@@ -407,8 +409,33 @@ export function tryDeathSave(match, e) {
 // ---------------------------------------------------------------------------
 
 function desiredPosition(match, e, squad, target, enemies, stance) {
+  const want = pickDestination(match, e, squad, target, enemies, stance);
+  return paceForSquad(match, e, squad, want);
+}
+
+/**
+ * Hold the leader back while the squad is strung out.
+ *
+ * Slowing rather than stopping, and only as a speed change rather than a new
+ * destination, is deliberate. Every version of this that re-targeted the
+ * leader produced a standoff: the leader decided someone was trailing, the
+ * follower decided it was already close enough, and neither moved again.
+ * Pacing cannot deadlock — the leader still advances, and followers close at
+ * full speed.
+ */
+function paceForSquad(match, e, squad, want) {
+  if (!want || !squad || squad.leaderId !== e.id || e.extractingAt) return want;
+  if (!squad.regrouping) return want;
+  return { ...want, speedMult: (want.speedMult ?? 1) * COHESION.slowPace };
+}
+
+function pickDestination(match, e, squad, target, enemies, stance) {
   const order = squad?.order ?? { mode: 'hold', pos: e.pos };
   const leader = squad ? match.byId(squad.leaderId) : null;
+  // A dead or extracted leader leaves whoever is left walking point for
+  // themselves until the match hands the role on.
+  const isLeader = !leader || !leader.alive || leader.extracted || leader.id === e.id;
+  const anchor = isLeader ? null : leader.pos;
 
   // Retreat: below the configured floor, break for the leader / exit.
   if (hpFrac(e) < (e.tactics.retreatHpPct ?? 0.2) + stance.retreatBias) {
@@ -418,13 +445,30 @@ function desiredPosition(match, e, squad, target, enemies, stance) {
     return { pos: add(e.pos, scale(blend, 260)), speedMult: 1.15 };
   }
 
-  // Extraction overrides combat positioning once the squad has committed.
-  if (order.mode === 'extract') {
-    const goal = order.pos;
-    // Still fight what is directly on top of us, but keep walking.
-    if (target && dist(e.pos, target.pos) < e.stats.attackRange * 0.8) return { pos: goal, speedMult: 1 };
-    return { pos: goal, speedMult: 1 };
+  // A follower who has fallen behind rejoins before doing anything else. The
+  // squad being together is worth more than any single fight or pickup.
+  if (!isLeader && dist(e.pos, anchor) > COHESION.followMax) {
+    return { pos: { ...anchor }, speedMult: 1.12 };
   }
+
+  // Badly strung out: the leader actually turns around. Followers past
+  // `followMax` are already sprinting back, so both ends close the gap and
+  // this always resolves. Milder gaps are handled by pacing instead, in
+  // `paceForSquad`.
+  //
+  // Not while standing in an extraction zone — stepping out cancels the
+  // channel and costs more than the wait.
+  if (isLeader && squad?.regrouping && !e.extractingAt
+      && (squad.spread ?? 0) > COHESION.returnAt) {
+    // Toward the middle of the followers, not the furthest one: with two on
+    // opposite sides, chasing whoever is furthest swaps target each time the
+    // leader moves and the spread never closes.
+    const rally = followerCentroid(match, squad, e);
+    if (rally) return { pos: rally, speedMult: 1.05 };
+  }
+
+  // Extraction overrides combat positioning once the squad has committed.
+  if (order.mode === 'extract') return { pos: order.pos, speedMult: 1 };
 
   if (target) {
     const d = dist(e.pos, target.pos);
@@ -436,9 +480,11 @@ function desiredPosition(match, e, squad, target, enemies, stance) {
       return { pos: add(e.pos, scale(away, 200)), speedMult: 1.05 };
     }
     if (d > idealRange * 0.95) {
-      // Do not chase past the leash from the squad's objective.
-      const leashAnchor = leader?.alive ? leader.pos : order.pos;
-      if (dist(target.pos, leashAnchor) > 900) return { pos: leashAnchor };
+      // Followers chase on a short leash from the leader; the leader keeps to
+      // the squad's objective. Either way nobody wanders off after something.
+      const leashAnchor = isLeader ? order.pos : anchor;
+      const leashRange = isLeader ? 900 : COHESION.chaseLeash;
+      if (dist(target.pos, leashAnchor) > leashRange) return { pos: { ...leashAnchor } };
       return { pos: target.pos };
     }
     // In range: hold, with a little drift to avoid stacking on allies.
@@ -454,16 +500,86 @@ function desiredPosition(match, e, squad, target, enemies, stance) {
     return { pos: order.pos };
   }
 
-  // No target — take up formation on the squad objective.
-  return { pos: formationSlot(match, e, squad, order) };
+  // Nothing pressing: the leader walks the navigation, everyone else forms up
+  // on the leader rather than on the distant objective.
+  if (!isLeader) {
+    // Near enough counts. Driving at an exact slot pins a follower against
+    // scenery whenever the slot happens to land inside it, and the anchor is
+    // now a leader who may be standing still — so the bad slot never moves.
+    if (dist(e.pos, anchor) <= settleRadius(squad)) return null;
+    return { pos: formationSlot(match, e, squad, anchor) };
+  }
+  return { pos: order.pos };
 }
 
-function formationSlot(match, e, squad, order) {
-  if (!squad) return order.pos;
+/**
+ * Track how strung out the squad is. Hysteresis on purpose: starting to wait
+ * at one distance and resuming at a shorter one stops the leader stuttering
+ * forward and back across a single threshold.
+ */
+function updateCohesion(match, squad, members) {
+  const leader = match.byId(squad.leaderId);
+  if (!leader?.alive || leader.extracted) {
+    squad.regrouping = false;
+    squad.spread = 0;
+    return;
+  }
+  let worst = 0;
+  for (const m of members) {
+    if (m.id === leader.id) continue;
+    worst = Math.max(worst, dist(leader.pos, m.pos));
+  }
+  squad.spread = worst;
+  if (!squad.regrouping && worst > COHESION.waitAt) {
+    squad.regrouping = true;
+    squad.regroupSince = match.time;
+  } else if (squad.regrouping && worst < COHESION.resumeAt) {
+    squad.regrouping = false;
+  }
+}
+
+function clampToMap(match, pos) {
+  const edge = 220;
+  const size = match.map.size;
+  return {
+    x: Math.max(edge, Math.min(size - edge, pos.x)),
+    y: Math.max(edge, Math.min(size - edge, pos.y)),
+  };
+}
+
+/** Middle of the living followers — the point that closes the squad up. */
+function followerCentroid(match, squad, leaderEntity) {
+  let x = 0;
+  let y = 0;
+  let n = 0;
+  for (const id of squad.memberIds) {
+    const m = match.byId(id);
+    if (!m?.alive || m.extracted || m.id === leaderEntity.id) continue;
+    x += m.pos.x;
+    y += m.pos.y;
+    n++;
+  }
+  return n ? { x: x / n, y: y / n } : null;
+}
+
+/**
+ * How close a follower needs to be before it stops closing in.
+ *
+ * Held under the leader's `resumeAt` on purpose. If a follower can consider
+ * itself settled at a distance the leader still counts as trailing, the two
+ * disagree forever: the follower stands, the leader keeps regrouping, and the
+ * squad stops moving for the rest of the raid.
+ */
+function settleRadius(squad) {
+  const form = FORMATIONS[squad.tactics.formation] ?? FORMATIONS.tight;
+  return Math.min(form.spacing + 30, COHESION.resumeAt - 25);
+}
+
+function formationSlot(match, e, squad, anchor) {
+  if (!squad) return anchor;
   const form = FORMATIONS[squad.tactics.formation] ?? FORMATIONS.tight;
   const members = squad.memberIds.map((id) => match.byId(id)).filter((m) => m?.alive);
   const idx = Math.max(0, members.findIndex((m) => m.id === e.id));
-  const anchor = order.pos;
 
   if (form.frontline) {
     // Vanguard: melee ahead of the anchor, ranged behind it.
@@ -653,9 +769,19 @@ function detourAround(match, e, desired) {
     if (dist(e.pos, e._detour) < 45) {
       e._detour = null;              // made it round; resume the real goal
       e._detourFailed = false;
+      e._detourFails = 0;
     } else if (match.time > e._detour.until) {
       e._detour = null;              // that way was no good either
       e._detourFailed = true;
+      e._detourFails = (e._detourFails ?? 0) + 1;
+      // Detouring is not working. Stop generating fresh ones for a while and
+      // head straight at the goal, so the collision escape in `steer` gets a
+      // clear run at it instead of being reset by a new waypoint every few
+      // seconds.
+      if (e._detourFails >= DETOUR_GIVE_UP) {
+        e._detourBlockedUntil = match.time + DETOUR_COOLDOWN;
+        e._detourFails = 0;
+      }
     } else {
       return { pos: { x: e._detour.x, y: e._detour.y }, speedMult: desired.speedMult };
     }
@@ -714,6 +840,8 @@ function detourAround(match, e, desired) {
   } else {
     e._orbitAt = undefined;
   }
+
+  if (e._detourBlockedUntil > match.time) return desired;
 
   if (orbiting || (e._stuckTime ?? 0) > STUCK_TRIGGER) {
     const dir = norm(sub(desired.pos, e.pos));
@@ -977,6 +1105,8 @@ export function squadObjective(match, squad) {
   const plan = SQUAD_PLANS[squad.tactics.plan] ?? SQUAD_PLANS.farm;
   const extractPlan = EXTRACT_PLANS[squad.tactics.extractPlan] ?? EXTRACT_PLANS.half;
 
+  updateCohesion(match, squad, members);
+
   // 1. Manual override from the player always wins.
   if (squad.manualOrder) {
     const mo = squad.manualOrder;
@@ -984,7 +1114,21 @@ export function squadObjective(match, squad) {
       const ex = mo.extract ?? bestExtract(match.map, centroid, match.time);
       return { mode: 'extract', pos: { x: ex.x, y: ex.y }, label: `Extract: ${ex.name}`, extract: ex };
     }
-    if (dist(centroid, mo.pos) > 90) return { mode: 'travel', pos: mo.pos, label: 'Moving' };
+    // A heading is open-ended: keep projecting a point out ahead of the squad
+    // so they march that way until the map runs out or the player says stop.
+    if (mo.mode === 'heading') {
+      const h = HEADINGS[mo.heading];
+      if (h) {
+        const pos = clampToMap(match, {
+          x: centroid.x + h.dir.x * HEADING_REACH,
+          y: centroid.y + h.dir.y * HEADING_REACH,
+        });
+        return { mode: 'travel', pos, label: `Heading ${h.short}` };
+      }
+    }
+    if (mo.pos && dist(centroid, mo.pos) > 90) {
+      return { mode: 'travel', pos: mo.pos, label: mo.label ?? 'Moving' };
+    }
     squad.manualOrder = null;
   }
 

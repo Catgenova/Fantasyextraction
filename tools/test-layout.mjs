@@ -105,6 +105,9 @@ for (const [width, height, label] of SIZES) {
   check(`${width}x${height} (${label}): no horizontal overflow`, !menu.hOverflow);
 
   // The raid is the one screen that must NOT scroll: it is a pinned canvas.
+  // A raid cannot start without a leader, so pick one the way a player must.
+  await page.locator('.leader-pick button').first().click();
+  await page.waitForTimeout(250);
   await page.getByRole('button', { name: /Deploy to the raid/ }).click();
   await page.waitForTimeout(200);
   await page.getByRole('button', { name: 'Enter the raid' }).click();

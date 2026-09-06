@@ -226,6 +226,9 @@ button.sm { padding: 4px 9px; font-size: 12px; }
 
 /* --- Selects ------------------------------------------------------------ */
 
+.leader-pick { display: flex; gap: 5px; flex-wrap: wrap; }
+.leader-pick button { flex: 1 1 auto; border-left: 3px solid var(--cls, var(--line)); }
+
 .field { display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px; }
 .field > label { font-size: 11px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 .field > .hint { font-size: 11px; color: var(--muted); }
@@ -328,6 +331,19 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
 .bags-body { padding: 10px 12px; overflow-y: auto; flex: 1; min-height: 0; }
 .bags .item { align-items: center; }
 .bags .item .nm { font-size: 12.5px; }
+
+.navpad {
+  position: absolute; z-index: 12;
+  right: 276px; bottom: 64px; width: 214px;
+  background: rgba(16,14,12,.95);
+  border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 10px 12px; font-size: 12px;
+  backdrop-filter: blur(6px);
+  box-shadow: 0 12px 40px rgba(0,0,0,.5);
+}
+.navpad[hidden] { display: none !important; }
+.navrose { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
+.navrose button { padding: 7px 0; font-size: 12px; }
 
 .legend {
   position: absolute; z-index: 12;
@@ -488,10 +504,12 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
 
   /* Sheets fill the space between the squad strip and the control bar, which
      now has a fixed height and so can be cleared reliably. */
-  .bags, .legend {
+  .bags, .legend, .navpad {
     top: 44px; bottom: 54px; left: 6px; right: 6px;
     width: auto; max-height: none; z-index: 20;
   }
+  .navpad { overflow-y: auto; }
+  .navrose button { padding: 12px 0; font-size: 14px; }
   .bags-body { padding: 9px 10px; }
   .bags .item { flex-wrap: wrap; }
   .legend { overflow-y: auto; }

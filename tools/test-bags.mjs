@@ -72,6 +72,9 @@ for (const [label, opts] of [
   await page.evaluate(() => localStorage.clear());
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
+  // A raid cannot start without a leader, so pick one the way a player must.
+  await page.locator('.leader-pick button').first().click();
+  await page.waitForTimeout(250);
   await page.getByRole('button', { name: /Deploy to the raid/ }).click();
   await page.waitForTimeout(200);
   await page.getByRole('button', { name: 'Enter the raid' }).click();

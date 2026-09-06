@@ -43,6 +43,8 @@ export function generateBotSquads(seed, count, playerLevel) {
       heroes,
       tactics: {
         ...defaultSquadTactics(),
+        // Rival squads name a leader too — cohesion applies to everyone.
+        leaderId: pick(rng, heroes).id,
         formation: pick(rng, Object.keys(FORMATIONS)),
         plan: weightedPlan(rng, level - playerLevel),
         extractPlan: pick(rng, Object.keys(EXTRACT_PLANS)),

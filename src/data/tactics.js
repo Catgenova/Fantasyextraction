@@ -56,6 +56,58 @@ export const EXTRACT_PLANS = {
 
 export const BACKPACK_SLOTS = 8;
 
+/**
+ * Compass headings for in-raid navigation. The canvas y axis grows downward,
+ * so north is negative y.
+ *
+ * A heading is a sustained order, not a destination: the squad keeps walking
+ * that way until they reach the edge of the map or you tell them otherwise.
+ */
+const SQRT_HALF = Math.SQRT1_2;
+export const HEADINGS = {
+  nw: { id: 'nw', name: 'North-west', short: 'NW', dir: { x: -SQRT_HALF, y: -SQRT_HALF } },
+  n:  { id: 'n',  name: 'North',      short: 'N',  dir: { x: 0, y: -1 } },
+  ne: { id: 'ne', name: 'North-east', short: 'NE', dir: { x: SQRT_HALF, y: -SQRT_HALF } },
+  w:  { id: 'w',  name: 'West',       short: 'W',  dir: { x: -1, y: 0 } },
+  e:  { id: 'e',  name: 'East',       short: 'E',  dir: { x: 1, y: 0 } },
+  sw: { id: 'sw', name: 'South-west', short: 'SW', dir: { x: -SQRT_HALF, y: SQRT_HALF } },
+  s:  { id: 's',  name: 'South',      short: 'S',  dir: { x: 0, y: 1 } },
+  se: { id: 'se', name: 'South-east', short: 'SE', dir: { x: SQRT_HALF, y: SQRT_HALF } },
+};
+
+/** How far ahead a heading order projects its destination each time it is read. */
+export const HEADING_REACH = 1400;
+
+// --- Squad cohesion --------------------------------------------------------
+// The leader walks the navigation; everyone else stays with the leader. These
+// govern how far apart that is allowed to get before the leader gives way.
+
+// These are distances from the leader. Two followers on opposite sides make
+// the squad twice as wide as any single number here, so they are set at about
+// half of how far apart the squad should ever actually look.
+export const COHESION = {
+  /** Leader stops advancing once the furthest follower is beyond this. */
+  waitAt: 200,
+  /** Leader turns around and walks back once they are beyond this. */
+  returnAt: 430,
+  /** Leader resumes only once everyone is back inside this — hysteresis, so
+   *  the squad does not stutter forward and back on the boundary. */
+  resumeAt: 120,
+  /** A follower past this drops everything and rejoins. */
+  followMax: 250,
+  /** How far from the leader a follower will chase a target. Must stay under
+   *  `waitAt`: a follower allowed to roam further than the distance that
+   *  stops the leader can hold the whole squad frozen indefinitely. */
+  chaseLeash: 170,
+  /** Leader's pace while the squad is strung out. Never zero: a leader that
+   *  stops dead can be held there forever by a follower that also thinks it
+   *  is where it should be. Crawling always resolves, because followers close
+   *  at full speed. */
+  slowPace: 0.25,
+  /** Seconds of pacing before the leader gives up and walks back instead. */
+  escalateAfter: 6,
+};
+
 /** Tactics for a single hero. */
 export function defaultHeroTactics(classId) {
   const byClass = {
@@ -72,7 +124,9 @@ export function defaultSquadTactics() {
     formation: 'line',
     plan: 'farm',
     extractPlan: 'half',
-    leaderIndex: 0,
+    // No default: the player names a leader before the raid, because who
+    // walks point decides where the whole squad goes.
+    leaderId: null,
     avoidPlayers: false,
   };
 }

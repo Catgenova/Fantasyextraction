@@ -42,9 +42,19 @@ squad-wide auras, or unlock spells. Four spells can be slotted at a time.
 
 ## Tactics are the game
 
-Your input during a raid is deliberately narrow: a move order, an extract
-order, the speed control, and your squad's packs. Everything else was decided
-in camp.
+Before a raid you must name one hero **Leader**. It is not a default, because
+everything about how the squad moves hangs off it: the leader walks the
+navigation and the other two stay with the leader, closing in whenever they
+drift. The leader slows to a crawl while anyone is trailing and turns back
+outright if they fall a long way behind.
+
+Your input during a raid is deliberately narrow: navigation, an extract order,
+the speed control, and your squad's packs. Everything else was decided in camp.
+
+**Navigate** gives eight compass headings plus the core, the nearest boss
+arena, and the nearest extraction. A heading is open-ended — the squad marches
+that way until the map runs out — while the landmarks are a single trip, after
+which the raid plan resumes. Clicking the map still works too.
 
 Packs are managed from the **Bags** panel mid-raid — equip what you find,
 throw away what you don't, and move looted potions onto a hero's belt so they
@@ -104,6 +114,7 @@ node tools/test-progression.js
 node tools/test-loot.js
 node tools/test-movement.js
 node tools/test-bags.mjs        # needs Playwright; skips if absent
+node tools/test-navigation.mjs  # needs Playwright; skips if absent
 node tools/test-layout.mjs      # needs Playwright; skips if absent
 ```
 

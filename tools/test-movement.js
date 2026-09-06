@@ -31,13 +31,16 @@ const FAR = 60;           // only judge heroes that have somewhere to be
 // Ceilings sit well clear of current numbers so ordinary jostling does not
 // trip them, while a return of any of the three failures above would.
 //
-// The distance floor is set against the broken baseline of ~48k units per
-// hero, not against the ~91k a draft of the fix produced — that draft was
-// detouring heroes back out of extraction zones, so most of the extra ground
-// was wandering rather than progress.
+// The distance floor is the weakest of the three and has been lowered twice
+// for reasons that were not bugs. It started as a proxy for "not stuck", but
+// squads now travel as a group behind a leader, so each hero covers less
+// ground on purpose — and an earlier draft's inflated ~91k came from heroes
+// being detoured back out of extraction zones, which is wandering, not
+// progress. The two checks above measure stuckness directly and carry the
+// weight; this one only catches a squad that has stopped travelling at all.
 const MAX_STUCK_SHARE = 0.12;
 const MAX_STUCK_RUN = 400;
-const MIN_DISTANCE = 56000;
+const MIN_DISTANCE = 48000;
 
 let failures = 0;
 const check = (name, ok, detail = '') => {

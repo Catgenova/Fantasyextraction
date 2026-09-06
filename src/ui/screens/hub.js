@@ -27,7 +27,9 @@ export function hubScreen(app) {
     // ---------------------------------------------------------------- squad
     function squadPanel() {
       const heroes = squadHeroes(profile);
-      const ready = heroes.length === 3;
+      const hasSquad = heroes.length === 3;
+      const leaderChosen = heroes.some((h) => h.id === profile.squadTactics.leaderId);
+      const ready = hasSquad && leaderChosen;
       return el('div.panel', null, [
         el('div.panel-head', null, [
           el('div', null, [
@@ -37,7 +39,7 @@ export function hubScreen(app) {
           el('button.primary', {
             disabled: !ready,
             onclick: () => app.go('deploy'),
-          }, ready ? 'Deploy to the raid' : 'Pick three heroes'),
+          }, !hasSquad ? 'Pick three heroes' : !leaderChosen ? 'Name a leader first' : 'Deploy to the raid'),
         ]),
         el('div.panel-body', null, [
           el('div.squad-grid', null, heroes.map((hero) => heroCard(hero, true))),
@@ -138,11 +140,20 @@ export function hubScreen(app) {
           selectField('Extraction plan',
             Object.values(EXTRACT_PLANS).map((p) => ({ value: p.id, label: p.name })),
             t.extractPlan, set('extractPlan'), EXTRACT_PLANS[t.extractPlan]?.desc),
-          selectField('Squad leader',
-            heroes.map((h, i) => ({ value: String(i), label: h.name })),
-            String(Math.min(t.leaderIndex ?? 0, Math.max(0, heroes.length - 1))),
-            (v) => { t.leaderIndex = Number(v); app.save(); render(); },
-            'The rest of the squad forms up around the leader.'),
+          el('div.field', null, [
+            el('label', null, 'Leader'),
+            el('div.leader-pick', null, heroes.map((h) => el(
+              'button.sm' + (t.leaderId === h.id ? '.primary' : ''),
+              {
+                style: { '--cls': CLASSES[h.classId].color },
+                onclick: () => { t.leaderId = h.id; app.save(); render(); },
+              },
+              h.name,
+            ))),
+            el('div.hint', null, t.leaderId
+              ? 'The leader walks the navigation. Everyone else stays with them, and the leader slows or turns back for stragglers.'
+              : 'Name one hero to walk point. The raid will not start without one.'),
+          ]),
           el('div.field', null, [
             el('label', null, 'Rival squads'),
             el('button', {

@@ -108,7 +108,13 @@ export class Match {
         squad.memberIds.push(e.id);
       });
 
-      squad.leaderId = squad.memberIds[Math.min(squad.tactics.leaderIndex ?? 0, squad.memberIds.length - 1)];
+      // The leader is named by hero, not by slot, so reordering the squad
+      // cannot silently hand the role to somebody else.
+      const named = squad.memberIds
+        .map((id) => this.byId(id))
+        .find((m) => m.heroId === squadCfg.tactics.leaderId);
+      squad.leaderId = named?.id ?? squad.memberIds[0];
+      squad.regrouping = false;
       this.squads.set(squad.id, squad);
       this.#applyAuras(squad);
     });
