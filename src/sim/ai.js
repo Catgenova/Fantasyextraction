@@ -1,0 +1,731 @@
+// The autobattler brain. Players never issue attack commands — they write
+// tactics, and this file is the interpreter for them.
+//
+// Each hero runs, in order: survive (retreat/consumables) -> cast -> position
+// -> auto-attack. Squad-level intent (where to go, when to leave) comes from
+// `squadObjective` and is fed in as `squad.order`.
+
+import { SPELLS } from '../data/spells.js';
+import { CONSUMABLES } from '../data/consumables.js';
+import { STANCES, TARGET_PRIORITIES, LOOT_POLICIES, FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, BACKPACK_SLOTS } from '../data/tactics.js';
+import { dealDamage, spawnProjectile, resolveEffects, isControlled, hasStatus, applyStatus, GLOBAL_COOLDOWN } from './combat.js';
+import { hpFrac, manaFrac, recomputeStats } from './entity.js';
+import { dist, dist2, dirTo, norm, add, scale, sub, clamp } from '../core/vec.js';
+import { resolveCollisions, bestExtract, extractIsOpen, tierAt, CENTER } from './map.js';
+import { itemScore } from '../data/gear.js';
+import { chance } from '../core/rng.js';
+
+const OUT_OF_COMBAT_AFTER = 5;
+const THINK_HERO = 0.2;      // seconds between hero decisions
+const THINK_MONSTER = 0.3;   // monsters are dumber, so they think less often
+const PERCEPTION = 820;      // how far a hero looks for targets
+const PICKUP_RANGE = 110;    // must exceed the widest formation spacing
+
+// ---------------------------------------------------------------------------
+// Hero update
+// ---------------------------------------------------------------------------
+
+export function updateHero(match, e, dt) {
+  if (!e.alive || e.extracted) return;
+
+  // Resource and timer bookkeeping — every tick, it is cheap.
+  e.mana = Math.min(e.maxMana, e.mana + e.stats.manaRegen * dt);
+  e.attackTimer -= dt;
+  e.globalCooldown -= dt;
+  for (const k in e.cooldowns) e.cooldowns[k] -= dt;
+  for (const k in e.itemCooldowns) e.itemCooldowns[k] -= dt;
+
+  const inCombat = match.time - e.lastCombatAt < OUT_OF_COMBAT_AFTER;
+  e.inCombat = inCombat;
+
+  if (isControlled(e)) { e.vel.x = 0; e.vel.y = 0; return; }
+
+  // Deliberation runs at ~5Hz, staggered per entity. Movement and attacks
+  // still run every tick so nothing looks choppy.
+  e.thinkTimer = (e.thinkTimer ?? match.rng() * THINK_HERO) - dt;
+  if (e.thinkTimer <= 0) {
+    e.thinkTimer += THINK_HERO;
+    think(match, e, inCombat);
+  }
+
+  const target = match.byId(e.target);
+  if (target && !target.alive) e.target = null;
+
+  if (e._desired) steer(match, e, e._desired.pos, dt, e._desired.speedMult ?? 1);
+  else { e.vel.x *= 0.8; e.vel.y *= 0.8; }
+
+  if (target?.alive && e.attackTimer <= 0) {
+    const range = e.stats.attackRange + e.radius + target.radius;
+    if (dist(e.pos, target.pos) <= range) autoAttack(match, e, target);
+  }
+}
+
+/** The expensive half of a hero's turn: perception, decisions, intent. */
+function think(match, e, inCombat) {
+  const squad = match.squads.get(e.squadId);
+  const stance = STANCES[e.tactics.stance] ?? STANCES.balanced;
+
+  tryConsumables(match, e, squad, inCombat);
+
+  const enemies = match.hostilesNear(e, PERCEPTION);
+  const target = pickTarget(match, e, squad, enemies);
+  e.target = target?.id ?? null;
+
+  if (e.globalCooldown <= 0) tryCast(match, e, squad, target, enemies);
+
+  e._desired = desiredPosition(match, e, squad, target, enemies, stance);
+
+  // Grab anything underfoot. Heroes fight over camps and the drops land where
+  // they are already standing, so gating this on being out of combat meant
+  // squads walked away from everything they earned.
+  tryPickup(match, e);
+}
+
+// ---------------------------------------------------------------------------
+// Targeting
+// ---------------------------------------------------------------------------
+
+export function pickTarget(match, e, squad, enemies) {
+  if (!enemies.length) return null;
+
+  // A taunt overrides everything the player configured.
+  if (e.tauntedBy && hasStatus(e, 'taunted')) {
+    const forced = match.byId(e.tauntedBy);
+    if (forced?.alive) return forced;
+  }
+
+  // Focus fire: stick to the squad's called target while it is reachable.
+  if (e.tactics.focusFire && squad?.focusTargetId) {
+    const focus = match.byId(squad.focusTargetId);
+    if (focus?.alive && dist(e.pos, focus.pos) < 800) return focus;
+  }
+
+  const priority = TARGET_PRIORITIES[e.tactics.priority] ? e.tactics.priority : 'closest';
+  let best = null;
+  let bestScore = -Infinity;
+  for (const t of enemies) {
+    const d = dist(e.pos, t.pos);
+    let score = -d * 0.01;
+    switch (priority) {
+      case 'lowest_hp': score += (1 - hpFrac(t)) * 60; break;
+      case 'highest_threat': score += Math.min(60, (t.damageDealt ?? 0) / 60); break;
+      case 'ranged_first': score += t.stats.attack.kind === 'projectile' ? 40 : 0; break;
+      case 'elites_first': score += t.rank === 'boss' ? 80 : t.rank === 'elite' ? 45 : 0; break;
+      case 'players_first': score += t.kind === 'hero' ? 70 : 0; break;
+      default: break;
+    }
+    // Never walk across the map for a marginally better target.
+    if (d > e.stats.attackRange + 420) score -= 40;
+    if (score > bestScore) { bestScore = score; best = t; }
+  }
+  return best;
+}
+
+// ---------------------------------------------------------------------------
+// Spellcasting
+// ---------------------------------------------------------------------------
+
+function tryCast(match, e, squad, target, enemies) {
+  const allies = match.alliesOf(e, true);
+  const ctx = buildContext(match, e, squad, target, enemies, allies);
+
+  let bestSpell = null;
+  let bestScore = 0;
+  let bestTargets = null;
+
+  for (const spellId of e.spells) {
+    const spell = SPELLS[spellId];
+    if (!spell) continue;
+    const policy = e.tactics.spellPolicy?.[spellId] ?? 'auto';
+    if (policy === 'never') continue;
+    if ((e.cooldowns[spellId] ?? 0) > 0) continue;
+    if (e.mana < spell.manaCost) continue;
+    if (policy === 'emergency' && !ctx.emergency) continue;
+
+    const targets = spellTargets(match, e, spell, target, allies, enemies);
+    if (!targets || !targets.length) continue;
+
+    const score = scoreHint(spell.hint ?? {}, ctx, spell, targets);
+    if (score > bestScore) { bestScore = score; bestSpell = spell; bestTargets = targets; }
+  }
+
+  if (bestSpell) castSpell(match, e, bestSpell, bestTargets, ctx);
+}
+
+function buildContext(match, e, squad, target, enemies, allies) {
+  const group = [e, ...allies];
+  const living = group.filter((a) => a.alive);
+  const lowest = living.reduce((a, b) => (hpFrac(a) <= hpFrac(b) ? a : b), living[0] ?? e);
+  const avgHp = living.length ? living.reduce((s, a) => s + hpFrac(a), 0) / living.length : 1;
+  const nearestEnemyDist = enemies.length ? Math.min(...enemies.map((t) => dist(e.pos, t.pos))) : Infinity;
+
+  return {
+    self: e,
+    selfHp: hpFrac(e),
+    selfMana: manaFrac(e),
+    lowestAlly: lowest,
+    lowestAllyHp: lowest ? hpFrac(lowest) : 1,
+    avgHp,
+    alliesHurt: living.filter((a) => hpFrac(a) < 0.75).length,
+    alliesDebuffed: living.some((a) => a.statuses.some((s) => s.type === 'debuff')),
+    enemies,
+    nearestEnemyDist,
+    target,
+    targetHp: target ? hpFrac(target) : 1,
+    targetIsElite: target ? target.rank === 'elite' || target.rank === 'boss' || target.kind === 'hero' : false,
+    // "Emergency" is the gate for spells the player set to hold in reserve.
+    emergency: hpFrac(e) < 0.4 || avgHp < 0.5 || (lowest && hpFrac(lowest) < 0.35),
+    extracting: squad?.order?.mode === 'extract',
+  };
+}
+
+/** Translate a spell's `hint` into a desirability score. 0 = do not cast. */
+function scoreHint(hint, ctx, spell, targets) {
+  let score = hint.priority ?? 1;
+
+  if (hint.allyHpBelow !== undefined) {
+    if (ctx.lowestAllyHp > hint.allyHpBelow) return 0;
+    score += (hint.allyHpBelow - ctx.lowestAllyHp) * 12;
+  }
+  if (hint.alliesHpBelow !== undefined) {
+    if (ctx.avgHp > hint.alliesHpBelow) return 0;
+    score += (hint.alliesHpBelow - ctx.avgHp) * 16;
+  }
+  if (hint.selfHpBelow !== undefined) {
+    if (ctx.selfHp > hint.selfHpBelow) return 0;
+    score += (hint.selfHpBelow - ctx.selfHp) * 14;
+  }
+  if (hint.alliesHurt !== undefined) {
+    if (ctx.alliesHurt < hint.alliesHurt) return 0;
+    score += ctx.alliesHurt * 2;
+  }
+  if (hint.allyDebuffed && !ctx.alliesDebuffed) return 0;
+  if (hint.enemyWithin !== undefined && ctx.nearestEnemyDist > hint.enemyWithin) return 0;
+  if (hint.enemiesWithin !== undefined) {
+    const radius = spell.radius ?? 120;
+    const anchor = targets[0]?.pos ?? ctx.self.pos;
+    const hits = ctx.enemies.filter((t) => dist(anchor, t.pos) <= radius).length;
+    if (hits < hint.enemiesWithin) return 0;
+    score += hits * 1.5;
+  }
+  if (hint.targetHpBelow !== undefined) {
+    if (!ctx.target || ctx.targetHp > hint.targetHpBelow) return 0;
+    score += (hint.targetHpBelow - ctx.targetHp) * 10;
+  }
+  if (hint.targetHpAbove !== undefined) {
+    if (!ctx.target || ctx.targetHp < hint.targetHpAbove) return 0;
+  }
+  if (hint.targetIsElite && !ctx.targetIsElite) return 0;
+  if (hint.targetClosingIn) {
+    if (!ctx.target) return 0;
+    const melee = ctx.target.stats.attack.kind === 'melee';
+    if (!melee || dist(ctx.self.pos, ctx.target.pos) > 420) return 0;
+    score += 3;
+  }
+  if (hint.alliesThreatened !== undefined) {
+    const squadIds = new Set([ctx.self.id, ...ctx.self._allyIds ?? []]);
+    const threatened = ctx.enemies.filter((t) => t.target && t.target !== ctx.self.id && squadIds.has(t.target)).length;
+    if (threatened < hint.alliesThreatened) return 0;
+    score += threatened;
+  }
+  return score;
+}
+
+function spellTargets(match, e, spell, target, allies, enemies) {
+  switch (spell.target) {
+    case 'self':
+      return [e];
+    case 'lowestAlly': {
+      const pool = [e, ...allies].filter((a) => a.alive && dist(e.pos, a.pos) <= (spell.range ?? 9999));
+      if (!pool.length) return null;
+      return [pool.reduce((a, b) => (hpFrac(a) <= hpFrac(b) ? a : b))];
+    }
+    case 'allAllies': {
+      const radius = (spell.radius ?? 200) * (1 + e.stats.aoeRadiusPct);
+      return [e, ...allies].filter((a) => a.alive && dist(e.pos, a.pos) <= radius);
+    }
+    case 'areaEnemy': {
+      const radius = (spell.radius ?? 120) * (1 + e.stats.aoeRadiusPct);
+      const range = spell.range ?? spell.radius ?? 120;
+      // Centre on whichever reachable enemy has the most neighbours.
+      let bestAnchor = null;
+      let bestCount = 0;
+      for (const t of enemies) {
+        if (dist(e.pos, t.pos) > range + radius) continue;
+        const count = enemies.filter((o) => dist(t.pos, o.pos) <= radius).length;
+        if (count > bestCount) { bestCount = count; bestAnchor = t; }
+      }
+      if (!bestAnchor) return null;
+      return enemies.filter((t) => dist(bestAnchor.pos, t.pos) <= radius);
+    }
+    case 'enemy':
+    default: {
+      if (!target) return null;
+      if (dist(e.pos, target.pos) > (spell.range ?? 9999) + target.radius) return null;
+      return [target];
+    }
+  }
+}
+
+function castSpell(match, e, spell, targets, ctx) {
+  e.mana -= spell.manaCost;
+  e.cooldowns[spell.id] = spell.cooldown * (1 - e.stats.cooldownPct);
+  e.globalCooldown = GLOBAL_COOLDOWN * (1 - e.stats.cooldownPct * 0.5);
+  e.lastCombatAt = match.time;
+  match.pushCast(e, spell);
+
+  const dashDir = spell.effects.some((f) => f.type === 'dash')
+    ? (ctx.target ? scale(dirTo(ctx.target.pos, e.pos), 1) : { x: 0, y: 0 })
+    : null;
+
+  // Single-target projectile spells travel; everything else lands instantly.
+  const single = targets.length === 1 && spell.target === 'enemy';
+  if (single && spell.projectileSpeed) {
+    spawnProjectile(match, e, targets[0], {
+      speed: spell.projectileSpeed,
+      school: spell.effects[0]?.school,
+      effects: spell.effects,
+      radius: 5,
+    });
+  } else {
+    if (spell.radius && spell.target === 'areaEnemy') {
+      match.pushBlast(targets[0]?.pos ?? e.pos, (spell.radius) * (1 + e.stats.aoeRadiusPct), '#ffd08a');
+    }
+    resolveEffects(match, e, targets, spell.effects, { dashDir });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Consumables
+// ---------------------------------------------------------------------------
+
+function tryConsumables(match, e, squad, inCombat) {
+  for (const stack of e.consumables) {
+    if (!stack || stack.count <= 0) continue;
+    const def = CONSUMABLES[stack.defId];
+    if (!def || def.passive) continue;
+    if ((e.itemCooldowns[def.id] ?? 0) > 0) continue;
+
+    const h = def.hint ?? {};
+    let want = false;
+    if (h.selfHpBelow !== undefined && hpFrac(e) <= Math.max(h.selfHpBelow, e.tactics.potionHpPct ?? 0)) want = true;
+    if (h.selfManaBelow !== undefined && manaFrac(e) <= h.selfManaBelow) want = true;
+    if (h.combatStart && inCombat && match.time - e.lastCombatAt < 1.5 && !hasStatus(e, def.effects[0]?.status)) want = true;
+    if (h.extracting && squad?.order?.mode === 'extract' && !hasStatus(e, def.effects[0]?.status)) want = true;
+    if (h.outOfCombat && !inCombat && hpFrac(e) < (h.selfHpBelow ?? 0.7)) want = true;
+    if (!want) continue;
+
+    stack.count -= 1;
+    e.itemCooldowns[def.id] = def.cooldown;
+    resolveEffects(match, e, [e], def.effects);
+    match.pushFloat(e.pos, def.name, '#9fd7ff');
+    break;
+  }
+}
+
+/** Phoenix Ash and friends: a last-gasp check run by the match on death. */
+export function tryDeathSave(match, e) {
+  for (const stack of e.consumables ?? []) {
+    if (!stack || stack.count <= 0) continue;
+    const def = CONSUMABLES[stack.defId];
+    if (!def?.passive) continue;
+    const revive = def.effects.find((f) => f.type === 'revive');
+    if (!revive) continue;
+    stack.count -= 1;
+    e.hp = Math.round(e.maxHp * revive.hpFraction);
+    e.statuses.length = 0;
+    recomputeStats(e);
+    match.pushFloat(e.pos, def.name, '#ffb347', true);
+    return true;
+  }
+  return false;
+}
+
+// ---------------------------------------------------------------------------
+// Movement
+// ---------------------------------------------------------------------------
+
+function desiredPosition(match, e, squad, target, enemies, stance) {
+  const order = squad?.order ?? { mode: 'hold', pos: e.pos };
+  const leader = squad ? match.byId(squad.leaderId) : null;
+
+  // Retreat: below the configured floor, break for the leader / exit.
+  if (hpFrac(e) < (e.tactics.retreatHpPct ?? 0.2) + stance.retreatBias) {
+    const away = enemies.length ? dirTo(nearest(e, enemies).pos, e.pos) : { x: 0, y: 0 };
+    const fallback = leader && leader.alive ? leader.pos : order.pos;
+    const blend = norm(add(scale(away, 1.4), scale(dirTo(e.pos, fallback), 0.6)));
+    return { pos: add(e.pos, scale(blend, 260)), speedMult: 1.15 };
+  }
+
+  // Extraction overrides combat positioning once the squad has committed.
+  if (order.mode === 'extract') {
+    const goal = order.pos;
+    // Still fight what is directly on top of us, but keep walking.
+    if (target && dist(e.pos, target.pos) < e.stats.attackRange * 0.8) return { pos: goal, speedMult: 1 };
+    return { pos: goal, speedMult: 1 };
+  }
+
+  if (target) {
+    const d = dist(e.pos, target.pos);
+    const idealRange = Math.max(30, e.stats.attackRange + stance.engageBonus);
+
+    // Kiters back off when anything gets close.
+    if (stance.kite && d < idealRange * 0.72) {
+      const away = dirTo(target.pos, e.pos);
+      return { pos: add(e.pos, scale(away, 200)), speedMult: 1.05 };
+    }
+    if (d > idealRange * 0.95) {
+      // Do not chase past the leash from the squad's objective.
+      const leashAnchor = leader?.alive ? leader.pos : order.pos;
+      if (dist(target.pos, leashAnchor) > 900) return { pos: leashAnchor };
+      return { pos: target.pos };
+    }
+    // In range: hold, with a little drift to avoid stacking on allies.
+    return null;
+  }
+
+  // Looting means standing on the pile, not holding formation around it.
+  if (order.mode === 'loot') return { pos: order.pos };
+
+  // No target — take up formation on the squad objective.
+  return { pos: formationSlot(match, e, squad, order) };
+}
+
+function formationSlot(match, e, squad, order) {
+  if (!squad) return order.pos;
+  const form = FORMATIONS[squad.tactics.formation] ?? FORMATIONS.tight;
+  const members = squad.memberIds.map((id) => match.byId(id)).filter((m) => m?.alive);
+  const idx = Math.max(0, members.findIndex((m) => m.id === e.id));
+  const anchor = order.pos;
+
+  if (form.frontline) {
+    // Vanguard: melee ahead of the anchor, ranged behind it.
+    const heading = squad.heading ?? { x: 1, y: 0 };
+    const melee = e.stats.attack.kind === 'melee';
+    const along = melee ? form.spacing : -form.spacing;
+    const across = (idx - (members.length - 1) / 2) * form.spacing * 0.8;
+    return {
+      x: anchor.x + heading.x * along - heading.y * across,
+      y: anchor.y + heading.y * along + heading.x * across,
+    };
+  }
+
+  const a = (idx / Math.max(1, members.length)) * Math.PI * 2;
+  return { x: anchor.x + Math.cos(a) * form.spacing, y: anchor.y + Math.sin(a) * form.spacing };
+}
+
+export function steer(match, e, dest, dt, speedMult = 1) {
+  const to = sub(dest, e.pos);
+  const d = Math.hypot(to.x, to.y);
+  if (d < 6) { e.vel.x *= 0.6; e.vel.y *= 0.6; return; }
+
+  let dir = { x: to.x / d, y: to.y / d };
+
+  // Separation so a squad does not collapse into one pixel.
+  const sep = { x: 0, y: 0 };
+  for (const other of match.neighbours(e.pos, 60)) {
+    if (other === e || !other.alive) continue;
+    const dd = dist(e.pos, other.pos);
+    const min = e.radius + other.radius + 6;
+    if (dd < min && dd > 1e-3) {
+      sep.x += (e.pos.x - other.pos.x) / dd * (min - dd) * 0.12;
+      sep.y += (e.pos.y - other.pos.y) / dd * (min - dd) * 0.12;
+    }
+  }
+  dir = norm({ x: dir.x + sep.x, y: dir.y + sep.y });
+
+  const speed = e.stats.moveSpeed * speedMult;
+  e.vel.x = dir.x * speed;
+  e.vel.y = dir.y * speed;
+  e.pos.x += e.vel.x * dt;
+  e.pos.y += e.vel.y * dt;
+  e.facing = Math.atan2(dir.y, dir.x);
+  resolveCollisions(match.map, e.pos, e.radius);
+}
+
+function nearest(e, list) {
+  let best = list[0];
+  let bd = Infinity;
+  for (const t of list) {
+    const d = dist2(e.pos, t.pos);
+    if (d < bd) { bd = d; best = t; }
+  }
+  return best;
+}
+
+// ---------------------------------------------------------------------------
+// Attacks
+// ---------------------------------------------------------------------------
+
+export function autoAttack(match, e, target) {
+  e.attackTimer = e.stats.attackInterval;
+  e.lastCombatAt = match.time;
+  e.facing = Math.atan2(target.pos.y - e.pos.y, target.pos.x - e.pos.x);
+  const atk = e.stats.attack;
+  const spec = {
+    base: atk.damage ?? 0,
+    school: atk.school ?? 'physical',
+    scaling: atk.scaling ?? { attackPower: 1 },
+  };
+
+  if (atk.kind === 'projectile') {
+    spawnProjectile(match, e, target, { ...spec, speed: atk.projectileSpeed ?? 420 });
+  } else {
+    match.pushSwing(e, target);
+    dealDamage(match, e, target, spec);
+    // Cleave for monsters that have it.
+    const cleave = e.def?.cleave;
+    if (cleave) {
+      for (const other of match.hostilesNear(e, cleave)) {
+        if (other.id !== target.id) dealDamage(match, e, other, { ...spec, mult: 0.5 });
+      }
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Looting
+// ---------------------------------------------------------------------------
+
+/** Would this hero's loot policy accept this item? */
+export function wantsItem(e, item) {
+  const policy = LOOT_POLICIES[e.tactics.lootPolicy] ?? LOOT_POLICIES.greedy;
+  if (!policy.minRarity) return false;
+  return rarityRank(item.rarity) >= rarityRank(policy.minRarity);
+}
+
+export function tryPickup(match, e) {
+  const policy = LOOT_POLICIES[e.tactics.lootPolicy] ?? LOOT_POLICIES.greedy;
+  if (!policy.minRarity) return;
+
+  for (const pile of match.lootPiles) {
+    if (pile.dead || !pile.items.length) continue;
+    if (dist(e.pos, pile.pos) > PICKUP_RANGE) continue;
+
+    for (let i = pile.items.length - 1; i >= 0; i--) {
+      const item = pile.items[i];
+      if (!wantsItem(e, item)) continue;
+
+      if (e.inventory.length < BACKPACK_SLOTS) {
+        pile.items.splice(i, 1);
+        e.inventory.push(item);
+        match.pushFloat(e.pos, item.name, match.rarityColor(item));
+        match.onLooted?.(e, item);
+        continue;
+      }
+
+      // Bags are full: trade up if this beats the worst thing we are carrying.
+      // Without this a squad fills up on trash early and walks past boss loot.
+      let worstIdx = -1;
+      let worstScore = Infinity;
+      for (let j = 0; j < e.inventory.length; j++) {
+        const score = valueOf(e.inventory[j]);
+        if (score < worstScore) { worstScore = score; worstIdx = j; }
+      }
+      if (worstIdx >= 0 && valueOf(item) > worstScore * 1.15) {
+        const dropped = e.inventory[worstIdx];
+        e.inventory[worstIdx] = item;
+        pile.items[i] = dropped;
+        match.pushFloat(e.pos, item.name, match.rarityColor(item));
+        match.onLooted?.(e, item);
+      }
+    }
+    if (!pile.items.length) pile.dead = true;
+  }
+}
+
+/** Rough desirability, used only for full-bag swaps. */
+function valueOf(item) {
+  if (item.kind === 'consumable') return 120 + rarityRank(item.rarity) * 90;
+  return itemScore(item) + rarityRank(item.rarity) * 110;
+}
+
+const RARITY_RANKS = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+const rarityRank = (r) => Math.max(0, RARITY_RANKS.indexOf(r ?? 'common'));
+
+// ---------------------------------------------------------------------------
+// Monsters
+// ---------------------------------------------------------------------------
+
+export function updateMonster(match, e, dt) {
+  if (!e.alive) return;
+  e.attackTimer -= dt;
+  for (const k in e.abilityTimers) e.abilityTimers[k] -= dt;
+
+  if (isControlled(e)) return;
+
+  e.thinkTimer = (e.thinkTimer ?? match.rng() * THINK_MONSTER) - dt;
+  if (e.thinkTimer <= 0) {
+    e.thinkTimer += THINK_MONSTER;
+    monsterThink(match, e);
+  }
+
+  let target = match.byId(e.target);
+  if (target && !target.alive) { target = null; e.target = null; }
+
+  if (e.kind === 'boss') updateBossAbilities(match, e, target, dt);
+
+  if (!target) {
+    // Nothing to fight: walk home and forget who annoyed us.
+    if (dist(e.pos, e.homePos) > 24) steer(match, e, e.homePos, dt);
+    else { e.vel.x = 0; e.vel.y = 0; }
+    return;
+  }
+
+  const range = e.stats.attackRange + e.radius + target.radius;
+  const d = dist(e.pos, target.pos);
+  if (d > range * 0.9) steer(match, e, target.pos, dt);
+  else { e.vel.x = 0; e.vel.y = 0; }
+
+  if (e.attackTimer <= 0 && d <= range) autoAttack(match, e, target);
+}
+
+function monsterThink(match, e) {
+  // Leashed monsters drop aggro entirely and head home.
+  if (dist(e.pos, e.homePos) > e.leash) {
+    e.target = null;
+    e.threat.clear();
+    return;
+  }
+
+  if (e.tauntedBy && hasStatus(e, 'taunted')) {
+    const forced = match.byId(e.tauntedBy);
+    if (forced?.alive) { e.target = forced.id; return; }
+  }
+
+  const hostiles = match.hostilesNear(e, e.aggroRange + 220);
+  let best = null;
+  let bestThreat = -1;
+  for (const h of hostiles) {
+    const d = dist(e.pos, h.pos);
+    const threat = e.threat.get(h.id) ?? 0;
+    if (d > e.aggroRange && threat === 0) continue;
+    const score = threat + Math.max(0, 400 - d);
+    if (score > bestThreat) { bestThreat = score; best = h; }
+  }
+  e.target = best?.id ?? null;
+  if (!best) e.threat.clear();
+}
+
+function updateBossAbilities(match, e, target, dt) {
+  for (const ab of e.def.abilities ?? []) {
+    if ((e.abilityTimers[ab.id] ?? 0) > 0) continue;
+    e.abilityTimers[ab.id] = ab.cooldown;
+
+    if (ab.kind === 'ground') {
+      const at = { ...(target?.pos ?? e.pos) };
+      const radius = ab.radius;
+      match.pushTelegraph({
+        pos: at, radius, delay: ab.telegraph ?? 1.2, sourceId: e.id,
+        damage: { base: ab.damage, school: ab.school ?? 'physical', scaling: {} },
+      });
+    } else if (ab.kind === 'summon') {
+      match.summonAdds(e, ab.spawn, ab.count, { maxAlive: ab.maxAlive, lifespan: ab.lifespan });
+      match.pushFloat(e.pos, 'Summons!', '#ffb347', true);
+    } else if (ab.kind === 'buff') {
+      applyStatus(match, e, e, { status: ab.id, type: 'buff', duration: ab.duration, mods: ab.mods });
+      match.pushFloat(e.pos, 'Enraged!', '#ff6b5c', true);
+    }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Squad-level intent
+// ---------------------------------------------------------------------------
+
+/**
+ * Decide where a squad is trying to be. Returns `{mode, pos, label}`.
+ * `mode` is one of travel | fight | loot | extract | hold.
+ */
+export function squadObjective(match, squad) {
+  const members = squad.memberIds.map((id) => match.byId(id)).filter((m) => m?.alive && !m.extracted);
+  if (!members.length) return { mode: 'hold', pos: squad.order?.pos ?? { x: 0, y: 0 }, label: 'Wiped' };
+
+  const centroid = members.reduce((a, m) => ({ x: a.x + m.pos.x / members.length, y: a.y + m.pos.y / members.length }), { x: 0, y: 0 });
+  const plan = SQUAD_PLANS[squad.tactics.plan] ?? SQUAD_PLANS.farm;
+  const extractPlan = EXTRACT_PLANS[squad.tactics.extractPlan] ?? EXTRACT_PLANS.half;
+
+  // 1. Manual override from the player always wins.
+  if (squad.manualOrder) {
+    const mo = squad.manualOrder;
+    if (mo.mode === 'extract') {
+      const ex = mo.extract ?? bestExtract(match.map, centroid, match.time);
+      return { mode: 'extract', pos: { x: ex.x, y: ex.y }, label: `Extract: ${ex.name}`, extract: ex };
+    }
+    if (dist(centroid, mo.pos) > 90) return { mode: 'travel', pos: mo.pos, label: 'Moving' };
+    squad.manualOrder = null;
+  }
+
+  // 2. Extraction triggers.
+  const bagsFull = members.every((m) => m.inventory.length >= BACKPACK_SLOTS);
+  const timeUp = match.time >= extractPlan.triggerAt;
+  const collapsing = match.collapseActive;
+  const squadBroken = members.length === 1 && squad.memberIds.length > 1;
+  if (timeUp || collapsing || (extractPlan.onFull && bagsFull) || squadBroken) {
+    const ex = bestExtract(match.map, centroid, match.time);
+    return { mode: 'extract', pos: { x: ex.x, y: ex.y }, label: `Extract: ${ex.name}`, extract: ex };
+  }
+
+  // 3. Contact. PvE contact is always worth fighting; a rival squad is not.
+  // Committing to every squad you bump into turns a raid into a deathmatch,
+  // so PvP is a decision: your plan wants it, they are on top of you, or they
+  // already shot first.
+  const contact = match.neighbours(centroid, 640).filter((t) => t.alive && t.team !== squad.team);
+  if (contact.length) {
+    const pve = contact.filter((t) => t.team === 'pve');
+    const rivals = contact.filter((t) => t.kind === 'hero');
+
+    const shotFirst = members.some((m) => match.time - m.lastDamageAt < 4
+      && match.byId(m.lastHitBy)?.kind === 'hero');
+    const onTopOfUs = rivals.some((t) => dist(centroid, t.pos) < 340);
+    const wantPvp = plan.huntPlayers || shotFirst || onTopOfUs;
+
+    const pool = wantPvp && rivals.length ? [...rivals, ...pve] : pve;
+    if (pool.length) {
+      const focus = pool.reduce((a, b) => (rankWeight(b) > rankWeight(a) ? b : a));
+      squad.focusTargetId = focus.id;
+      return { mode: 'fight', pos: { x: focus.pos.x, y: focus.pos.y }, label: `Engaging ${focus.name}` };
+    }
+
+    // Rivals we would rather not fight: break off toward the objective.
+    if (rivals.length && squad.tactics.avoidPlayers) {
+      squad.focusTargetId = null;
+      const away = norm(sub(centroid, rivals[0].pos));
+      return { mode: 'travel', pos: { x: centroid.x + away.x * 900, y: centroid.y + away.y * 900 }, label: 'Breaking off' };
+    }
+  }
+  squad.focusTargetId = null;
+
+  // 4. Sweep up nearby loot the squad would actually accept before moving on.
+  const pile = match.lootPiles.find((p) => !p.dead && p.items.length
+    && dist(centroid, p.pos) < 900
+    && members.some((m) => p.items.some((it) => wantsItem(m, it))));
+  if (pile) return { mode: 'loot', pos: { ...pile.pos }, label: 'Looting' };
+
+  // 5. Follow the plan.
+  if (plan.chaseEvents) {
+    const ev = match.activeEvents.find((v) => v.pos);
+    if (ev) return { mode: 'travel', pos: { ...ev.pos }, label: `Event: ${ev.name}` };
+  }
+  if (plan.huntPlayers) {
+    const rival = match.nearestRivalSquadPos(squad, centroid);
+    if (rival) return { mode: 'travel', pos: rival, label: 'Hunting squads' };
+  }
+
+  const goal = squad.roamGoal;
+  if (!goal || dist(centroid, goal) < 220) {
+    squad.roamGoal = match.pickRoamGoal(centroid, plan.zoneBias);
+  }
+  return { mode: 'travel', pos: squad.roamGoal ?? centroid, label: planLabel(plan) };
+}
+
+function planLabel(plan) {
+  return { farm: 'Farming', boss: 'Pushing the core', events: 'Roaming', pvp: 'Hunting' }[plan.id] ?? 'Roaming';
+}
+
+function rankWeight(t) {
+  if (t.kind === 'hero') return 4;
+  if (t.rank === 'boss') return 5;
+  if (t.rank === 'elite') return 3;
+  return 1;
+}
