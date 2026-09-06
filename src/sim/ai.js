@@ -942,8 +942,6 @@ export function tryPickup(match, e) {
 
   for (const pile of match.lootPiles) {
     if (pile.dead || !pile.items.length) continue;
-    // Something the player just threw away, still underfoot.
-    if (pile.noPickupUntil > match.time) continue;
     if (dist(e.pos, pile.pos) > PICKUP_RANGE) continue;
 
     for (let i = pile.items.length - 1; i >= 0; i--) {
@@ -1250,7 +1248,6 @@ function nearestTakeablePile(match, squad, members, centroid) {
   let bestD = LOOT_SEARCH_RADIUS;
   for (const pile of match.lootPiles) {
     if (pile.dead || !pile.items.length) continue;
-    if (pile.noPickupUntil > match.time) continue;
     if (squad.ignoredPiles?.has(pile.id)) continue;
     const d = dist(centroid, pile.pos);
     if (d >= bestD) continue;

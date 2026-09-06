@@ -81,6 +81,7 @@ button.primary {
 button.primary:hover:not(:disabled) { background: linear-gradient(180deg, #edbb63, #c8933a); }
 button.ghost { background: transparent; }
 button.danger { border-color: #6b3128; color: #e08a78; }
+button.danger.armed { background: #5a2118; border-color: #a3452f; color: #ffd7cc; }
 button.danger:hover:not(:disabled) { background: #2e1a16; }
 button.sm { padding: 4px 9px; font-size: 12px; }
 
@@ -415,28 +416,38 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
    sideways — the panels must stop scrolling inside themselves. In a stacked
    column a `flex: 1; min-height: 0` panel collapses to zero height, so its
    content is there but has nowhere to go. */
+/* ==========================================================================
+   Menu screens are ordinary scrolling documents; only the raid is pinned.
+
+   They used to be a fixed-height frame with each panel scrolling inside
+   itself. On a 950px screen that squeezed the stash into a ~350px strip with
+   its last row clipped, and the scroll was nested somewhere nobody would
+   think to look. Panels now size to their contents and the page scrolls.
+   ========================================================================== */
+
+/* html keeps a real height so the raid below can still fill it. */
+html { height: 100%; }
+body { height: auto; min-height: 100%; overflow-y: auto; overflow-x: hidden; }
+#app { height: auto; min-height: 100%; }
+
+/* The raid stays pinned. `position: fixed` avoids depending on percentage
+   heights, which is the one approach iOS Safari does not argue with. */
+body[data-screen="match"] { position: fixed; inset: 0; height: auto; overflow: hidden; }
+body[data-screen="match"] #app { height: 100%; min-height: 0; }
+body[data-screen="match"] .screen { min-height: 0; }
+
+body:not([data-screen="match"]) .screen { display: block; min-height: 0; overflow: visible; }
+/* Inner panels stop competing for the scroll — the page owns it. */
+body:not([data-screen="match"]) .scroll { overflow: visible !important; max-height: none !important; }
+body:not([data-screen="match"]) .panel.grow { flex: none; }
+
 @media (max-width: 1100px), (max-height: 620px) {
-  /* html keeps a real height so the raid below can still fill it. */
-  html { height: 100%; }
-  body { height: auto; min-height: 100%; overflow-y: auto; overflow-x: hidden; }
-  #app { height: auto; min-height: 100%; }
-
-  /* The raid stays pinned. `position: fixed` avoids depending on percentage
-     heights, which is the one approach iOS Safari does not argue with. */
-  body[data-screen="match"] { position: fixed; inset: 0; height: auto; overflow: hidden; }
-  body[data-screen="match"] #app { height: 100%; min-height: 0; }
-  body[data-screen="match"] .screen { min-height: 0; }
-
-  body:not([data-screen="match"]) .screen { display: block; min-height: 0; overflow: visible; }
+  /* Stacked: the two columns become one, so they need their own spacing. */
   body:not([data-screen="match"]) .hub { display: block; padding: 10px; min-height: 0; }
   body:not([data-screen="match"]) .hub-main,
   body:not([data-screen="match"]) .hub > .col { display: block; min-height: 0; }
   body:not([data-screen="match"]) .hub-main > * { margin-bottom: 12px; }
   body:not([data-screen="match"]) .hub > .col > * { margin-bottom: 12px; }
-
-  /* Inner panels must stop competing for the scroll — the page owns it. */
-  body:not([data-screen="match"]) .scroll { overflow: visible !important; max-height: none !important; }
-  body:not([data-screen="match"]) .panel.grow { flex: none; }
 }
 
 /* Phone-sized chrome: typography, the stacked forms, and the in-raid HUD. */

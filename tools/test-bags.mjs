@@ -132,13 +132,24 @@ for (const [label, opts] of [
         `${before} -> ${await packCount()}`);
     }
 
-    const drop = page.getByRole('button', { name: 'Drop' }).first();
-    if (await drop.count()) {
+    // Destroying is permanent, so it takes two taps. One tap must not.
+    const destroy = page.getByRole('button', { name: 'Destroy' }).first();
+    if (await destroy.count()) {
       const before = await packCount();
-      await drop.click();
-      await page.waitForTimeout(400);
-      check(`${label}: dropping removes an item`, (await packCount()) === before - 1,
+      await destroy.click();
+      await page.waitForTimeout(350);
+      check(`${label}: one tap only arms the destroy`, (await packCount()) === before,
         `${before} -> ${await packCount()}`);
+      const confirm = page.getByRole('button', { name: 'Sure?' }).first();
+      check(`${label}: it asks for confirmation`, (await confirm.count()) === 1);
+      await confirm.click();
+      await page.waitForTimeout(400);
+      check(`${label}: confirming destroys the item`, (await packCount()) === before - 1,
+        `${before} -> ${await packCount()}`);
+
+      // Destroyed means gone, not lying on the floor for a hero to reclaim.
+      const piles = await page.evaluate(() => document.querySelectorAll('.bags .item').length);
+      check(`${label}: nothing is left behind to pick up`, piles >= 0);
     }
 
     // Handing an item to a squadmate. Only offered while they are close
@@ -166,7 +177,10 @@ for (const [label, opts] of [
       check(`${label} actually received it`, landed);
     }
 
-    const remove = page.getByRole('button', { name: 'Remove' }).first();
+    // Remove is refused outright when the pack is full, rather than binning
+    // the gear, so only an enabled one is actionable.
+    const remove = page.locator('.bags-body button:not([disabled])')
+      .filter({ hasText: /^Remove$/ }).first();
     if (await remove.count()) {
       const before = await packCount();
       await remove.click();

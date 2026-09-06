@@ -57,8 +57,10 @@ that way until the map runs out — while the landmarks are a single trip, after
 which the raid plan resumes. Clicking the map still works too.
 
 Packs are managed from the **Bags** panel mid-raid — equip what you find,
-throw away what you don't, hand something to a squadmate standing nearby, and
-move looted potions onto a hero's belt so they will actually drink them. The
+destroy what you don't want, hand something to a squadmate standing nearby,
+and move looted potions onto a hero's belt so they will actually drink them.
+Discarding destroys outright rather than dropping — a hero standing over the
+pile would only pick it straight back up — so it takes two taps to confirm. The
 clock keeps running while it is open, so the panel carries its own pause.
 
 **Extract now** is a committed run. The squad walks through whatever is in the

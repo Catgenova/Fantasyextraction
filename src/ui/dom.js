@@ -16,7 +16,7 @@ export function el(spec, props = null, children = null) {
     for (const [key, value] of Object.entries(props)) {
       if (value == null || value === false) continue;
       if (key === 'class') node.className = [node.className, value].filter(Boolean).join(' ');
-      else if (key === 'style' && typeof value === 'object') Object.assign(node.style, value);
+      else if (key === 'style' && typeof value === 'object') applyStyle(node, value);
       else if (key === 'dataset') Object.assign(node.dataset, value);
       else if (key === 'html') node.innerHTML = value;
       else if (key === 'text') node.textContent = value;
@@ -27,6 +27,20 @@ export function el(spec, props = null, children = null) {
 
   append(node, children);
   return node;
+}
+
+/**
+ * Custom properties have to go through setProperty. Object.assign onto a
+ * CSSStyleDeclaration silently drops anything starting with `--`, which is how
+ * every rarity colour and class accent in the game ended up unset and falling
+ * back to grey.
+ */
+function applyStyle(node, style) {
+  for (const [prop, value] of Object.entries(style)) {
+    if (value == null) continue;
+    if (prop.startsWith('--')) node.style.setProperty(prop, String(value));
+    else node.style[prop] = value;
+  }
 }
 
 export function append(node, children) {

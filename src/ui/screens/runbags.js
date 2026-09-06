@@ -13,7 +13,7 @@ import { CLASSES } from '../../data/classes.js';
 import { hpFrac } from '../../sim/entity.js';
 import {
   canEquipItem, equipFromBackpack, unequipToBackpack,
-  dropFromBackpack, dropConsumable, canPackConsumable, packConsumable,
+  destroyFromBackpack, destroyConsumable, canPackConsumable, packConsumable,
   transferItem, transferBlocker,
 } from '../../sim/inventory.js';
 
@@ -25,6 +25,8 @@ export function createRunBags(match, controls = null) {
   const root = el('div.bags', { hidden: true });
   let heroIndex = 0;
   let lastSignature = '';
+  // Destroying is permanent, so it takes two taps: the first arms this.
+  let armed = null;
 
   /**
    * Cheap fingerprint of everything the panel draws. Re-rendering blindly on
@@ -54,9 +56,22 @@ export function createRunBags(match, controls = null) {
   }
 
   function act(fn) {
+    armed = null;
     fn();
     lastSignature = '';       // force a redraw on the next refresh
     render();
+  }
+
+  /** Two-tap destroy: arm on the first press, act on the second. */
+  function destroyButton(key, run) {
+    const isArmed = armed === key;
+    return el('button.sm.danger' + (isArmed ? '.armed' : ''), {
+      title: isArmed ? 'Tap again — this cannot be undone' : 'Destroy this permanently',
+      onclick: () => {
+        if (isArmed) act(run);
+        else { armed = key; lastSignature = ''; render(); }
+      },
+    }, isArmed ? 'Sure?' : 'Destroy');
   }
 
   function render() {
@@ -139,7 +154,7 @@ export function createRunBags(match, controls = null) {
                 onclick: () => act(() => transferItem(match, hero, mate, i)),
               }, `→ ${mate.name.split(' ').pop()}`);
             }),
-            el('button.sm.danger', { onclick: () => act(() => dropFromBackpack(match, hero, i)) }, 'Drop'),
+            destroyButton(`pack:${item.id}`, () => destroyFromBackpack(match, hero, i)),
           ]),
         });
       })));
@@ -153,7 +168,12 @@ export function createRunBags(match, controls = null) {
         slotLabel: SLOT_NAMES[slot],
         emptyText: `No ${SLOT_NAMES[slot].toLowerCase()}`,
         right: item
-          ? el('button.sm', { onclick: () => act(() => unequipToBackpack(match, hero, slot)) }, 'Remove')
+          ? el('button.sm', {
+            disabled: hero.inventory.length >= BACKPACK_SLOTS,
+            title: hero.inventory.length >= BACKPACK_SLOTS
+              ? 'Pack is full — make room first' : `Move ${item.name} to the pack`,
+            onclick: () => act(() => unequipToBackpack(match, hero, slot)),
+          }, 'Remove')
           : null,
       });
     })));
@@ -167,12 +187,14 @@ export function createRunBags(match, controls = null) {
     } else {
       body.appendChild(el('div.col', { style: { gap: '6px' } }, hero.consumables.map((stack, i) =>
         itemRow(stack, {
-          right: el('button.sm.danger', { onclick: () => act(() => dropConsumable(match, hero, i)) }, 'Drop'),
+          right: destroyButton(`belt:${stack.id}`, () => destroyConsumable(match, hero, i)),
         }))));
     }
 
     body.appendChild(el('p.tiny.muted', { style: { marginTop: '12px' } },
-      'The clock is still running. Items can only be handed to a squadmate standing '
+      'The clock is still running. Destroying is permanent — nothing is left on the '
+      + 'ground, because a hero standing over it would only pick it back up. '
+      + 'Items can only be handed to a squadmate standing '
       + 'nearby. Anything dropped stays where you leave it, and anything worn is '
       + 'lost with the hero if they do not extract.'));
   }

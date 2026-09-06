@@ -11,10 +11,9 @@ import { rebuildHeroMods } from './entity.js';
 import { BACKPACK_SLOTS } from '../data/tactics.js';
 import { CONSUMABLE_SLOTS, CONSUMABLES } from '../data/consumables.js';
 
-// A hero who just dropped something is standing on it, and their loot policy
-// would pick it straight back up. Give the pile a moment to be genuinely
-// discarded.
-export const DROP_GRACE = 10;
+// Discarding in a raid destroys the item outright rather than dropping it.
+// A hero standing on the pile they just made would simply pick it back up,
+// and a grace period only delayed that — so "get rid of this" has to mean it.
 
 /** Close enough to hand something over. Loot does not teleport across a raid. */
 export const TRANSFER_RANGE = 260;
@@ -43,28 +42,28 @@ export function equipFromBackpack(match, e, index) {
   return true;
 }
 
-/** Unequip to the pack, or onto the ground when the pack is full. */
+/**
+ * Unequip into the pack. Refuses when the pack is full rather than putting the
+ * gear on the floor — silently discarding something a hero was wearing is not
+ * a reasonable answer to a full bag.
+ */
 export function unequipToBackpack(match, e, slot) {
   const item = e.equipped[slot];
   if (!item) return false;
+  if (e.inventory.length >= BACKPACK_SLOTS) return false;
 
   e.equipped[slot] = null;
-  if (e.inventory.length < BACKPACK_SLOTS) {
-    e.inventory.push(item);
-  } else {
-    dropItem(match, e, item);
-  }
-
+  e.inventory.push(item);
   rebuildHeroMods(e);
   return true;
 }
 
-/** Drop a backpack item on the ground where the hero stands. */
-export function dropFromBackpack(match, e, index) {
+/** Destroy a pack item. It is gone — not dropped, not recoverable. */
+export function destroyFromBackpack(match, e, index) {
   const item = e.inventory[index];
   if (!item) return false;
   e.inventory.splice(index, 1);
-  dropItem(match, e, item);
+  match.pushFloat(e.pos, `destroyed ${item.name}`, '#9b9084');
   return true;
 }
 
@@ -98,12 +97,12 @@ export function packConsumable(match, e, index) {
   return true;
 }
 
-/** Drop a packed consumable stack. */
-export function dropConsumable(match, e, index) {
+/** Destroy a packed consumable stack. */
+export function destroyConsumable(match, e, index) {
   const stack = e.consumables[index];
   if (!stack) return false;
   e.consumables.splice(index, 1);
-  dropItem(match, e, stack);
+  match.pushFloat(e.pos, `destroyed ${stack.name}`, '#9b9084');
   return true;
 }
 
@@ -132,9 +131,3 @@ export function transferItem(match, from, to, index) {
   return true;
 }
 
-function dropItem(match, e, item) {
-  const pile = match.dropLoot(e.pos, [item], {});
-  if (pile) pile.noPickupUntil = match.time + DROP_GRACE;
-  match.pushFloat(e.pos, `dropped ${item.name}`, '#9b9084');
-  return pile;
-}
