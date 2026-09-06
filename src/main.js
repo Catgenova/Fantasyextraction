@@ -51,6 +51,9 @@ app.confirmAbandon = function confirmAbandon(match) {
 
 function render(screen, params) {
   clear(mount);
+  // The stylesheet needs to know which screen is up: the raid is a fixed
+  // full-viewport canvas, every other screen is a document that scrolls.
+  document.body.dataset.screen = screen;
   mount.appendChild(topbar(screen));
 
   let node;

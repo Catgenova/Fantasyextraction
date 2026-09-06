@@ -61,7 +61,7 @@ export function resultsScreen(app, result, summary) {
 
     el('div.divider'),
 
-    el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' } }, [
+    el('div.two-col', null, [
       el('div', null, [
         el('h3', { style: { marginBottom: '8px', color: 'var(--good)' } },
           `Brought home (${summary?.gained?.length ?? 0})`),

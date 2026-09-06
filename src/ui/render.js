@@ -20,7 +20,7 @@ export function createRenderer(canvas, minimapCanvas) {
     follow: true,
     bg: null,
     bgSeed: null,
-    width: 1, height: 1, dpr: 1,
+    width: 1, height: 1, dpr: 1, uiScale: 1, userZoomed: false,
   };
 
   function resize() {
@@ -32,6 +32,19 @@ export function createRenderer(canvas, minimapCanvas) {
     canvas.width = state.width * dpr;
     canvas.height = state.height * dpr;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // A phone showing the desktop zoom sees barely 250 world units of map.
+    // Until the player zooms for themselves, fit the zoom to the screen.
+    if (!state.userZoomed) state.camera.zoom = defaultZoom();
+    // Names and place labels are drawn in world units; shrink them on a
+    // small canvas so three stacked heroes do not bury the map.
+    state.uiScale = state.width < 480 ? 0.78 : state.width < 900 ? 0.88 : 1;
+  }
+
+  function defaultZoom() {
+    if (state.width < 480) return 0.62;
+    if (state.width < 900) return 0.85;
+    return 1.2;
   }
 
   const worldToScreen = (x, y) => ({
@@ -755,7 +768,8 @@ export function createRenderer(canvas, minimapCanvas) {
   function label(text, x, y, colour, size = 14) {
     ctx.save();
     ctx.textAlign = 'center';
-    ctx.font = `600 ${size / state.camera.zoom}px ui-sans-serif, system-ui, sans-serif`;
+    const px = (size * state.uiScale) / state.camera.zoom;
+    ctx.font = `600 ${px}px ui-sans-serif, system-ui, sans-serif`;
     ctx.lineWidth = 3 / state.camera.zoom;
     ctx.strokeStyle = 'rgba(0,0,0,.65)';
     ctx.strokeText(text, x, y);
@@ -769,8 +783,8 @@ export function createRenderer(canvas, minimapCanvas) {
   const labelBoxes = [];
 
   function unitLabel(text, x, y, colour, size) {
-    const h = (size + 3) / state.camera.zoom;
-    const w = (text.length * size * 0.58) / state.camera.zoom;
+    const h = ((size + 3) * state.uiScale) / state.camera.zoom;
+    const w = (text.length * size * 0.58 * state.uiScale) / state.camera.zoom;
     let ty = y;
     for (let attempt = 0; attempt < 8; attempt++) {
       const clash = labelBoxes.some((b) =>
@@ -799,6 +813,7 @@ export function createRenderer(canvas, minimapCanvas) {
     zoomBy(factor, anchor) {
       // While following the squad, zoom about the centre — anchoring on the
       // cursor would drift the camera off the squad without the player asking.
+      state.userZoomed = true;
       const useAnchor = anchor && !state.follow;
       const before = useAnchor ? screenToWorld(anchor.x, anchor.y) : null;
       state.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, state.camera.zoom * factor));

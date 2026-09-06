@@ -23,9 +23,7 @@ export function heroScreen(app, hero, initialTab = 'gear') {
     sanitizeHero(hero);
     const cls = CLASSES[hero.classId];
 
-    root.appendChild(el('div', {
-      style: { display: 'grid', gridTemplateColumns: '300px minmax(0,1fr)', gap: '14px', padding: '14px', width: '100%', minHeight: '0' },
-    }, [summaryPanel(), workPanel()]));
+    root.appendChild(el('div.hero-layout', null, [summaryPanel(), workPanel()]));
 
     // ---- left column ----
     function summaryPanel() {
@@ -73,7 +71,7 @@ export function heroScreen(app, hero, initialTab = 'gear') {
 
     // ================================================================ GEAR ==
     function gearTab(body) {
-      body.appendChild(el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' } }, [
+      body.appendChild(el('div.two-col', null, [
         el('div', null, [
           el('h3', { style: { marginBottom: '8px' } }, 'Equipped'),
           el('div.col', { style: { gap: '6px' } }, SLOTS.map((slot) => {
@@ -283,7 +281,7 @@ export function heroScreen(app, hero, initialTab = 'gear') {
       const set = (key) => (value) => { t[key] = value; app.save(); render(); };
       const setQuiet = (key) => (value) => { t[key] = value; app.save(); };
 
-      body.appendChild(el('div', { style: { display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' } }, [
+      body.appendChild(el('div.two-col.wide-gap', null, [
         el('div', null, [
           el('h3', { style: { marginBottom: '10px' } }, 'Behaviour'),
           selectField('Stance',
