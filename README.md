@@ -90,6 +90,7 @@ The simulation has no dependency on the DOM. `tools/` drives it directly.
 node tools/simulate.js 8 --seed 300 --plan farm --level 5
 node tools/simulate.js 5 --plan boss --level 14 --verbose
 node tools/test-progression.js
+node tools/test-layout.mjs      # needs Playwright; skips if absent
 ```
 
 `simulate.js` runs whole raids headless and reports outcomes — the fastest way
@@ -99,6 +100,13 @@ squads rather than a half-built squad against fully-built ones; pass
 `--starter-gear` to test the level-1 kit instead. `test-progression.js` asserts the parts that tie a
 raid back to the profile: determinism, XP and levelling, loot reaching the
 stash, and gear actually being lost on death.
+
+`test-layout.mjs` serves the game and checks it at eleven viewport sizes, from
+a small phone up to a desktop. The game runs a fixed-height shell on desktop
+(panels scroll inside themselves) and an ordinary scrolling document
+everywhere else; putting the boundary between those in the wrong place makes
+the bottom of a screen silently unreachable, which no unit test would catch.
+It also asserts the raid stays pinned and that no two HUD panels overlap.
 
 Raids are deterministic from their seed, so any run the harness reports can be
 reproduced exactly.

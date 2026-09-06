@@ -37,6 +37,11 @@
 
 * { box-sizing: border-box; }
 
+/* Desktop is a fixed-height shell: the frame is exactly the viewport and each
+   panel scrolls inside itself. That needs a definite height — on `min-height`
+   alone the flex children size to content and never shrink, so the frame
+   grows and the whole page scrolls. The shell is taken apart for stacked and
+   short layouts in the media query near the bottom of this file. */
 html, body {
   margin: 0;
   height: 100%;
@@ -348,14 +353,21 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
    canvas and must stay pinned.
    ========================================================================== */
 
-@media (max-width: 860px) {
-  /* html keeps a real height so the raid's `height: 100%` still resolves. */
+/* Wherever the columns stack — and on any short window, such as a phone held
+   sideways — the panels must stop scrolling inside themselves. In a stacked
+   column a `flex: 1; min-height: 0` panel collapses to zero height, so its
+   content is there but has nowhere to go. */
+@media (max-width: 1100px), (max-height: 620px) {
+  /* html keeps a real height so the raid below can still fill it. */
   html { height: 100%; }
   body { height: auto; min-height: 100%; overflow-y: auto; overflow-x: hidden; }
   #app { height: auto; min-height: 100%; }
 
-  body[data-screen="match"] { height: 100%; overflow: hidden; }
-  body[data-screen="match"] #app { height: 100%; }
+  /* The raid stays pinned. `position: fixed` avoids depending on percentage
+     heights, which is the one approach iOS Safari does not argue with. */
+  body[data-screen="match"] { position: fixed; inset: 0; height: auto; overflow: hidden; }
+  body[data-screen="match"] #app { height: 100%; min-height: 0; }
+  body[data-screen="match"] .screen { min-height: 0; }
 
   body:not([data-screen="match"]) .screen { display: block; min-height: 0; overflow: visible; }
   body:not([data-screen="match"]) .hub { display: block; padding: 10px; min-height: 0; }
@@ -366,7 +378,11 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
 
   /* Inner panels must stop competing for the scroll — the page owns it. */
   body:not([data-screen="match"]) .scroll { overflow: visible !important; max-height: none !important; }
+  body:not([data-screen="match"]) .panel.grow { flex: none; }
+}
 
+/* Phone-sized chrome: typography, the stacked forms, and the in-raid HUD. */
+@media (max-width: 860px) {
   .topbar { position: sticky; top: 0; z-index: 20; padding: 8px 12px; gap: 8px; }
   .topbar .brand { font-size: 15px; }
   .topbar .brand span { display: none; }
