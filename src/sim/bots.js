@@ -4,11 +4,10 @@
 
 import { makeRng, pick, randInt, chance, shuffle } from '../core/rng.js';
 import { CLASS_IDS } from '../data/classes.js';
-import { createHero, sanitizeHero, allocatePoint, availablePoints, availableSpells } from './heroes.js';
+import { createHero, sanitizeHero, autoAllocate, availableSpells } from './heroes.js';
 import { rollItem, SLOTS, RARITY_ORDER, canEquip } from '../data/gear.js';
 import { makeConsumable, CONSUMABLE_LIST } from '../data/consumables.js';
-import { TREES } from '../data/skilltrees.js';
-import { defaultSquadTactics, SQUAD_PLANS, EXTRACT_PLANS, FORMATIONS, STANCES, TARGET_PRIORITIES, LOOT_POLICIES } from '../data/tactics.js';
+import { defaultSquadTactics, EXTRACT_PLANS, FORMATIONS, STANCES, TARGET_PRIORITIES } from '../data/tactics.js';
 import { SPELL_SLOTS } from '../data/spells.js';
 
 const SQUAD_NAMES = [
@@ -77,23 +76,7 @@ function buildBotHero(rng, classId, level, powerDelta = 0) {
     }
   }
 
-  // Skill tree: commit to one branch, then spill into a second.
-  const branches = shuffle(rng, TREES[classId].branches).map((b) => b.id);
-  let guard = 0;
-  while (availablePoints(hero) > 0 && guard++ < 200) {
-    const branch = chance(rng, 0.7) ? branches[0] : branches[1];
-    const options = TREES[classId].nodes.filter((n) => n.branch === branch);
-    const shuffled = shuffle(rng, options);
-    let spent = false;
-    for (const n of shuffled) {
-      if (allocatePoint(hero, n.id)) { spent = true; break; }
-    }
-    // Branch is blocked (tier gates) — try anything at all.
-    if (!spent) {
-      const any = shuffle(rng, TREES[classId].nodes);
-      if (!any.some((n) => allocatePoint(hero, n.id))) break;
-    }
-  }
+  autoAllocate(rng, hero, 'random');
 
   // Spells: fill slots from what the tree unlocked.
   const unlocked = shuffle(rng, availableSpells(hero));

@@ -6,7 +6,7 @@ import { CONSUMABLE_SLOTS } from '../data/consumables.js';
 import { unlockedSpells, totalPointsSpent, TREES } from '../data/skilltrees.js';
 import { defaultHeroTactics } from '../data/tactics.js';
 import { SLOTS, canEquip, startingLoadout } from '../data/gear.js';
-import { pick } from '../core/rng.js';
+import { pick, shuffle, chance } from '../core/rng.js';
 
 const NAMES = {
   knight: ['Ser Alden', 'Ser Brannoc', 'Dame Ysolde', 'Ser Kestrel', 'Dame Ravenna', 'Ser Corvin'],
@@ -98,6 +98,40 @@ export function sanitizeHero(hero) {
 export function respec(hero) {
   hero.alloc = {};
   sanitizeHero(hero);
+}
+
+/**
+ * The branch each class leans on when nobody is choosing for it. A Priest that
+ * randomly dumps everything into Wrath has no heals, which is a legitimate
+ * rival build but useless as a baseline.
+ */
+export const DEFAULT_BRANCHES = {
+  knight: ['bulwark', 'arms', 'banner'],
+  archer: ['marksman', 'skirmish', 'trapper'],
+  priest: ['light', 'ward', 'wrath'],
+};
+
+/**
+ * Spend every available point, committing hard to one branch and spilling the
+ * remainder into a second. Used to build rival squads, and by the headless
+ * harness so the player's tree is not left empty in a balance comparison.
+ *
+ * @param branchOrder pass `'random'` for a rival squad's own idea of a build,
+ *        an explicit array to force one, or omit for the class default.
+ */
+export function autoAllocate(rng, hero, branchOrder = null) {
+  const branches = branchOrder === 'random'
+    ? shuffle(rng, TREES[hero.classId].branches).map((b) => b.id)
+    : (branchOrder ?? DEFAULT_BRANCHES[hero.classId]);
+  let guard = 0;
+  while (availablePoints(hero) > 0 && guard++ < 400) {
+    const branch = chance(rng, 0.7) ? branches[0] : branches[1 % branches.length];
+    const options = shuffle(rng, TREES[hero.classId].nodes.filter((n) => n.branch === branch));
+    if (options.some((n) => allocatePoint(hero, n.id))) continue;
+    // That branch is gated or maxed — take anything still legal.
+    if (!shuffle(rng, TREES[hero.classId].nodes).some((n) => allocatePoint(hero, n.id))) break;
+  }
+  return hero;
 }
 
 /** Spend one point on a node if the tree rules allow it. */

@@ -6,7 +6,7 @@ import { el, clear, fmtTime, hideTooltip } from '../dom.js';
 import { createRenderer } from '../render.js';
 import { CLASSES } from '../../data/classes.js';
 import { MATCH_SECONDS } from '../../data/enemies.js';
-import { extractIsOpen, bestExtract } from '../../sim/map.js';
+import { bestExtract } from '../../sim/map.js';
 import { hpFrac, manaFrac } from '../../sim/entity.js';
 import { dist } from '../../core/vec.js';
 
@@ -49,7 +49,7 @@ export function matchScreen(app, match) {
 
   hud.appendChild(el('div.hud-right', null, [
     minimap,
-    el('div.tiny.dim.center', null, 'Click the map to send your squad · shift-click to look'),
+    el('div.tiny.dim.center', null, 'Click to send the squad'),
     el('div.panel', { style: { overflow: 'hidden' } }, [
       el('div.panel-head', { style: { padding: '6px 10px' } },
         el('div.tiny.dim', { style: { letterSpacing: '.12em' } }, 'RAID LOG')),

@@ -93,7 +93,10 @@ node tools/test-progression.js
 ```
 
 `simulate.js` runs whole raids headless and reports outcomes — the fastest way
-to check a balance change. `test-progression.js` asserts the parts that tie a
+to check a balance change. It gives the player level-appropriate gear and a
+spent skill tree by default, so a run is a fair comparison against the rival
+squads rather than a half-built squad against fully-built ones; pass
+`--starter-gear` to test the level-1 kit instead. `test-progression.js` asserts the parts that tie a
 raid back to the profile: determinism, XP and levelling, loot reaching the
 stash, and gear actually being lost on death.
 
@@ -102,16 +105,25 @@ reproduced exactly.
 
 ## Current balance
 
-Over eight raids at level 5 with level-appropriate gear:
+Measured with `tools/simulate.js`, both sides fully built — level-appropriate
+gear and a spent skill tree — against five rival squads:
 
-| Raid plan | Clean | Partial | Wiped | Avg items kept |
-|---|---|---|---|---|
-| Farm the ring | 6 | 1 | 1 | ~10 |
-| Boss hunt (level 5) | 0 | 1 | 4 | ~2 |
-| Boss hunt (level 14) | 2 | 1 | 2 | ~8 |
+| Raid plan | Level | Runs | Clean | Partial | Wiped | Avg items kept |
+|---|---|---|---|---|---|---|
+| Farm the ring | 5 | 12 | 8 | 2 | 2 | 8.8 |
+| Boss hunt | 5 | 8 | 1 | 1 | 6 | 3.6 |
+| Boss hunt | 14 | 8 | 4 | 2 | 2 | 12.1 |
+| Squad hunter | 10 | 8 | 3 | 2 | 3 | 9.4 |
 
 That spread is the intent: farming is a reliable income, and the core is a
-place you earn the right to visit.
+place you earn the right to visit. Boss hunting at level 5 wipes three quarters
+of the time and turns into the best haul in the game once you are geared for
+it.
+
+Known soft spot: actual boss kills are still rare (0.1–0.6 per raid even on the
+boss plan) because squads tend to die to the core trash on the way in. The
+plans differentiate well; the bosses themselves could stand to be more
+reachable.
 
 ## Status
 

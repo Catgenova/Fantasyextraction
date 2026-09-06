@@ -10,10 +10,9 @@ import { CONSUMABLES } from '../data/consumables.js';
 import { STANCES, TARGET_PRIORITIES, LOOT_POLICIES, FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, BACKPACK_SLOTS } from '../data/tactics.js';
 import { dealDamage, spawnProjectile, resolveEffects, isControlled, hasStatus, applyStatus, GLOBAL_COOLDOWN } from './combat.js';
 import { hpFrac, manaFrac, recomputeStats } from './entity.js';
-import { dist, dist2, dirTo, norm, add, scale, sub, clamp } from '../core/vec.js';
-import { resolveCollisions, bestExtract, extractIsOpen, tierAt, CENTER } from './map.js';
+import { dist, dist2, dirTo, norm, add, scale, sub } from '../core/vec.js';
+import { resolveCollisions, bestExtract } from './map.js';
 import { itemScore } from '../data/gear.js';
-import { chance } from '../core/rng.js';
 
 const OUT_OF_COMBAT_AFTER = 5;
 const THINK_HERO = 0.2;      // seconds between hero decisions

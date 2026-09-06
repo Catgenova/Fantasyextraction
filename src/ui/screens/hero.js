@@ -1,12 +1,12 @@
 // Hero configuration: the four things a player actually tunes between raids —
 // gear, skill tree, equipped spells, and autobattle tactics.
 
-import { el, clear, selectField, sliderField, tooltip, titleCase, hideTooltip } from '../dom.js';
-import { itemRow, itemTooltip, rarityColor, formatStat, statLabel } from '../items.js';
+import { el, clear, selectField, sliderField, tooltip, hideTooltip } from '../dom.js';
+import { itemRow } from '../items.js';
 import { CLASSES } from '../../data/classes.js';
 import { SLOTS, SLOT_NAMES, canEquip, itemScore } from '../../data/gear.js';
 import { SPELLS, SPELL_SLOTS, spellsForClass } from '../../data/spells.js';
-import { CONSUMABLES, CONSUMABLE_SLOTS } from '../../data/consumables.js';
+import { CONSUMABLE_SLOTS } from '../../data/consumables.js';
 import { TREES, nodeBlocker, pointsInBranch } from '../../data/skilltrees.js';
 import { STANCES, TARGET_PRIORITIES, LOOT_POLICIES, SPELL_POLICIES } from '../../data/tactics.js';
 import { computeStats, statSummary } from '../../sim/stats.js';

@@ -74,13 +74,17 @@ export function createRenderer(canvas, minimapCanvas) {
           if (d < bestD) { bestD = d; best = r; }
         }
         const biome = BIOMES[best.biome] ?? BIOMES.fields;
-        c.fillStyle = shade(biome.ground, (hash2(gx, gy) - 0.5) * 0.14);
+        c.fillStyle = shade(biome.ground, (hash2(gx, gy) - 0.5) * 0.05);
         c.fillRect(gx, gy, 1, 1);
       }
     }
     b.imageSmoothingEnabled = true;
     b.imageSmoothingQuality = 'high';
+    // Blur the region map before upscaling: nearest-region edges are hard
+    // Voronoi seams, and biomes should bleed into each other instead.
+    b.filter = 'blur(5px)';
     b.drawImage(coarse, 0, 0, size, size);
+    b.filter = 'none';
 
     // Fine grain on top: flecks of biome accent so open ground is not flat.
     for (let i = 0; i < 70000; i++) {
@@ -97,8 +101,8 @@ export function createRenderer(canvas, minimapCanvas) {
         if (d < bestD) { bestD = d; best = r; }
       }
       const biome = BIOMES[best.biome] ?? BIOMES.fields;
-      b.fillStyle = shade(biome.accent, (hash2(i, 29) - 0.5) * 0.4);
-      b.globalAlpha = 0.28 + hash2(i, 41) * 0.3;
+      b.fillStyle = shade(biome.accent, (hash2(i, 29) - 0.5) * 0.55);
+      b.globalAlpha = 0.3 + hash2(i, 41) * 0.4;
       b.fillRect(gx, gy, 1, 1);
     }
     b.globalAlpha = 1;
@@ -226,6 +230,32 @@ export function createRenderer(canvas, minimapCanvas) {
   function drawTerrain(map, view) {
     ctx.imageSmoothingEnabled = true;
     ctx.drawImage(state.bg, 0, 0, WORLD_SIZE, WORLD_SIZE);
+
+    // The baked terrain is one pixel per 10 world units, so it turns to mush
+    // when magnified. Above ~0.9x, scatter procedural speckle in world space.
+    if (state.camera.zoom > 0.9) {
+      const step = 26;
+      const x0 = Math.floor(view.minX / step) * step;
+      const y0 = Math.floor(view.minY / step) * step;
+      ctx.fillStyle = 'rgba(255,250,235,.05)';
+      for (let y = y0; y < view.maxY; y += step) {
+        for (let x = x0; x < view.maxX; x += step) {
+          const h = hash2(x / step, y / step);
+          if (h > 0.62) continue;
+          const jx = x + hash2(x, y + 1) * step;
+          const jy = y + hash2(x + 1, y) * step;
+          ctx.fillRect(jx, jy, 1.6 + h * 3, 1.6 + h * 2);
+        }
+      }
+      ctx.fillStyle = 'rgba(0,0,0,.10)';
+      for (let y = y0; y < view.maxY; y += step) {
+        for (let x = x0; x < view.maxX; x += step) {
+          const h = hash2(x / step + 91, y / step + 17);
+          if (h > 0.45) continue;
+          ctx.fillRect(x + h * step, y + hash2(y, x) * step, 2 + h * 4, 2 + h * 3);
+        }
+      }
+    }
 
     // Crisp obstacles for anything actually on screen, with a lit edge so
     // they read as solid cover rather than holes in the ground.
@@ -767,14 +797,15 @@ export function createRenderer(canvas, minimapCanvas) {
     screenToWorld,
     setFollow(v) { state.follow = v; },
     zoomBy(factor, anchor) {
-      const before = anchor ? screenToWorld(anchor.x, anchor.y) : null;
+      // While following the squad, zoom about the centre — anchoring on the
+      // cursor would drift the camera off the squad without the player asking.
+      const useAnchor = anchor && !state.follow;
+      const before = useAnchor ? screenToWorld(anchor.x, anchor.y) : null;
       state.camera.zoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, state.camera.zoom * factor));
       if (before) {
-        // Keep the point under the cursor fixed while zooming.
         const after = screenToWorld(anchor.x, anchor.y);
         state.camera.x += before.x - after.x;
         state.camera.y += before.y - after.y;
-        state.follow = false;
       }
       clampCamera();
     },

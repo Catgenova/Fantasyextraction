@@ -2,7 +2,7 @@
 
 import { makeRng } from '../core/rng.js';
 import { createHero, sanitizeHero, addXp } from '../sim/heroes.js';
-import { defaultSquadTactics, BACKPACK_SLOTS } from '../data/tactics.js';
+import { defaultSquadTactics } from '../data/tactics.js';
 import { makeConsumable } from '../data/consumables.js';
 import { rollItem } from '../data/gear.js';
 

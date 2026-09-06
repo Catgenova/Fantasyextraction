@@ -3,7 +3,7 @@
 
 import { mitigation } from './stats.js';
 import { recomputeStats, hpFrac } from './entity.js';
-import { dist, dirTo, norm } from '../core/vec.js';
+import { dist, dirTo } from '../core/vec.js';
 import { chance } from '../core/rng.js';
 import { isInsideAnySpawn, SPAWN_PROTECTION_SECONDS } from './map.js';
 

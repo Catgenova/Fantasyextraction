@@ -6,6 +6,7 @@
 
 import { Match, TICK } from '../src/sim/match.js';
 import { newProfile, squadHeroes } from '../src/game/profile.js';
+import { autoAllocate, sanitizeHero } from '../src/sim/heroes.js';
 import { generateBotSquads } from '../src/sim/bots.js';
 import { MATCH_SECONDS } from '../src/data/enemies.js';
 import { rollItem, SLOTS, RARITY_ORDER, canEquip } from '../src/data/gear.js';
@@ -28,11 +29,15 @@ function equipForLevel(profile, seed, level) {
   const rng = makeRng(seed ^ 0x5bf03635);
   const band = level >= 12 ? 2 : level >= 7 ? 1 : 0;
   for (const hero of profile.roster) {
+    // A real player spends their skill points; leaving the tree empty here
+    // would compare a half-built squad against fully-built rivals.
+    autoAllocate(rng, hero);
     for (const slot of SLOTS) {
       const item = rollItem(rng, { slot, classId: hero.classId, rarity: RARITY_ORDER[band], ilvl: level });
       if (canEquip(item, hero.classId)) hero.equipped[slot] = item;
     }
     hero.consumables = [makeConsumable('greater_potion', 3), makeConsumable('mana_tonic', 2)];
+    sanitizeHero(hero);
   }
 }
 

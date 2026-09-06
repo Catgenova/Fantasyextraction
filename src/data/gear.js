@@ -1,7 +1,7 @@
 // Gear: slots, base item types, affix pool, rarity, and the roller that turns
 // a loot-table entry into a concrete item instance.
 
-import { randInt, rand, pick, weightedPick, chance, shuffle } from '../core/rng.js';
+import { rand, pick, weightedPick, shuffle } from '../core/rng.js';
 
 export const SLOTS = ['weapon', 'offhand', 'head', 'chest', 'hands', 'legs', 'trinket'];
 

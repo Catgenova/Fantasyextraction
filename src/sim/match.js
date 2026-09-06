@@ -1,17 +1,16 @@
 // The raid instance. Owns the world, drives every entity, schedules world
 // events, runs the collapse, and decides when the run is over.
 
-import { makeRng, randInt, rand, pick, chance, shuffle, randomInCircle } from '../core/rng.js';
-import { dist, dist2, dirTo, norm, clamp } from '../core/vec.js';
-import { generateMap, WORLD_SIZE, CENTER, tierAt, extractIsOpen, bestExtract, resolveCollisions, RING_CORE, RING_MID } from './map.js';
+import { makeRng, randInt, pick, randomInCircle } from '../core/rng.js';
+import { dist, dist2, norm, clamp } from '../core/vec.js';
+import { generateMap, WORLD_SIZE, CENTER, tierAt, extractIsOpen, resolveCollisions } from './map.js';
 import { makeHeroEntity, makeEnemyEntity, resetIds, lootableFrom, hpFrac, recomputeStats } from './entity.js';
-import { updateHero, updateMonster, squadObjective, tryDeathSave, tryPickup } from './ai.js';
-import { tickStatuses, updateProjectiles, dealDamage, resolveEffects } from './combat.js';
-import { ENEMIES, BOSSES, WORLD_EVENTS, MATCH_SECONDS } from '../data/enemies.js';
+import { updateHero, updateMonster, squadObjective, tryDeathSave } from './ai.js';
+import { tickStatuses, updateProjectiles, dealDamage } from './combat.js';
+import { ENEMIES, WORLD_EVENTS, MATCH_SECONDS } from '../data/enemies.js';
 import { rollLoot } from '../data/loot.js';
 import { RARITIES } from '../data/gear.js';
-import { treeMods } from './stats.js';
-import { addMods, emptyMods } from './stats.js';
+import { treeMods, addMods, emptyMods } from './stats.js';
 
 export const TICK = 1 / 30;           // fixed sim step
 const CAMP_ACTIVATE = 1700;
