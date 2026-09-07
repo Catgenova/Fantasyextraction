@@ -137,20 +137,21 @@ sixteen to twenty-four seconds spent standing still in the place you just made
 a lot of noise. Corpses last 100 seconds, which is long enough to finish a
 fight first and not long enough to come back later.
 
-What comes out is a **part**: a species, one of ten types, and a grade.
+What comes out is a **part**: a species, one of eleven types, and a grade.
 
 | Part | Fits |
 |---|---|
-| Hide | Chest, legs, hands, head, pouch |
+| Hide | Chest, legs, hands, head |
 | Scale | Chest, legs, head, offhand |
 | Plate | Chest, head, hands, offhand |
 | Claw | Weapon, hands |
 | Fang | Weapon, trinket |
 | Horn | Head, weapon |
 | Tail | Weapon, offhand |
-| Membrane | Legs, hands, offhand, pouch |
+| Membrane | Legs, hands, offhand |
 | Gland | Trinket, offhand |
 | Marrow | Trinket |
+| Sinew | Pouch — and pouches are made from nothing else |
 
 | Grade | Power |
 |---|---|
@@ -378,25 +379,42 @@ for them — there is no second, hidden set of rules.
 An extraction game is decided by how much you can carry, so pack size is a
 piece of gear rather than a constant. Every hero carries eight; the **pouch**
 slot adds to that, and is worth nothing in a fight and everything on the way
-home:
+home.
 
-| Pouch grade | Extra slots | Carried |
+A pouch is sewn from **sinew**, and from nothing else. Every creature in the
+game yields some, and sinew makes nothing but pouches — which means how much
+you can carry out is its own hunt rather than something you fall into while
+making a cuirass. Hide and membrane used to make pouches too, and the result
+was that nobody ever went looking for a bag. A hide pouch on an older save
+still works and still holds what it always did; it simply cannot be made
+again.
+
+The pouch is also the one piece where the *size* of what you killed matters
+more than the grade of the carve. A pack creature has short cord; a solo
+monster's sinew runs the length of the thing.
+
+| Grade | Pack creature | Solo monster |
 |---|---|---|
-| None | — | 8 |
-| Ragged | +4 | 12 |
-| Sound | +8 | 16 |
-| Fine | +12 | 20 |
-| Pristine | +16 | 24 |
-| Mythic | +20 | 28 |
+| Ragged | +4 (12 carried) | +10 (18) |
+| Sound | +6 (14) | +13 (21) |
+| Fine | +8 (16) | +16 (24) |
+| Pristine | +10 (18) | +18 (26) |
+| Mythic | +12 (20) | +20 (28) |
 
-Pouches are forged like everything else, from hide or membrane, so a bigger bag
-is a hunt rather than a drop. Every hero starts in a ragged one, and nobody is
-ever left unable to carve.
+The two ladders overlap on purpose. A mythic sinew off a Sicklejaw (+12) beats
+a ragged one off a Nightfell (+10), so a player who hunts packs well is never
+simply behind one who got lucky once — but the ceiling belongs to the solo
+hunts, and 28 carried slots means you killed something at the centre of the
+map.
 
-Because a pouch has no stat block, the AI's item scoring counts its capacity
-directly; otherwise the best item in the game would score zero and squads would
-walk straight past it. Swapping down into a smaller pouch than the pack is
-holding is refused rather than silently binning the overflow.
+Every hero starts in a ragged Threshclaw pouch, so nobody is ever left unable
+to carve.
+
+Because a pouch's stat block is deliberately a shrug — the pouch slot has the
+smallest budget in the game — the AI's item scoring counts its capacity
+directly; otherwise the best item in the game would score near zero and squads
+would walk straight past it. Swapping down into a smaller pouch than the pack
+is holding is refused rather than silently binning the overflow.
 
 Consumables are carried separately, on a three-slot **belt**, and that is the
 only place the tactics AI will drink from. So a potion found in a supply cache
@@ -492,7 +510,17 @@ stand on it for the rest of the raid. Nothing crashed; the squad just stopped
 playing. So the test measures behaviour: how long is spent in loot mode, and
 whether that time produces pickups.
 
-`test-movement.js` guards the steering. Heroes used to walk straight at their
+`test-movement.js` guards the steering, and carries a lesson about what a test
+can measure. Its headline check was once "nobody is pinned for a whole raid",
+bounded at 400 seconds — a maximum over roughly three hundred hero-raids, which
+on a heavy tail does not converge. Measured over four separate batches of
+twenty raids the same build reported 34s, 104s, 208s and 259s; a change that
+touched nothing about movement moved it to 24s, 66s, 286s and 450s. The bound
+had been passing on the luck of one seed base. It now says what its name says —
+half a raid — and the check that actually watches for regressions is a rate,
+the share of hero-time spent inside pins over a minute long, which moves
+consistently when pinning really gets worse (0.17% to 0.56% and 0.22% to 0.73%
+with the map's obstacles switched back on). Heroes used to walk straight at their
 destination and let collision resolution push them back out of whatever they
 hit, which against a rock is a closed loop — some spent entire raids pinned to
 one spot. It measures ground actually covered, because the hardest case looks

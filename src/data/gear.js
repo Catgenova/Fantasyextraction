@@ -29,14 +29,36 @@ export const SLOT_NAMES = {
 // ---------------------------------------------------------------------------
 // Pouches
 // ---------------------------------------------------------------------------
-// Unchanged in spirit: a base pack of eight plus whatever the pouch adds, and
-// a pouch is now sewn from hide or membrane like everything else.
+// A base pack of eight, plus whatever the pouch adds. A pouch is sewn from
+// **sinew** and nothing else — cord and tendon are what a pack is, and giving
+// it its own material means the thing that decides how much you can carry out
+// is a hunt in its own right rather than a side effect of making armour.
+//
+// How much it holds is the one place in the game where the *size* of what you
+// killed matters more than the grade of the carve. A small pack creature has
+// short cord: a mythic one still only makes a decent bag. A solo monster's
+// sinew runs the length of the thing, and even a ragged cut off one beats
+// anything a raptor can offer.
+//
+// The two ladders overlap on purpose. A mythic small sinew (+12) is worth more
+// than a ragged large one (+10), so a player who hunts packs well is never
+// simply behind a player who got lucky once — but the ceiling belongs to the
+// solo hunts, and 28 carried slots means a Nightfell.
 
-export const POUCH_SLOTS = { ragged: 4, sound: 8, fine: 12, pristine: 16, mythic: 20 };
+export const POUCH_SLOTS = {
+  small: { ragged: 4, sound: 6, fine: 8, pristine: 10, mythic: 12 },
+  large: { ragged: 10, sound: 13, fine: 16, pristine: 18, mythic: 20 },
+};
 export const BASE_PACK_SLOTS = 8;
 
-export const pouchSlots = (item) =>
-  item?.slot === 'pouch' && item.kind === 'gear' ? (POUCH_SLOTS[item.quality] ?? 0) : 0;
+/** Which ladder a species' sinew is on. */
+export const pouchLadder = (speciesId) =>
+  (CREATURES[speciesId]?.hunt === 'solo' ? 'large' : 'small');
+
+export const pouchSlots = (item) => {
+  if (item?.slot !== 'pouch' || item.kind !== 'gear') return 0;
+  return POUCH_SLOTS[pouchLadder(item.speciesId)]?.[item.quality] ?? 0;
+};
 
 export function packCapacity(equipped) {
   return BASE_PACK_SLOTS + pouchSlots(equipped?.pouch);
@@ -50,16 +72,22 @@ export function packCapacity(equipped) {
 // blacksmith interesting.
 
 export const PART_SLOTS = {
-  hide: ['chest', 'legs', 'hands', 'head', 'pouch'],
+  hide: ['chest', 'legs', 'hands', 'head'],
   scale: ['chest', 'legs', 'head', 'offhand'],
   plate: ['chest', 'head', 'hands', 'offhand'],
   claw: ['weapon', 'hands'],
   fang: ['weapon', 'trinket'],
   horn: ['head', 'weapon'],
   tail: ['weapon', 'offhand'],
-  membrane: ['legs', 'hands', 'offhand', 'pouch'],
+  membrane: ['legs', 'hands', 'offhand'],
   gland: ['trinket', 'offhand'],
   marrow: ['trinket'],
+  // Sinew makes one thing, and it is the only thing that makes it. A part type
+  // with a single slot is a strong claim, and it is the point: how much you
+  // can carry home is its own hunt, not something you fall into while making a
+  // cuirass. Hide and membrane used to make pouches too, which meant nobody
+  // ever went looking for a bag.
+  sinew: ['pouch'],
 };
 
 export const slotsForPart = (partType) => PART_SLOTS[partType] ?? [];
@@ -87,6 +115,12 @@ const PART_SHAPE = {
   membrane: { dodge: 1.5, moveSpeedPct: 2, resist: 1.5 },
   gland: { spirit: 3, dotPct: 2, manaRegen: 1.5 },
   marrow: { might: 2, agility: 2, spirit: 2, vitality: 2 },
+  // A pack is worn for what it holds, and the pouch slot's budget is the
+  // smallest in the game (0.3), so this is deliberately a shrug: a little
+  // stamina from carrying the weight, and nothing a player would ever choose a
+  // pouch for. Capacity is the stat, and `itemScore` counts it separately
+  // because no weight over these numbers can see it.
+  sinew: { vitality: 2, maxHpFlat: 2, moveSpeedPct: 1 },
 };
 
 /**
@@ -230,7 +264,7 @@ export function startingLoadout(rng, classId) {
     { partType: 'claw', slot: 'weapon', speciesId: 'threshclaw', classId },
     { partType: 'plate', slot: 'chest', speciesId: 'plateback' },
     { partType: 'plate', slot: 'head', speciesId: 'plateback' },
-    { partType: 'hide', slot: 'pouch', speciesId: 'threshclaw' },
+    { partType: 'sinew', slot: 'pouch', speciesId: 'threshclaw' },
   ];
   return kit.map((spec) => craftItem({ ...spec, quality: 'ragged' })).filter(Boolean);
 }

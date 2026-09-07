@@ -12,7 +12,7 @@
 import { newProfile, stashParts, stashGear } from '../src/game/profile.js';
 import { availableRecipes, forge, forgeBlocker, resultQuality, costFor, SLOT_COST } from '../src/game/smith.js';
 import { makePart, QUALITY_ORDER } from '../src/data/parts.js';
-import { craftItem, slotsForPart, SLOTS, canEquip, partsForSlot } from '../src/data/gear.js';
+import { craftItem, slotsForPart, SLOTS, canEquip, partsForSlot, pouchSlots, packCapacity, BASE_PACK_SLOTS, itemScore, startingLoadout } from '../src/data/gear.js';
 import { activeSets, setMods, setAuras, setCounts, SET_PARTIAL, SET_FULL } from '../src/data/sets.js';
 import { CREATURES } from '../src/data/creatures.js';
 import { computeStats } from '../src/sim/stats.js';
@@ -120,6 +120,60 @@ console.log('\n=== forging spends exactly what it quoted ===');
   const plate = forge(armourProfile, chest, 'archer');
   check('armour fits anyone', canEquip(plate, 'knight') && canEquip(plate, 'priest'));
 }
+
+console.log('\n=== packs are sewn from sinew, and size decides how much they hold ===');
+
+// A pouch is the one piece where the *size* of what you killed matters more
+// than the grade of the carve, so both ladders are asserted directly rather
+// than inferred from a crafted item's stats — a pouch's stats are a shrug and
+// its capacity is the whole point.
+const pouchOf = (speciesId, quality) =>
+  craftItem({ speciesId, partType: 'sinew', slot: 'pouch', quality });
+
+check('sinew makes a pouch and nothing else',
+  slotsForPart('sinew').join(',') === 'pouch', slotsForPart('sinew').join(','));
+check('and a pouch can be made from nothing else',
+  partsForSlot('pouch').join(',') === 'sinew', partsForSlot('pouch').join(','));
+check('every species yields sinew, so a pack is always a hunt you can take',
+  Object.values(CREATURES).every((c) => c.parts.sinew > 0),
+  Object.values(CREATURES).filter((c) => !c.parts.sinew).map((c) => c.name).join(','));
+
+// Both ladders climb, or a better carve would be worth nothing.
+for (const [speciesId, label] of [['sicklejaw', 'a pack creature'], ['nightfell', 'a solo monster']]) {
+  const rungs = QUALITY_ORDER.map((q) => pouchSlots(pouchOf(speciesId, q)));
+  check(`${label}'s sinew holds more at every grade`,
+    rungs.every((v, i) => i === 0 || v > rungs[i - 1]), rungs.join(' < '));
+}
+
+// The point of the split: a solo monster out-carries a pack creature at the
+// same grade, every time.
+const beaten = QUALITY_ORDER.filter((q) =>
+  pouchSlots(pouchOf('nightfell', q)) <= pouchSlots(pouchOf('sicklejaw', q)));
+check('a solo monster beats a pack creature grade for grade', beaten.length === 0,
+  beaten.join(',') || 'at every grade');
+
+// ...but the ladders overlap, so hunting packs well is never simply behind
+// getting lucky once. A check that only asserted the split would pass on a
+// design where small sinew is pointless.
+check('a great small carve still beats a poor large one',
+  pouchSlots(pouchOf('sicklejaw', 'mythic')) > pouchSlots(pouchOf('nightfell', 'ragged')),
+  `${pouchSlots(pouchOf('sicklejaw', 'mythic'))} vs ${pouchSlots(pouchOf('nightfell', 'ragged'))}`);
+
+check('the biggest pack in the game carries 28',
+  packCapacity({ pouch: pouchOf('nightfell', 'mythic') }) === 28,
+  String(packCapacity({ pouch: pouchOf('nightfell', 'mythic') })));
+check('and a hero with no pouch at all still carries eight',
+  packCapacity({}) === BASE_PACK_SLOTS, String(packCapacity({})));
+
+// The AI has to be able to see a pouch's worth, or squads walk past the best
+// item in the game: no stat weight can read capacity.
+check('a pouch scores on the room it gives',
+  itemScore(pouchOf('nightfell', 'mythic')) > itemScore(pouchOf('sicklejaw', 'ragged')) * 2,
+  `${itemScore(pouchOf('nightfell', 'mythic'))} vs ${itemScore(pouchOf('sicklejaw', 'ragged'))}`);
+
+// Every hero starts able to carry something home.
+check('the starting kit includes a sinew pouch',
+  startingLoadout(null, 'knight').some((i) => i.slot === 'pouch' && i.partType === 'sinew'));
 
 console.log('\n=== sets ===');
 

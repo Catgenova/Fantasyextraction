@@ -69,7 +69,7 @@ const check = (name, ok, detail = '') => {
   const common = craftItem({ speciesId: 'threshclaw', partType: 'hide', slot: 'hands', quality: 'ragged' });
   // Pack size comes from the pouch now, so the fixture has to wear one to have
   // a capacity to fill at all.
-  const pouch = craftItem({ speciesId: 'threshclaw', partType: 'hide', slot: 'pouch', quality: 'ragged' });
+  const pouch = craftItem({ speciesId: 'threshclaw', partType: 'sinew', slot: 'pouch', quality: 'ragged' });
   const hero = {
     tactics: { lootPolicy: 'greedy' },
     equipped: { pouch },

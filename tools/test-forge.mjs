@@ -64,7 +64,9 @@ const { devices } = playwright;
 // zero. On top of those: three sound plates, which with the starting ragged
 // one makes four, enough for a chest (cost 3) with one to spare; and two
 // Sicklejaw claws, one short of a weapon (cost 3). That asymmetry is the
-// point — it gives the screen both an affordable row and a short one.
+// point — it gives the screen both an affordable row and a short one. Two
+// Sicklejaw sinews buys a pouch, which is the one piece whose worth is a
+// number no stat line carries.
 const seedStash = (page, spec) => page.evaluate(async (rows) => {
   const parts = await import('/src/data/parts.js');
   const creatures = await import('/src/data/creatures.js');
@@ -125,6 +127,7 @@ for (const [label, opts] of [
   await seedStash(page, [
     ['plateback', 'plate', 'sound', 3],
     ['sicklejaw', 'claw', 'fine', 2],
+    ['sicklejaw', 'sinew', 'sound', 2],
   ]);
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
@@ -153,6 +156,14 @@ for (const [label, opts] of [
     /Sound/.test(await chest.innerText()), (await chest.innerText()).replace(/\n/g, ' · '));
   check(`${label}: and what it will eat`,
     /3× Plateback Plate/.test(await chest.innerText()));
+
+  // A pouch is worn for what it holds, so the row has to lead with the
+  // capacity. Its stat block is deliberately a shrug and a player reading only
+  // that would never make one.
+  const pouch = forgeable.filter({ hasText: /Sicklejaw Sinew Pouch/ }).first();
+  check(`${label}: a pouch recipe leads with the room it gives`,
+    /\+6 pack slots/.test(await pouch.innerText()),
+    (await pouch.innerText()).replace(/\n/g, ' · '));
 
   // --- Armed but not confirmed destroys nothing -----------------------------
   const before = await stashCounts(page);

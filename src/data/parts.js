@@ -22,6 +22,7 @@ export const PART_TYPES = {
   membrane: { id: 'membrane', name: 'Membrane', desc: 'Wing skin. Almost weightless.' },
   gland: { id: 'gland', name: 'Gland', desc: 'Still full of whatever it made. Handle carefully.' },
   marrow: { id: 'marrow', name: 'Marrow', desc: 'Taken from deep inside. Rare off anything small.' },
+  sinew: { id: 'sinew', name: 'Sinew', desc: 'Cord and tendon. The only thing a pack can be sewn from.' },
 };
 
 export const PART_TYPE_IDS = Object.keys(PART_TYPES);

@@ -45,7 +45,11 @@ function forgeFor(rng, slot, classId, quality, level) {
   return craftItem({ speciesId: species.id, partType, slot, quality, classId });
 }
 
-const RUNS = 6;
+// Both knobs are here because the numbers below are only meaningful against a
+// stated sample. RUNS=20 SEED0=3000 node tools/test-movement.js re-runs any of
+// the measurements quoted in the comments, and comparing two builds means
+// comparing them across several seed bases rather than one.
+const RUNS = Number(process.env.RUNS ?? 6);
 const SAMPLE = 1;         // seconds between position samples
 const MOVED_MIN = 12;     // ground covered in a sample, or they went nowhere
 const FAR = 60;           // only judge heroes that have somewhere to be
@@ -71,7 +75,11 @@ const FAR = 60;           // only judge heroes that have somewhere to be
 // whether squads travel at all, which is all it ever was. The two checks
 // above measure stuckness directly and carry the weight.
 const MAX_STUCK_SHARE = 0.12;
-const MAX_STUCK_RUN = 400;
+// Half a raid. See the note above the check that uses it: the longest single
+// pin is a maximum on a heavy tail and cannot carry a tighter bound honestly.
+const MAX_STUCK_RUN = 900;
+const LONG_PIN = 60;             // a pin past this is no longer ordinary jostling
+const MAX_LONG_PIN_SHARE = 0.02; // ~4x the worst clean batch measured; see below
 const MIN_SPEED = 48; // units covered per second alive, averaged over every hero
 
 let failures = 0;
@@ -83,10 +91,11 @@ const check = (name, ok, detail = '') => {
 let stuckSeconds = 0;
 let liveSeconds = 0;
 let worstRun = 0;
+let longPinSeconds = 0;
 let totalDistance = 0;
 
 for (let i = 0; i < RUNS; i++) {
-  const seed = 900 + i;
+  const seed = Number(process.env.SEED0 ?? 900) + i;
   const profile = newProfile(seed);
   const rng = makeRng(seed ^ 0x5bf03635);
   for (const hero of profile.roster) {
@@ -135,6 +144,10 @@ for (let i = 0; i < RUNS; i++) {
         const run = (runs.get(e.id) ?? 0) + SAMPLE;
         runs.set(e.id, run);
         worstRun = Math.max(worstRun, run);
+        // Time spent inside a pin that has already gone on too long. Counted
+        // from the moment a run crosses the threshold, so a single bad pin
+        // contributes its whole length rather than one sample.
+        if (run > LONG_PIN) longPinSeconds += SAMPLE;
       } else {
         runs.set(e.id, 0);
       }
@@ -145,12 +158,37 @@ for (let i = 0; i < RUNS; i++) {
 }
 
 const share = stuckSeconds / Math.max(1, liveSeconds);
+const longShare = longPinSeconds / Math.max(1, liveSeconds);
 const speed = totalDistance / Math.max(1, liveSeconds);
 
 check(`heroes rarely fail to make progress (${(share * 100).toFixed(1)}%)`,
   share <= MAX_STUCK_SHARE, `limit ${MAX_STUCK_SHARE * 100}%`);
-check(`nobody is pinned for a whole raid (worst ${worstRun.toFixed(0)}s)`,
+
+// The longest single pin is a max over roughly three hundred hero-raids, and
+// maxima on a heavy tail do not converge — measured over four separate batches
+// of twenty raids the same build reported 34s, 104s, 208s and 259s, and a
+// change that touched nothing about movement moved it to 24s, 66s, 286s and
+// 450s. So this limit is what its name says and nothing tighter: a hero who
+// loses half a raid standing still is broken, and anything short of that is
+// not something a max can tell you.
+check(`nobody loses half a raid to being pinned (worst ${worstRun.toFixed(0)}s)`,
   worstRun <= MAX_STUCK_RUN, `limit ${MAX_STUCK_RUN}s`);
+
+// This is the check that watches for pinning getting worse. It is a rate
+// rather than a maximum, so it converges: the share of live hero-time spent
+// inside a pin that has already run past LONG_PIN seconds. Turning the map's
+// obstacles back on — the one change known to cause real pinning — moved it
+// consistently and in the right direction on both bases it was measured on,
+// 0.17% to 0.56% and 0.22% to 0.73%, where the maximum on those same runs
+// went 450s to 1197s and 286s to 557s.
+//
+// The limit is loose on purpose and this is what it can honestly claim. Over
+// eight seed bases at the default six raids the clean build reads 0.00–0.52%,
+// which already overlaps the obstacles-on range, so at this sample size the
+// check cannot resolve a mild regression. What 2% catches is a large one,
+// without false-failing on an unlucky batch. Raise RUNS to tighten it.
+check(`long pins stay rare (${(longShare * 100).toFixed(2)}% of hero-time)`,
+  longShare <= MAX_LONG_PIN_SHARE, `limit ${(MAX_LONG_PIN_SHARE * 100).toFixed(2)}%`);
 check(`heroes keep moving while they are alive (${speed.toFixed(1)} units/s)`,
   speed >= MIN_SPEED, `floor ${MIN_SPEED}`);
 

@@ -22,7 +22,7 @@ export const SMALL_CREATURES = {
     blurb: 'Opens a vein and is twelve feet away before the swing lands.',
     hp: 90, armor: 14, resist: 6, damage: 18, attackInterval: 0.9, range: 34,
     moveSpeed: 128, radius: 11, aggroRange: 300, xp: 10, packSize: [4, 7],
-    parts: { hide: 4, claw: 3, fang: 2 },
+    parts: { hide: 4, claw: 3, fang: 2, sinew: 1 },
     set: {
       name: 'Sicklejaw', echoes: 'harry',
       desc: 'Hit and leave. Everything about the set is built to be somewhere else.',
@@ -35,7 +35,7 @@ export const SMALL_CREATURES = {
     blurb: 'Will not meet a shield. Goes round it, every time, and waits for you to turn.',
     hp: 110, armor: 18, resist: 10, damage: 20, attackInterval: 1.1, range: 36,
     moveSpeed: 120, radius: 12, aggroRange: 320, xp: 12, packSize: [4, 6],
-    parts: { hide: 4, claw: 2, fang: 2 },
+    parts: { hide: 4, claw: 2, fang: 2, sinew: 1 },
     set: {
       name: 'Duskrunner', echoes: 'flank',
       desc: 'Rewards hitting what is not looking at you.',
@@ -48,7 +48,7 @@ export const SMALL_CREATURES = {
     blurb: 'Individually contemptible. There are never fewer than nine.',
     hp: 70, armor: 8, resist: 4, damage: 14, attackInterval: 0.85, range: 32,
     moveSpeed: 112, radius: 10, aggroRange: 280, xp: 8, packSize: [7, 11],
-    parts: { hide: 5, claw: 3, fang: 1 },
+    parts: { hide: 5, claw: 3, fang: 1, sinew: 1 },
     set: {
       name: 'Threshclaw', echoes: 'swarm',
       desc: 'Made for being outnumbered and not minding.',
@@ -61,7 +61,7 @@ export const SMALL_CREATURES = {
     blurb: 'The bite is nothing. The next two minutes are the problem.',
     hp: 200, armor: 34, resist: 30, damage: 30, attackInterval: 1.3, range: 38,
     moveSpeed: 106, radius: 13, aggroRange: 330, xp: 26, packSize: [4, 6],
-    parts: { hide: 3, fang: 3, gland: 2 },
+    parts: { hide: 3, fang: 3, gland: 2, sinew: 1 },
     set: {
       name: 'Nettlefang', echoes: 'venomous',
       desc: 'Everything you apply lasts longer and hurts more on the way out.',
@@ -74,7 +74,7 @@ export const SMALL_CREATURES = {
     blurb: 'Keeps pace at the edge of sight and takes whoever stops to loot.',
     hp: 220, armor: 40, resist: 24, damage: 44, attackInterval: 1.5, range: 40,
     moveSpeed: 116, radius: 13, aggroRange: 420, xp: 30, packSize: [3, 5],
-    parts: { hide: 4, claw: 3, fang: 2 },
+    parts: { hide: 4, claw: 3, fang: 2, sinew: 1 },
     set: {
       name: 'Palestalker', echoes: 'stalker',
       desc: 'Punishes the target nobody else is dealing with.',
@@ -87,7 +87,7 @@ export const SMALL_CREATURES = {
     blurb: 'Bites, and the limb it bit stops answering for a while.',
     hp: 210, armor: 36, resist: 46, damage: 34, attackInterval: 1.05, range: 36,
     moveSpeed: 122, radius: 12, aggroRange: 330, xp: 28, packSize: [4, 7],
-    parts: { hide: 3, scale: 3, claw: 2, gland: 1 },
+    parts: { hide: 3, scale: 3, claw: 2, gland: 1, sinew: 1 },
     set: {
       name: 'Rimeclaw', echoes: 'harry',
       desc: 'Speed, and the cold that stops anything chasing you.',
@@ -100,7 +100,7 @@ export const SMALL_CREATURES = {
     blurb: 'Coils, and then the twenty feet between you were never there.',
     hp: 190, armor: 30, resist: 40, damage: 40, attackInterval: 1.4, range: 38,
     moveSpeed: 118, radius: 12, aggroRange: 360, xp: 29, packSize: [3, 6],
-    parts: { hide: 3, claw: 3, gland: 2 },
+    parts: { hide: 3, claw: 3, gland: 2, sinew: 1 },
     set: {
       name: 'Emberjack', echoes: 'pounce',
       desc: 'Built around closing distance and doing it again sooner.',
@@ -113,7 +113,7 @@ export const SMALL_CREATURES = {
     blurb: 'Wounding one is a mistake you get to watch arrive.',
     hp: 480, armor: 70, resist: 50, damage: 62, attackInterval: 1.15, range: 40,
     moveSpeed: 124, radius: 14, aggroRange: 400, xp: 62, packSize: [3, 5],
-    parts: { hide: 3, claw: 3, fang: 2, marrow: 1 },
+    parts: { hide: 3, claw: 3, fang: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Bloodcrest', echoes: 'frenzy',
       desc: 'Feeds on the fight. Worth more the worse it is going.',
@@ -128,7 +128,7 @@ export const SMALL_CREATURES = {
     blurb: 'A flock that decided you were carrion slightly too early.',
     hp: 60, armor: 6, resist: 12, damage: 12, attackInterval: 0.8, range: 30,
     moveSpeed: 134, radius: 9, aggroRange: 300, xp: 7, packSize: [8, 12],
-    parts: { membrane: 5, hide: 2, fang: 1 },
+    parts: { membrane: 5, hide: 2, fang: 1, sinew: 1 },
     set: {
       name: 'Skiterling', echoes: 'swarm',
       desc: 'Almost weightless. Hard to land a clean hit on.',
@@ -141,7 +141,7 @@ export const SMALL_CREATURES = {
     blurb: 'Fights poorly. Its real weapon is the rest of the nest arriving.',
     hp: 85, armor: 10, resist: 18, damage: 15, attackInterval: 1.4, range: 34,
     moveSpeed: 118, radius: 10, aggroRange: 460, xp: 11, packSize: [3, 5],
-    parts: { membrane: 4, horn: 2, hide: 2 },
+    parts: { membrane: 4, horn: 2, hide: 2, sinew: 1 },
     set: {
       name: 'Screelwing', echoes: 'screamer',
       desc: 'Worth more to the squad than to the wearer.',
@@ -154,7 +154,7 @@ export const SMALL_CREATURES = {
     blurb: 'Circles until somebody is standing alone, then stops circling.',
     hp: 175, armor: 24, resist: 26, damage: 48, attackInterval: 1.9, range: 36,
     moveSpeed: 126, radius: 12, aggroRange: 420, xp: 27, packSize: [3, 5],
-    parts: { membrane: 4, fang: 3, hide: 2 },
+    parts: { membrane: 4, fang: 3, hide: 2, sinew: 1 },
     set: {
       name: 'Divepike', echoes: 'bomber',
       desc: 'One committed hit worth several careful ones.',
@@ -167,7 +167,7 @@ export const SMALL_CREATURES = {
     blurb: 'You can see the sky through it. Catching it is the whole fight.',
     hp: 150, armor: 16, resist: 34, damage: 28, attackInterval: 0.8, range: 32,
     moveSpeed: 138, radius: 11, aggroRange: 340, xp: 25, packSize: [4, 7],
-    parts: { membrane: 6, hide: 1, gland: 1 },
+    parts: { membrane: 6, hide: 1, gland: 1, sinew: 1 },
     set: {
       name: 'Glasswing', echoes: 'harry',
       desc: 'Nothing stops it and nothing hits it.',
@@ -180,7 +180,7 @@ export const SMALL_CREATURES = {
     blurb: 'Drops burning. Whether it survives the drop is not its concern.',
     hp: 165, armor: 20, resist: 44, damage: 42, attackInterval: 2.0, range: 34,
     moveSpeed: 122, radius: 11, aggroRange: 400, xp: 26, packSize: [4, 6],
-    parts: { membrane: 4, gland: 3, hide: 1 },
+    parts: { membrane: 4, gland: 3, hide: 1, sinew: 1 },
     set: {
       name: 'Cinderbat', echoes: 'bomber',
       desc: 'Everything you throw lands wider.',
@@ -194,7 +194,7 @@ export const SMALL_CREATURES = {
     hp: 400, armor: 34, resist: 96, damage: 58, attackInterval: 1.8, range: 250,
     projectile: true, projectileSpeed: 460, school: 'magic',
     moveSpeed: 112, radius: 13, aggroRange: 440, xp: 58, packSize: [3, 5],
-    parts: { membrane: 4, gland: 3, horn: 2, marrow: 1 },
+    parts: { membrane: 4, gland: 3, horn: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Stormvane', echoes: 'spitter',
       desc: 'Fights from further out than anything should be able to.',
@@ -209,7 +209,7 @@ export const SMALL_CREATURES = {
     blurb: 'Does not chase and does not need to. It is where you wanted to walk.',
     hp: 200, armor: 60, resist: 14, damage: 22, attackInterval: 1.8, range: 42,
     moveSpeed: 74, radius: 15, aggroRange: 260, xp: 16, packSize: [3, 5],
-    parts: { plate: 4, scale: 3, horn: 1 },
+    parts: { plate: 4, scale: 3, horn: 1, sinew: 1 },
     set: {
       name: 'Plateback', echoes: 'bulwark',
       desc: 'The cheapest wall in the game.',
@@ -222,7 +222,7 @@ export const SMALL_CREATURES = {
     blurb: 'Four of them abreast is a closed road.',
     hp: 520, armor: 120, resist: 30, damage: 40, attackInterval: 2.0, range: 46,
     moveSpeed: 66, radius: 18, aggroRange: 280, xp: 44, packSize: [3, 4],
-    parts: { plate: 5, scale: 2, horn: 2, marrow: 1 },
+    parts: { plate: 5, scale: 2, horn: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Boulderhide', echoes: 'bulwark',
       desc: 'Slow, and very hard to remove.',
@@ -235,7 +235,7 @@ export const SMALL_CREATURES = {
     blurb: 'Punishes a squad for standing together, which they usually are.',
     hp: 340, armor: 70, resist: 34, damage: 46, attackInterval: 1.7, range: 60,
     cleave: 90, moveSpeed: 88, radius: 16, aggroRange: 320, xp: 40, packSize: [3, 5],
-    parts: { scale: 4, tail: 3, plate: 2 },
+    parts: { scale: 4, tail: 3, plate: 2, sinew: 1 },
     set: {
       name: 'Spinedrake', echoes: 'tailwhip',
       desc: 'Reach, and everything that comes with hitting several things at once.',
@@ -248,7 +248,7 @@ export const SMALL_CREATURES = {
     blurb: 'You have already walked past two of them.',
     hp: 300, armor: 100, resist: 40, damage: 55, attackInterval: 1.9, range: 44,
     moveSpeed: 70, radius: 15, aggroRange: 190, xp: 38, packSize: [2, 4],
-    parts: { plate: 4, scale: 3, claw: 2 },
+    parts: { plate: 4, scale: 3, claw: 2, sinew: 1 },
     set: {
       name: 'Cragshell', echoes: 'ambusher',
       desc: 'The first blow of a fight is worth several of the rest.',
@@ -261,7 +261,7 @@ export const SMALL_CREATURES = {
     blurb: 'Picks one of you, lines up, and does not deviate.',
     hp: 620, armor: 130, resist: 50, damage: 78, attackInterval: 1.9, range: 50,
     moveSpeed: 96, radius: 18, aggroRange: 420, xp: 74, packSize: [2, 4],
-    parts: { plate: 4, horn: 4, scale: 2, marrow: 1 },
+    parts: { plate: 4, horn: 4, scale: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Ironbrow', echoes: 'charger',
       desc: 'Rewards committing to a straight line and a single target.',
@@ -274,7 +274,7 @@ export const SMALL_CREATURES = {
     blurb: 'Barely fights. Killing one badly costs more than leaving it alone.',
     hp: 700, armor: 150, resist: 70, damage: 30, attackInterval: 2.2, range: 44,
     moveSpeed: 68, radius: 17, aggroRange: 240, xp: 70, packSize: [2, 4],
-    parts: { plate: 5, scale: 3, horn: 2, marrow: 1 },
+    parts: { plate: 5, scale: 3, horn: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Thornback', echoes: 'retaliate',
       desc: 'Turns being attacked into an advantage.',
@@ -289,7 +289,7 @@ export const SMALL_CREATURES = {
     hp: 110, armor: 12, resist: 30, damage: 19, attackInterval: 1.7, range: 200,
     projectile: true, projectileSpeed: 340,
     moveSpeed: 92, radius: 11, aggroRange: 330, xp: 13, packSize: [4, 6],
-    parts: { gland: 4, hide: 3, scale: 1 },
+    parts: { gland: 4, hide: 3, scale: 1, sinew: 1 },
     set: {
       name: 'Bilespitter', echoes: 'spitter',
       desc: 'Corrosion that keeps working after the shot lands.',
@@ -302,7 +302,7 @@ export const SMALL_CREATURES = {
     blurb: 'Bites once and then simply waits, which is usually enough.',
     hp: 230, armor: 30, resist: 50, damage: 32, attackInterval: 1.4, range: 38,
     moveSpeed: 100, radius: 13, aggroRange: 320, xp: 28, packSize: [4, 6],
-    parts: { gland: 4, fang: 3, hide: 2 },
+    parts: { gland: 4, fang: 3, hide: 2, sinew: 1 },
     set: {
       name: 'Mirefang', echoes: 'venomous',
       desc: 'Patient damage, and enough of it comes back to you.',
@@ -315,7 +315,7 @@ export const SMALL_CREATURES = {
     blurb: 'Attaches. From then on the fight is about getting it off.',
     hp: 260, armor: 40, resist: 44, damage: 26, attackInterval: 1.0, range: 34,
     moveSpeed: 104, radius: 12, aggroRange: 300, xp: 30, packSize: [4, 7],
-    parts: { gland: 3, hide: 3, fang: 2 },
+    parts: { gland: 3, hide: 3, fang: 2, sinew: 1 },
     set: {
       name: 'Blightcrawler', echoes: 'leech',
       desc: 'Every hit gives a little of it back.',
@@ -329,7 +329,7 @@ export const SMALL_CREATURES = {
     hp: 420, armor: 44, resist: 90, damage: 54, attackInterval: 1.9, range: 230,
     projectile: true, projectileSpeed: 320, school: 'magic',
     moveSpeed: 90, radius: 14, aggroRange: 380, xp: 60, packSize: [3, 5],
-    parts: { gland: 5, scale: 3, marrow: 1 },
+    parts: { gland: 5, scale: 3, marrow: 1, sinew: 1 },
     set: {
       name: 'Fumewyrm', echoes: 'spitter',
       desc: 'Wider clouds that last longer.',
@@ -342,7 +342,7 @@ export const SMALL_CREATURES = {
     blurb: 'Takes one of you out of the fight by refusing to let them leave it.',
     hp: 520, armor: 90, resist: 60, damage: 66, attackInterval: 1.6, range: 44,
     moveSpeed: 92, radius: 16, aggroRange: 340, xp: 66, packSize: [2, 4],
-    parts: { claw: 5, plate: 3, marrow: 1 },
+    parts: { claw: 5, plate: 3, marrow: 1, sinew: 1 },
     set: {
       name: 'Pincerjaw', echoes: 'grapple',
       desc: 'Holds ground and whatever is standing on it.',
@@ -355,7 +355,7 @@ export const SMALL_CREATURES = {
     blurb: 'Kill it at range or do not kill it near anybody you like.',
     hp: 380, armor: 50, resist: 80, damage: 40, attackInterval: 1.8, range: 40,
     moveSpeed: 84, radius: 15, aggroRange: 300, xp: 58, packSize: [3, 5],
-    parts: { gland: 5, scale: 2, membrane: 2 },
+    parts: { gland: 5, scale: 2, membrane: 2, sinew: 1 },
     set: {
       name: 'Sporeback', echoes: 'deathcloud',
       desc: 'Everything that kills leaves something behind.',
@@ -370,7 +370,7 @@ export const SMALL_CREATURES = {
     blurb: 'The ground you have been standing on for six seconds.',
     hp: 130, armor: 22, resist: 12, damage: 34, attackInterval: 1.6, range: 36,
     moveSpeed: 96, radius: 12, aggroRange: 170, xp: 15, packSize: [3, 6],
-    parts: { hide: 4, claw: 3, fang: 1 },
+    parts: { hide: 4, claw: 3, fang: 1, sinew: 1 },
     set: {
       name: 'Sandlurker', echoes: 'ambusher',
       desc: 'The first strike out of nowhere is the one that counts.',
@@ -383,7 +383,7 @@ export const SMALL_CREATURES = {
     blurb: 'Goes under the moment it is losing and comes back up behind you.',
     hp: 105, armor: 16, resist: 10, damage: 17, attackInterval: 1.2, range: 32,
     moveSpeed: 108, radius: 11, aggroRange: 290, xp: 11, packSize: [5, 8],
-    parts: { hide: 4, fang: 2, marrow: 1 },
+    parts: { hide: 4, fang: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Grubtooth', echoes: 'burrower',
       desc: 'Hard to pin down and harder to finish.',
@@ -396,7 +396,7 @@ export const SMALL_CREATURES = {
     blurb: 'Takes a hero down with it and gives most of them back.',
     hp: 280, armor: 46, resist: 26, damage: 42, attackInterval: 1.5, range: 40,
     moveSpeed: 102, radius: 14, aggroRange: 330, xp: 34, packSize: [3, 5],
-    parts: { hide: 4, claw: 3, marrow: 2 },
+    parts: { hide: 4, claw: 3, marrow: 2, sinew: 1 },
     set: {
       name: 'Dustmaw', echoes: 'burrower',
       desc: 'Slips whatever was aimed at where you were.',
@@ -409,7 +409,7 @@ export const SMALL_CREATURES = {
     blurb: 'Holds absolutely still until it is worth not doing.',
     hp: 250, armor: 54, resist: 30, damage: 60, attackInterval: 2.0, range: 42,
     moveSpeed: 88, radius: 14, aggroRange: 180, xp: 33, packSize: [3, 5],
-    parts: { fang: 4, hide: 3, marrow: 1 },
+    parts: { fang: 4, hide: 3, marrow: 1, sinew: 1 },
     set: {
       name: 'Hollowjaw', echoes: 'ambusher',
       desc: 'One enormous opening, paid for by everything after it.',
@@ -422,7 +422,7 @@ export const SMALL_CREATURES = {
     blurb: 'Follows a squad for a full minute before deciding which one.',
     hp: 440, armor: 72, resist: 60, damage: 68, attackInterval: 1.6, range: 42,
     moveSpeed: 110, radius: 15, aggroRange: 460, xp: 63, packSize: [2, 4],
-    parts: { hide: 4, claw: 3, gland: 2, marrow: 1 },
+    parts: { hide: 4, claw: 3, gland: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Siltcreeper', echoes: 'stalker',
       desc: 'Made for the target nobody is protecting.',
@@ -435,7 +435,7 @@ export const SMALL_CREATURES = {
     blurb: 'Comes up all at once, from everywhere, in a ring.',
     hp: 360, armor: 60, resist: 55, damage: 50, attackInterval: 1.1, range: 36,
     moveSpeed: 106, radius: 13, aggroRange: 360, xp: 56, packSize: [6, 10],
-    parts: { hide: 4, marrow: 3, fang: 2 },
+    parts: { hide: 4, marrow: 3, fang: 2, sinew: 1 },
     set: {
       name: 'Gravewurm', echoes: 'swarm',
       desc: 'Comfortable surrounded, which is where it puts you.',
@@ -450,7 +450,7 @@ export const SMALL_CREATURES = {
     blurb: 'Impossible to hold on to and entirely aware of it.',
     hp: 95, armor: 14, resist: 22, damage: 17, attackInterval: 0.95, range: 34,
     moveSpeed: 130, radius: 11, aggroRange: 310, xp: 11, packSize: [5, 8],
-    parts: { hide: 4, scale: 3, tail: 1 },
+    parts: { hide: 4, scale: 3, tail: 1, sinew: 1 },
     set: {
       name: 'Slickfin', echoes: 'harry',
       desc: 'Nothing sticks, including you.',
@@ -463,7 +463,7 @@ export const SMALL_CREATURES = {
     blurb: 'Builds up over open ground and arrives all at once.',
     hp: 380, armor: 80, resist: 30, damage: 58, attackInterval: 1.8, range: 46,
     moveSpeed: 100, radius: 16, aggroRange: 400, xp: 42, packSize: [3, 5],
-    parts: { hide: 3, horn: 4, plate: 2 },
+    parts: { hide: 3, horn: 4, plate: 2, sinew: 1 },
     set: {
       name: 'Bogtusk', echoes: 'charger',
       desc: 'Weight behind everything, once it is moving.',
@@ -476,7 +476,7 @@ export const SMALL_CREATURES = {
     blurb: 'Stands in plain view for as long as it takes.',
     hp: 240, armor: 40, resist: 40, damage: 56, attackInterval: 1.9, range: 46,
     moveSpeed: 96, radius: 14, aggroRange: 200, xp: 32, packSize: [3, 5],
-    parts: { hide: 4, tail: 2, claw: 2, gland: 1 },
+    parts: { hide: 4, tail: 2, claw: 2, gland: 1, sinew: 1 },
     set: {
       name: 'Reedstalker', echoes: 'ambusher',
       desc: 'Opens hard and gets through whatever is in the way.',
@@ -489,7 +489,7 @@ export const SMALL_CREATURES = {
     blurb: 'Grows visibly during a fight, on what it is taking from you.',
     hp: 500, armor: 76, resist: 74, damage: 58, attackInterval: 1.3, range: 40,
     moveSpeed: 96, radius: 16, aggroRange: 340, xp: 65, packSize: [2, 4],
-    parts: { scale: 4, tail: 3, gland: 2, marrow: 1 },
+    parts: { scale: 4, tail: 3, gland: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Tidemaw', echoes: 'leech',
       desc: 'A long fight is a winning one.',
@@ -504,7 +504,7 @@ export const SMALL_CREATURES = {
     blurb: 'Patient, and entirely willing to wait for somebody else to start.',
     hp: 100, armor: 12, resist: 16, damage: 19, attackInterval: 1.2, range: 34,
     moveSpeed: 124, radius: 11, aggroRange: 340, xp: 11, packSize: [4, 7],
-    parts: { membrane: 4, hide: 3, claw: 1 },
+    parts: { membrane: 4, hide: 3, claw: 1, sinew: 1 },
     set: {
       name: 'Carrionwing', echoes: 'flank',
       desc: 'Better positioned than whatever it is fighting.',
@@ -517,7 +517,7 @@ export const SMALL_CREATURES = {
     blurb: 'Arrives at a kill in numbers and does not distinguish whose it was.',
     hp: 75, armor: 10, resist: 8, damage: 15, attackInterval: 0.9, range: 32,
     moveSpeed: 116, radius: 10, aggroRange: 300, xp: 9, packSize: [7, 11],
-    parts: { hide: 4, fang: 2, marrow: 1 },
+    parts: { hide: 4, fang: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Bonepicker', echoes: 'swarm',
       desc: 'Cheap, plentiful, and fine with a crowd.',
@@ -530,7 +530,7 @@ export const SMALL_CREATURES = {
     blurb: 'Has not cleaned its mouth in its entire life and knows what that does.',
     hp: 265, armor: 36, resist: 46, damage: 34, attackInterval: 1.35, range: 38,
     moveSpeed: 102, radius: 13, aggroRange: 320, xp: 31, packSize: [4, 6],
-    parts: { fang: 4, hide: 3, gland: 2 },
+    parts: { fang: 4, hide: 3, gland: 2, sinew: 1 },
     set: {
       name: 'Rotjaw', echoes: 'venomous',
       desc: 'Infection as a strategy.',
@@ -543,7 +543,7 @@ export const SMALL_CREATURES = {
     blurb: 'Calls every carrion eater within half a mile and then watches.',
     hp: 410, armor: 54, resist: 78, damage: 44, attackInterval: 1.7, range: 40,
     moveSpeed: 114, radius: 14, aggroRange: 520, xp: 57, packSize: [2, 4],
-    parts: { membrane: 4, gland: 3, horn: 2, marrow: 1 },
+    parts: { membrane: 4, gland: 3, horn: 2, marrow: 1, sinew: 1 },
     set: {
       name: 'Ghoulwing', echoes: 'screamer',
       desc: 'Everything the wearer does, the squad does slightly better.',
@@ -576,7 +576,7 @@ export const LARGE_CREATURES = {
       { id: 'stomp', kind: 'ground', cooldown: 10, radius: 200, damage: 130, telegraph: 1.6 },
       { id: 'hunker', kind: 'buff', cooldown: 30, duration: 8, mods: { armor: 200, damageTakenPct: -0.25 } },
     ],
-    parts: { plate: 5, scale: 3, horn: 2, marrow: 2 },
+    parts: { plate: 5, scale: 3, horn: 2, marrow: 2, sinew: 3 },
     set: {
       name: 'Bastionback', echoes: 'retaliate',
       desc: 'The first real armour anyone owns, and still worth wearing much later.',
@@ -596,7 +596,7 @@ export const LARGE_CREATURES = {
         mods: { damagePct: 0.3, attackSpeedPct: 0.2 }, duration: 10 },
       { id: 'stomp', kind: 'ground', cooldown: 9, radius: 190, damage: 170, telegraph: 1.2 },
     ],
-    parts: { plate: 4, horn: 4, fang: 3, marrow: 2, hide: 2 },
+    parts: { plate: 4, horn: 4, fang: 3, marrow: 2, hide: 2, sinew: 3 },
     set: {
       name: 'Tyrannoclast', echoes: 'charger',
       desc: 'Committed, straight-line violence. Nothing about it is defensive.',
@@ -614,7 +614,7 @@ export const LARGE_CREATURES = {
         school: 'magic', telegraph: 1.7, applies: { status: 'chill', duration: 5, mods: { moveSpeedPct: -0.45 } } },
       { id: 'shatter', kind: 'ground', cooldown: 10, radius: 220, damage: 160, school: 'magic', telegraph: 1.5 },
     ],
-    parts: { scale: 5, horn: 3, gland: 3, marrow: 2 },
+    parts: { scale: 5, horn: 3, gland: 3, marrow: 2, sinew: 3 },
     set: {
       name: 'Glaciermaw', echoes: 'breath',
       desc: 'Wide, slow, unavoidable damage, and the resist to stand in your own.',
@@ -634,7 +634,7 @@ export const LARGE_CREATURES = {
       { id: 'brood', kind: 'summon', cooldown: 28, spawn: 'gravewurm', count: 3, maxAlive: 5,
         lifespan: 60, telegraph: 0.9 },
     ],
-    parts: { hide: 4, claw: 4, marrow: 3, plate: 2 },
+    parts: { hide: 4, claw: 4, marrow: 3, plate: 2, sinew: 3 },
     set: {
       name: 'Deepdelver', echoes: 'burrower',
       desc: 'Never quite where the answer lands.',
@@ -654,7 +654,7 @@ export const LARGE_CREATURES = {
         telegraph: 1.4, applies: { status: 'blight', duration: 8 } },
       { id: 'stomp', kind: 'ground', cooldown: 10, radius: 200, damage: 165, telegraph: 1.3 },
     ],
-    parts: { scale: 4, tail: 4, gland: 3, plate: 2, marrow: 2 },
+    parts: { scale: 4, tail: 4, gland: 3, plate: 2, marrow: 2, sinew: 3 },
     set: {
       name: 'Mirethane', echoes: 'grapple',
       desc: 'Holds what it has hold of, and is very hard to move off it.',
@@ -673,7 +673,7 @@ export const LARGE_CREATURES = {
       { id: 'dive', kind: 'dive', cooldown: 18, radius: 240, damage: 340, telegraph: 1.6 },
       { id: 'gale', kind: 'cone', cooldown: 12, length: 400, arc: 65, damage: 180, telegraph: 1.2 },
     ],
-    parts: { membrane: 5, claw: 4, horn: 3, marrow: 2, hide: 2 },
+    parts: { membrane: 5, claw: 4, horn: 3, marrow: 2, hide: 2, sinew: 3 },
     set: {
       name: 'Skyrender', echoes: 'divebomb',
       desc: 'One enormous committed blow, over and over.',
@@ -693,7 +693,7 @@ export const LARGE_CREATURES = {
         telegraph: 1.4, lingerSeconds: 8 },
       { id: 'enrage', kind: 'buff', cooldown: 45, duration: 12, mods: { damagePct: 0.4, attackSpeedPct: 0.25 } },
     ],
-    parts: { scale: 5, gland: 4, horn: 3, marrow: 2, plate: 2 },
+    parts: { scale: 5, gland: 4, horn: 3, marrow: 2, plate: 2, sinew: 3 },
     set: {
       name: 'Pyroclast', echoes: 'breath',
       desc: 'Area damage as a primary weapon rather than a bonus.',
@@ -715,7 +715,7 @@ export const LARGE_CREATURES = {
       { id: 'brood', kind: 'summon', cooldown: 26, spawn: 'mirefang', count: 3, maxAlive: 6,
         lifespan: 60, telegraph: 0.8 },
     ],
-    parts: { scale: 5, fang: 4, gland: 4, tail: 3, marrow: 2 },
+    parts: { scale: 5, fang: 4, gland: 4, tail: 3, marrow: 2, sinew: 3 },
     set: {
       name: 'Venomcoil', echoes: 'constrict',
       desc: 'Damage that arrives later and cannot be blocked when it does.',
@@ -737,7 +737,7 @@ export const LARGE_CREATURES = {
       { id: 'chainbolt', kind: 'cone', cooldown: 9, length: 480, arc: 30, damage: 190,
         school: 'magic', telegraph: 0.9 },
     ],
-    parts: { membrane: 5, gland: 4, horn: 3, scale: 3, marrow: 2 },
+    parts: { membrane: 5, gland: 4, horn: 3, scale: 3, marrow: 2, sinew: 3 },
     set: {
       name: 'Stormcrest', echoes: 'spitter',
       desc: 'Reach, and the cooldowns to keep using it.',
@@ -761,7 +761,7 @@ export const LARGE_CREATURES = {
       { id: 'brood', kind: 'summon', cooldown: 26, spawn: 'ghoulwing', count: 2, maxAlive: 4,
         lifespan: 60, telegraph: 1.0 },
     ],
-    parts: { plate: 4, membrane: 4, horn: 4, gland: 3, marrow: 4 },
+    parts: { plate: 4, membrane: 4, horn: 4, gland: 3, marrow: 4, sinew: 3 },
     set: {
       name: 'Nightfell', echoes: 'roar',
       desc: 'The set the whole roster is built around, and the only one worth three hunts.',
