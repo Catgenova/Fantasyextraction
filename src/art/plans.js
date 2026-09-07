@@ -106,9 +106,14 @@ const FAMILIES = {
 };
 
 /**
- * The ten solo monsters, hand-shaped rather than family-derived. There are few
- * enough of them to be worth it, and each one is a trophy — a player who takes
- * a Nightfell should not find it was a big Sicklejaw.
+ * The thirteen solo monsters, hand-shaped rather than family-derived. There
+ * are few enough of them to be worth it, and each one is a trophy — a player
+ * who takes a Nightfell should not find it was a big Sicklejaw.
+ *
+ * The three at the bottom are the walkers, and they share a build the others
+ * do not: many legs, a long low body and almost no tail. Everything else on
+ * this list is shaped around a moment — a dive, a charge, a coil. These are
+ * shaped around a gait, because walking is the only thing they always do.
  */
 const SOLO = {
   bastionback: { bodyLen: 0.62, bodyWide: 0.5, headLen: 0.24, headWide: 0.2, neck: 0.02, tailLen: 0.28, legs: 6, legReach: 0.2, stride: 0.16, shell: true, horns: 0.6, restless: 0.25 },
@@ -124,6 +129,22 @@ const SOLO = {
   // Arrives rather than flies: compact and heavy for a flier, big-headed, with
   // a short tail and horns. Built around the moment it lands on you.
   skyrender: { bodyLen: 0.58, bodyWide: 0.36, headLen: 0.46, headWide: 0.3, neck: 0.06, tailLen: 0.4, legs: 4, legReach: 0.3, stride: 0.28, wingSpan: 0.98, teeth: true, horns: 0.7, restless: 1.3 },
+  // Long, six-legged and ridged down the back: a slab that goes forward. The
+  // shortest tail of anything this size, because a tail is for turning and
+  // this does not, and the longest stride on the list.
+  //
+  // No shell, which it had at first and which was wrong: a shell plus six legs
+  // is the Bastionback, and side by side the two were the same animal in two
+  // colours. Stones stacked along the spine instead — which is what a cairn
+  // is — and a narrower body, so the round one and the long one read apart.
+  cairnwalker: { bodyLen: 0.78, bodyWide: 0.36, headLen: 0.28, headWide: 0.24, neck: 0.04, tailLen: 0.16, legs: 6, legReach: 0.38, stride: 0.5, horns: 0.55, spines: 8, restless: 0.7 },
+  // The longest walker and the thinnest, on eight legs — it does not stride so
+  // much as flow. Frilled rather than horned: the parts of it that matter are
+  // the soft ones.
+  sablemarch: { bodyLen: 0.8, bodyWide: 0.3, headLen: 0.34, headWide: 0.22, neck: 0.14, tailLen: 0.34, legs: 8, legReach: 0.4, stride: 0.34, frill: 0.8, spines: 6, teeth: true, restless: 0.55 },
+  // Crowned and upright. The tallest head on the list and the widest horns,
+  // and the only walker with wings — half-open, held rather than used.
+  duskherald: { bodyLen: 0.68, bodyWide: 0.4, headLen: 0.46, headWide: 0.32, neck: 0.18, tailLen: 0.48, legs: 4, legReach: 0.42, stride: 0.4, wingSpan: 0.66, horns: 0.95, spines: 5, teeth: true, restless: 0.85 },
   nightfell: { bodyLen: 0.7, bodyWide: 0.38, headLen: 0.44, headWide: 0.3, neck: 0.14, tailLen: 0.8, legs: 4, legReach: 0.4, stride: 0.34, wingSpan: 0.95, teeth: true, spines: 8, horns: 0.8, restless: 1.0 },
 };
 

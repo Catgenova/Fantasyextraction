@@ -8,7 +8,7 @@
 //
 //   node tools/test-bestiary.js
 
-import { SMALL_CREATURES, LARGE_CREATURES, CREATURES, speciesFor } from '../src/data/creatures.js';
+import { SMALL_CREATURES, LARGE_CREATURES, WALKING_CREATURES, CREATURES, speciesFor } from '../src/data/creatures.js';
 import { BEHAVIOURS } from '../src/data/behaviours.js';
 import { PART_TYPES, QUALITIES, QUALITY_ORDER, CARVE_PROFILE, makePart, partValue } from '../src/data/parts.js';
 import { MOD_KEYS } from '../src/sim/stats.js';
@@ -21,19 +21,45 @@ const check = (name, ok, detail = '') => {
 
 const small = Object.values(SMALL_CREATURES);
 const large = Object.values(LARGE_CREATURES);
+const walking = Object.values(WALKING_CREATURES);
 const all = Object.values(CREATURES);
+// Every solo hunt, whichever table it lives in. The split between the two is
+// about how a creature gets onto the map — placed in a ground, or arriving on
+// the clock — and nothing below cares which except where it says so.
+const solo = all.filter((c) => c.hunt === 'solo');
 
 console.log('=== the roster ===');
 
 check('forty pack species', small.length === 40, String(small.length));
-check('ten solo species', large.length === 10, String(large.length));
-check('no id collides across the two tables',
-  Object.keys(CREATURES).length === 50, String(Object.keys(CREATURES).length));
+check('ten solo species in grounds', large.length === 10, String(large.length));
+check('and three that walk', walking.length === 3, String(walking.length));
+check('no id collides across the three tables',
+  Object.keys(CREATURES).length === small.length + large.length + walking.length,
+  String(Object.keys(CREATURES).length));
 check('every key matches its own id', all.every((c) => CREATURES[c.id] === c));
 check('every name is distinct',
-  new Set(all.map((c) => c.name)).size === 50);
+  new Set(all.map((c) => c.name)).size === all.length,
+  `${new Set(all.map((c) => c.name)).size} names for ${all.length} species`);
 check('pack species are marked as pack hunts', small.every((c) => c.hunt === 'small'));
-check('solo species are marked as solo hunts', large.every((c) => c.hunt === 'solo'));
+check('solo species are marked as solo hunts', solo.length === large.length + walking.length);
+check('and only the walkers say they walk',
+  all.filter((c) => c.walks).length === walking.length
+  && walking.every((c) => c.walks && c.arrivesAt > 0 && c.ringTo > c.ringFrom),
+  walking.map((c) => `${c.name}@${c.arrivesAt}s`).join(', '));
+check('the walkers arrive in the order they get harder',
+  walking.every((c, i) => i === 0
+    || (c.arrivesAt > walking[i - 1].arrivesAt && c.hp > walking[i - 1].hp)),
+  walking.map((c) => `${(c.arrivesAt / 60)}m ${c.hp}hp`).join(' -> '));
+// Deeper and wider each time, and every band has to reach the country a raid
+// is actually fought in or the trophy is unreachable content.
+check('and each one starts deeper and ranges wider than the last',
+  walking.every((c, i) => i === 0
+    || (c.ringFrom < walking[i - 1].ringFrom
+      && (c.ringTo - c.ringFrom) > (walking[i - 1].ringTo - walking[i - 1].ringFrom))),
+  walking.map((c) => `${c.ringFrom}-${c.ringTo}`).join(' -> '));
+check('and every band crosses the ring raids are fought in',
+  walking.every((c) => c.ringFrom < 0.33 && c.ringTo > 0.4),
+  walking.map((c) => `${c.name} ${c.ringFrom}-${c.ringTo}`).join(', '));
 check('exactly one apex', all.filter((c) => c.apex).length === 1,
   all.filter((c) => c.apex).map((c) => c.name).join(','));
 
@@ -52,15 +78,15 @@ check('no behaviour dominates the pack roster',
     acc[c.behaviour] = (acc[c.behaviour] ?? 0) + 1; return acc;
   }, {})).every((n) => n <= 5));
 check('every solo monster has its own move set',
-  large.every((c) => (c.abilities ?? []).length >= 2),
-  large.filter((c) => (c.abilities ?? []).length < 2).map((c) => c.name).join(','));
+  solo.every((c) => (c.abilities ?? []).length >= 2),
+  solo.filter((c) => (c.abilities ?? []).length < 2).map((c) => c.name).join(','));
 check('no solo monster repeats an ability id',
-  large.every((c) => new Set(c.abilities.map((a) => a.id)).size === c.abilities.length));
+  solo.every((c) => new Set(c.abilities.map((a) => a.id)).size === c.abilities.length));
 check('every summon names a real species',
-  large.flatMap((c) => c.abilities ?? [])
+  solo.flatMap((c) => c.abilities ?? [])
     .filter((a) => a.kind === 'summon')
     .every((a) => CREATURES[a.spawn]),
-  large.flatMap((c) => (c.abilities ?? []).filter((a) => a.kind === 'summon').map((a) => a.spawn)).join(','));
+  solo.flatMap((c) => (c.abilities ?? []).filter((a) => a.kind === 'summon').map((a) => a.spawn)).join(','));
 
 console.log('\n=== a solo hunt is a different proposition ===');
 
@@ -68,8 +94,8 @@ console.log('\n=== a solo hunt is a different proposition ===');
 // meaningless. It has to be worth the risk on carves, not only on health.
 const toughestPack = Math.max(...small.map((c) => c.hp));
 check('every solo monster outweighs the toughest pack species',
-  large.every((c) => c.hp > toughestPack * 4),
-  `toughest pack ${toughestPack}hp, weakest solo ${Math.min(...large.map((c) => c.hp))}hp`);
+  solo.every((c) => c.hp > toughestPack * 4),
+  `toughest pack ${toughestPack}hp, weakest solo ${Math.min(...solo.map((c) => c.hp))}hp`);
 check('a solo corpse is worth several carves',
   CARVE_PROFILE.large.carves[0] > CARVE_PROFILE.small.carves[1],
   `${CARVE_PROFILE.small.carves.join('-')} against ${CARVE_PROFILE.large.carves.join('-')}`);
@@ -171,8 +197,9 @@ check('adjacent bands overlap rather than stepping',
 
 check('speciesFor finds hunts by kind and depth',
   speciesFor('small', 0).length >= 8 && speciesFor('solo', 0).length === 1
-  && speciesFor('solo', 2).length === 10,
-  `${speciesFor('small', 0).length} shallow packs, ${speciesFor('solo', 0).length} shallow solo`);
+  && speciesFor('solo', 2).length === large.length + walking.length,
+  `${speciesFor('small', 0).length} shallow packs, ${speciesFor('solo', 0).length} shallow solo, ` +
+  `${speciesFor('solo', 2).length} solo in all`);
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
 process.exit(failures ? 1 : 0);

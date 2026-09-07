@@ -18,7 +18,11 @@ import {
 } from '../src/game/profile.js';
 import { ACHIEVEMENTS, achievementForBoss } from '../src/data/achievements.js';
 import { MATCH_SECONDS } from '../src/data/enemies.js';
-import { LARGE_CREATURES as BOSSES } from '../src/data/creatures.js';
+// Every solo kill that grants a trophy — the ten placed in grounds and the
+// three that walk in. Reading LARGE_CREATURES here instead missed the walkers
+// and reported thirteen achievements against ten species.
+const BOSSES = Object.fromEntries(
+  Object.entries(CREATURES).filter(([, c]) => c.hunt === 'solo'));
 import { CLASSES, CLASS_IDS, STARTER_CLASS_IDS } from '../src/data/classes.js';
 import { TREES, unlockedSpells } from '../src/data/skilltrees.js';
 import { spellsForClass, SPELL_SLOTS } from '../src/data/spells.js';

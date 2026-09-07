@@ -789,9 +789,104 @@ export const LARGE_CREATURES = {
   },
 };
 
-export const CREATURES = { ...SMALL_CREATURES, ...LARGE_CREATURES };
+/**
+ * The three that walk.
+ *
+ * Everything else on the map is somewhere. A camp is a place, a solo ground is
+ * a place, and the whole of `src/sim/map.js` is about deciding which places.
+ * These three are not placed at all: they arrive on the clock — at twenty,
+ * fifteen and ten minutes left — and then patrol a circuit, deeper each time,
+ * so the danger closes in as the raid runs down rather than waiting where it
+ * was put.
+ *
+ * They are solo hunts by every other measure — one creature, four to six
+ * carves, a trophy and a class — but they are the one kind you cannot order a
+ * hunt for (see `kindsForSpecies`). There is nowhere to send a squad: the
+ * answer to "where is the Duskherald" changes every ten seconds, and an order
+ * that resolves to a moving point is a chase, not a hunt. You meet these
+ * because they came looking.
+ */
+export const WALKING_CREATURES = {
+  cairnwalker: {
+    id: 'cairnwalker', name: 'Cairnwalker', family: 'harrow', tier: 1, hunt: 'solo',
+    walks: true, arrivesAt: 600, ringFrom: 0.27, ringTo: 0.48,
+    behaviour: 'relentless', color: '#8ea89c',
+    blurb: 'Sets off when the raid is half gone and does not stop again. You do '
+      + 'not lose it; you only ever get further ahead of it for a while.',
+    hp: 7000, armor: 230, resist: 100, damage: 120, attackInterval: 2.2, range: 72,
+    moveSpeed: 92, radius: 30, aggroRange: 560, xp: 720,
+    abilities: [
+      { id: 'footfall', kind: 'ground', cooldown: 10, radius: 210, damage: 150, telegraph: 1.3 },
+      { id: 'gather', kind: 'buff', cooldown: 30, duration: 10, mods: { moveSpeedPct: 0.3, damagePct: 0.2 } },
+    ],
+    parts: { plate: 5, horn: 3, marrow: 2, hide: 3, sinew: 3 },
+    set: {
+      name: 'Cairnwalker', echoes: 'relentless',
+      desc: 'Rewards never having stopped. Everything is worth more while you are moving.',
+      mods: { moveSpeedPct: 0.16, damagePct: 0.12, maxHpFlat: 70, armor: 40 },
+    },
+  },
+  sablemarch: {
+    id: 'sablemarch', name: 'Sablemarch', family: 'harrow', tier: 2, hunt: 'solo',
+    walks: true, arrivesAt: 900, ringFrom: 0.19, ringTo: 0.45,
+    behaviour: 'sunder', color: '#7d8248',
+    blurb: 'Nothing it walks past is quite as whole afterwards. Plate least of all.',
+    hp: 10500, armor: 160, resist: 190, damage: 155, attackInterval: 2.0, range: 80,
+    moveSpeed: 86, radius: 33, aggroRange: 600, xp: 1050, school: 'magic',
+    abilities: [
+      { id: 'corrode', kind: 'ground', cooldown: 9, radius: 250, damage: 190, school: 'magic',
+        telegraph: 1.4, lingerSeconds: 7 },
+      { id: 'blacken', kind: 'buff', cooldown: 34, duration: 12, mods: { armorPen: 240, damagePct: 0.25 } },
+    ],
+    parts: { gland: 5, scale: 4, claw: 3, marrow: 2, hide: 2, sinew: 3 },
+    set: {
+      name: 'Sablemarch', echoes: 'sunder',
+      desc: 'Goes through armour rather than around it, and keeps going afterwards.',
+      mods: { armorPen: 150, damagePct: 0.14, dotPct: 0.2, resist: 45 },
+    },
+  },
+  duskherald: {
+    id: 'duskherald', name: 'Duskherald', family: 'harrow', tier: 2, hunt: 'solo',
+    walks: true, arrivesAt: 1200, ringFrom: 0.12, ringTo: 0.42,
+    behaviour: 'roar', color: '#b8577f',
+    blurb: 'Announces itself once, from a long way off, and then takes its time. '
+      + 'Whatever comes with it heard the same call you did.',
+    hp: 14000, armor: 220, resist: 220, damage: 180, attackInterval: 1.9, range: 86,
+    moveSpeed: 96, radius: 36, aggroRange: 680, xp: 1500,
+    abilities: [
+      { id: 'muster', kind: 'summon', cooldown: 26, spawn: 'bloodcrest', count: 3, maxAlive: 6, lifespan: 90 },
+      { id: 'proclaim', kind: 'ground', cooldown: 11, radius: 280, damage: 220, telegraph: 1.5 },
+      { id: 'ascendancy', kind: 'buff', cooldown: 40, duration: 14, mods: { damagePct: 0.3, attackSpeedPct: 0.2, armor: 90 } },
+    ],
+    parts: { plate: 5, horn: 4, marrow: 3, fang: 3, membrane: 2, sinew: 3 },
+    set: {
+      name: 'Duskherald', echoes: 'roar',
+      desc: 'What the rest of the squad gets out of you being on the field.',
+      mods: { might: 8, armor: 60, damagePct: 0.1, cooldownPct: 0.08 },
+      aura: { damagePct: 0.07, armor: 35, moveSpeedPct: 0.05 },
+    },
+  },
+};
+
+export const CREATURES = { ...SMALL_CREATURES, ...LARGE_CREATURES, ...WALKING_CREATURES };
 export const SMALL_IDS = Object.keys(SMALL_CREATURES);
 export const LARGE_IDS = Object.keys(LARGE_CREATURES);
+
+/** The ones that arrive on the clock and walk, rather than being placed. */
+export const WALKING_IDS = Object.keys(WALKING_CREATURES);
+
+/**
+ * Every solo hunt, whichever table it lives in.
+ *
+ * Anything asking "is this one of the big ones?" wants this and not
+ * LARGE_IDS — the split between the two tables is about how a creature gets
+ * onto the map, not about how big it is. The sprite baker asked LARGE_IDS and
+ * so baked the three largest creatures in the game into the small 88-pixel
+ * cell meant for a Skiterling.
+ */
+export const SOLO_IDS = Object.values(CREATURES)
+  .filter((c) => c.hunt === 'solo').map((c) => c.id);
+export const isWalker = (speciesId) => !!CREATURES[speciesId]?.walks;
 
 /** Every species, whichever table it lives in. */
 export const creatureById = (id) => CREATURES[id] ?? null;

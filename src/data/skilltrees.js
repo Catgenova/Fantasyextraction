@@ -369,6 +369,96 @@ export const TREES = {
     ],
   },
 
+  monk: {
+    branches: [
+      { id: 'stride', name: 'Stride', blurb: 'Being somewhere else, constantly.' },
+      { id: 'fists', name: 'Fists', blurb: 'What lands when you get there.' },
+      { id: 'breath', name: 'Breath', blurb: 'Why you are still going.' },
+    ],
+    nodes: [
+      node({ id: 'm_footwork', branch: 'stride', tier: 0, name: 'Footwork', maxRank: 3, mods: { moveSpeedPct: 0.06, agility: 2 }, desc: '+6% move speed and +2 agility per rank.' }),
+      node({ id: 'm_windstep', branch: 'stride', tier: 1, name: 'Windstep', unlocks: 'windstep', desc: 'Unlocks Windstep.' }),
+      node({ id: 'm_evasion', branch: 'stride', tier: 1, name: 'Evasion', maxRank: 2, mods: { dodge: 0.05 }, desc: '+5% dodge per rank.' }),
+      node({ id: 'm_momentum', branch: 'stride', tier: 2, name: 'Momentum', unlocks: 'momentum', desc: 'Unlocks Momentum.' }),
+      node({ id: 'm_pace', branch: 'stride', tier: 2, name: 'Pace', maxRank: 2, mods: { attackSpeedPct: 0.07 }, desc: '+7% attack speed per rank.' }),
+      node({ id: 'm_unbroken', branch: 'stride', tier: 3, name: 'Unbroken', unlocks: 'unbroken', desc: 'Unlocks Unbroken.' }),
+
+      node({ id: 'm_form', branch: 'fists', tier: 0, name: 'Form', maxRank: 3, mods: { agility: 3 }, desc: '+3 agility per rank.' }),
+      node({ id: 'm_flurry', branch: 'fists', tier: 1, name: 'Flurry', unlocks: 'flurry', desc: 'Unlocks Flurry.' }),
+      node({ id: 'm_precision', branch: 'fists', tier: 1, name: 'Precision', maxRank: 2, mods: { critChance: 0.05 }, desc: '+5% crit chance per rank.' }),
+      node({ id: 'm_palm', branch: 'fists', tier: 2, name: 'Palm Strike', unlocks: 'palm_strike', desc: 'Unlocks Palm Strike.' }),
+      node({ id: 'm_cyclone', branch: 'fists', tier: 2, name: 'Cyclone', unlocks: 'cyclone', desc: 'Unlocks Cyclone.' }),
+      node({ id: 'm_hundred', branch: 'fists', tier: 3, name: 'Hundred Hands', maxRank: 1, mods: { attackSpeedPct: 0.18, critDamage: 0.3 }, desc: '+18% attack speed and +30% crit damage.' }),
+
+      node({ id: 'm_wind', branch: 'breath', tier: 0, name: 'Breathing', maxRank: 3, mods: { maxHpFlat: 45, vitality: 1 }, desc: '+45 max health and +1 vitality per rank.' }),
+      node({ id: 'm_iron', branch: 'breath', tier: 1, name: 'Iron Body', unlocks: 'iron_body', desc: 'Unlocks Iron Body.' }),
+      node({ id: 'm_temper', branch: 'breath', tier: 1, name: 'Temper', maxRank: 2, mods: { resist: 26 }, desc: '+26 resist per rank.' }),
+      node({ id: 'm_draw', branch: 'breath', tier: 2, name: 'Drawing Breath', maxRank: 2, mods: { lifesteal: 0.05 }, desc: '+5% lifesteal per rank.' }),
+      node({ id: 'm_calm', branch: 'breath', tier: 2, name: 'Calm', maxRank: 2, aura: { moveSpeedPct: 0.04 }, desc: 'Squad aura: +4% move speed per rank.' }),
+      node({ id: 'm_stillness', branch: 'breath', tier: 3, name: 'Stillness', maxRank: 1, mods: { damageTakenPct: -0.12, dodge: 0.08 }, desc: '-12% damage taken and +8% dodge.' }),
+    ],
+  },
+
+  alchemist: {
+    branches: [
+      { id: 'reagents', name: 'Reagents', blurb: 'How strong the mixture is.' },
+      { id: 'vapours', name: 'Vapours', blurb: 'How much of the field it covers.' },
+      { id: 'draughts', name: 'Draughts', blurb: 'What you pour into your own side.' },
+    ],
+    nodes: [
+      node({ id: 'a_potency', branch: 'reagents', tier: 0, name: 'Potency', maxRank: 3, mods: { spirit: 3 }, desc: '+3 spirit per rank.' }),
+      node({ id: 'a_flask', branch: 'reagents', tier: 1, name: 'Acid Flask', unlocks: 'acid_flask', desc: 'Unlocks Acid Flask.' }),
+      node({ id: 'a_bite', branch: 'reagents', tier: 1, name: 'Bite', maxRank: 2, mods: { dotPct: 0.15 }, desc: '+15% damage-over-time per rank.' }),
+      node({ id: 'a_solvent', branch: 'reagents', tier: 2, name: 'Solvent', unlocks: 'solvent', desc: 'Unlocks Solvent.' }),
+      node({ id: 'a_etch', branch: 'reagents', tier: 2, name: 'Etching', maxRank: 2, mods: { armorPen: 65 }, desc: 'Ignore 65 enemy armour per rank.' }),
+      node({ id: 'a_dissolution', branch: 'reagents', tier: 3, name: 'Dissolution', unlocks: 'dissolution', desc: 'Unlocks Dissolution.' }),
+
+      node({ id: 'a_glassware', branch: 'vapours', tier: 0, name: 'Glassware', maxRank: 3, mods: { aoeRadiusPct: 0.08, spirit: 1 }, desc: '+8% area radius and +1 spirit per rank.' }),
+      node({ id: 'a_cloud', branch: 'vapours', tier: 1, name: 'Caustic Cloud', unlocks: 'caustic_cloud', desc: 'Unlocks Caustic Cloud.' }),
+      node({ id: 'a_lingering', branch: 'vapours', tier: 1, name: 'Lingering', maxRank: 2, mods: { dotPct: 0.12, cooldownPct: 0.05 }, desc: '+12% damage-over-time and +5% cooldown reduction per rank.' }),
+      node({ id: 'a_spread', branch: 'vapours', tier: 2, name: 'Spread', maxRank: 2, mods: { aoeRadiusPct: 0.14 }, desc: '+14% area radius per rank.' }),
+      node({ id: 'a_fumes', branch: 'vapours', tier: 2, name: 'Fumes', maxRank: 2, aura: { damagePct: 0.04 }, desc: 'Squad aura: +4% damage per rank.' }),
+      node({ id: 'a_reaction', branch: 'vapours', tier: 3, name: 'Chain Reaction', maxRank: 1, mods: { dotPct: 0.35, aoeRadiusPct: 0.2 }, desc: '+35% damage-over-time and +20% area radius.' }),
+
+      node({ id: 'a_dosage', branch: 'draughts', tier: 0, name: 'Dosage', maxRank: 3, mods: { healPower: 0.08, manaRegen: 1 }, desc: '+8% healing and +1 mana regen per rank.' }),
+      node({ id: 'a_tonic', branch: 'draughts', tier: 1, name: 'Tonic', unlocks: 'tonic', desc: 'Unlocks Tonic.' }),
+      node({ id: 'a_panacea', branch: 'draughts', tier: 1, name: 'Panacea', unlocks: 'panacea', desc: 'Unlocks Panacea.' }),
+      node({ id: 'a_quicksilver', branch: 'draughts', tier: 2, name: 'Quicksilver', unlocks: 'quicksilver', desc: 'Unlocks Quicksilver.' }),
+      node({ id: 'a_stillroom', branch: 'draughts', tier: 2, name: 'Stillroom', maxRank: 2, mods: { cooldownPct: 0.08 }, desc: '+8% cooldown reduction per rank.' }),
+      node({ id: 'a_elixir', branch: 'draughts', tier: 3, name: 'Elixir', maxRank: 1, aura: { maxHpFlat: 55, resist: 40 }, desc: 'Squad aura: +55 max health and +40 resist.' }),
+    ],
+  },
+
+  warlord: {
+    branches: [
+      { id: 'command', name: 'Command', blurb: 'What the other two get out of it.' },
+      { id: 'banner', name: 'Banner', blurb: 'Holding the ground it is planted on.' },
+      { id: 'vanguard', name: 'Vanguard', blurb: 'Being the one at the front.' },
+    ],
+    nodes: [
+      node({ id: 'v_presence', branch: 'command', tier: 0, name: 'Presence', maxRank: 3, mods: { might: 2 }, aura: { might: 2 }, desc: '+2 might, and +2 might to the squad, per rank.' }),
+      node({ id: 'v_rally', branch: 'command', tier: 1, name: 'Rally', unlocks: 'rally', desc: 'Unlocks Rally.' }),
+      node({ id: 'v_carry', branch: 'command', tier: 1, name: 'Carrying Voice', maxRank: 2, mods: { aoeRadiusPct: 0.12 }, desc: '+12% area radius per rank.' }),
+      node({ id: 'v_quicksmart', branch: 'command', tier: 2, name: 'Quick Orders', maxRank: 2, mods: { cooldownPct: 0.08 }, desc: '+8% cooldown reduction per rank.' }),
+      node({ id: 'v_example', branch: 'command', tier: 2, name: 'By Example', maxRank: 2, aura: { damagePct: 0.05 }, desc: 'Squad aura: +5% damage per rank.' }),
+      node({ id: 'v_last', branch: 'command', tier: 3, name: 'Last Order', unlocks: 'last_order', desc: 'Unlocks Last Order.' }),
+
+      node({ id: 'v_colours', branch: 'banner', tier: 0, name: 'Colours', maxRank: 3, mods: { armor: 24, vitality: 1 }, aura: { armor: 12 }, desc: '+24 armour and +1 vitality, and +12 armour to the squad, per rank.' }),
+      node({ id: 'v_hold', branch: 'banner', tier: 1, name: 'Hold The Line', unlocks: 'hold_the_line', desc: 'Unlocks Hold The Line.' }),
+      node({ id: 'v_shielding', branch: 'banner', tier: 1, name: 'Shielding', maxRank: 2, mods: { shieldPct: 0.12 }, desc: '+12% shield strength per rank.' }),
+      node({ id: 'v_standard', branch: 'banner', tier: 2, name: 'Standard', unlocks: 'standard', desc: 'Unlocks Standard.' }),
+      node({ id: 'v_ground', branch: 'banner', tier: 2, name: 'Ground Held', maxRank: 2, aura: { damageTakenPct: -0.04 }, desc: 'Squad aura: -4% damage taken per rank.' }),
+      node({ id: 'v_unfallen', branch: 'banner', tier: 3, name: 'Unfallen', maxRank: 1, aura: { maxHpFlat: 65, resist: 40 }, desc: 'Squad aura: +65 max health and +40 resist.' }),
+
+      node({ id: 'v_reach', branch: 'vanguard', tier: 0, name: 'Weight', maxRank: 3, mods: { might: 3, maxHpFlat: 30 }, desc: '+3 might and +30 max health per rank.' }),
+      node({ id: 'v_cleave', branch: 'vanguard', tier: 1, name: 'Cleave', unlocks: 'cleave', desc: 'Unlocks Cleave.' }),
+      node({ id: 'v_warcry', branch: 'vanguard', tier: 1, name: 'War Cry', unlocks: 'warcry', desc: 'Unlocks War Cry.' }),
+      node({ id: 'v_press', branch: 'vanguard', tier: 2, name: 'Press', unlocks: 'press', desc: 'Unlocks Press.' }),
+      node({ id: 'v_bearing', branch: 'vanguard', tier: 2, name: 'Bearing', maxRank: 2, mods: { damageTakenPct: -0.06 }, desc: '-6% damage taken per rank.' }),
+      node({ id: 'v_front', branch: 'vanguard', tier: 3, name: 'The Front', maxRank: 1, mods: { damagePct: 0.14, armor: 90 }, desc: '+14% damage and +90 armour.' }),
+    ],
+  },
+
   lancer: {
     branches: [
       { id: 'reach', name: 'Reach', blurb: 'Hitting from where nothing can hit back.' },

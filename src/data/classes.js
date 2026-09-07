@@ -2,8 +2,9 @@
 // growth per level, the shape of their auto-attack, and which skill tree /
 // spell pool they draw from.
 //
-// Three classes are available from the first raid. The other eight are locked
-// behind a boss kill each — see `src/data/achievements.js` for that mapping.
+// Three classes are available from the first raid. The other thirteen are
+// locked behind a solo kill each — see `src/data/achievements.js` for that
+// mapping.
 // `shape` is the silhouette the renderer draws, so roles stay readable from
 // the top down without a legend.
 
@@ -332,6 +333,90 @@ export const CLASSES = {
     },
     preferredWeapons: ['tail'],
     startingSpells: ['snare', 'grapnel'],
+  },
+
+  // ------------------------------------------------------------------------
+  // The three taught by the walkers. Each one is the lesson of a creature that
+  // came to you rather than waited: never stopping, what gets left behind, and
+  // what a field is worth to whoever is still standing on it.
+
+  monk: {
+    id: 'monk',
+    name: 'Monk',
+    role: 'Melee DPS',
+    color: '#7ec8b8',
+    blurb:
+      'Carries nothing and stops for nothing. Hits fast, hits faster the longer it has been moving, and is the only one on the field with both hands free.',
+    base: { might: 11, agility: 15, spirit: 9, vitality: 12 },
+    growth: { might: 1.1, agility: 1.7, spirit: 0.7, vitality: 1.3 },
+    powerAttr: 'agility',
+    shape: 'spike',
+    baseArmor: 52,
+    baseResist: 58,
+    moveSpeed: 124,
+    attack: {
+      kind: 'melee',
+      range: 40,
+      interval: 0.9,
+      damage: 9,
+      scaling: { attackPower: 0.72 },
+      school: 'physical',
+    },
+    preferredWeapons: ['claw', 'fang'],
+    startingSpells: ['flurry', 'windstep'],
+  },
+
+  alchemist: {
+    id: 'alchemist',
+    name: 'Alchemist',
+    role: 'Ranged control',
+    color: '#b9c24e',
+    blurb:
+      'Wins fights that have already finished. Throws things that keep working, takes armour apart from the outside in, and keeps the squad upright between doses.',
+    base: { might: 6, agility: 10, spirit: 15, vitality: 10 },
+    growth: { might: 0.4, agility: 0.9, spirit: 1.9, vitality: 1.1 },
+    powerAttr: 'spirit',
+    shape: 'disc',
+    baseArmor: 42,
+    baseResist: 52,
+    moveSpeed: 108,
+    attack: {
+      kind: 'projectile',
+      range: 240,
+      interval: 1.4,
+      damage: 9,
+      scaling: { spellPower: 0.75 },
+      school: 'magic',
+      projectileSpeed: 420,
+    },
+    preferredWeapons: ['gland', 'staff'],
+    startingSpells: ['acid_flask', 'tonic'],
+  },
+
+  warlord: {
+    id: 'warlord',
+    name: 'Warlord',
+    role: 'Command',
+    color: '#e0789c',
+    blurb:
+      'Worth more to the other two than to itself. Everything it does is a squad-wide number, and it stands where the squad has to be anyway.',
+    base: { might: 15, agility: 7, spirit: 10, vitality: 14 },
+    growth: { might: 1.5, agility: 0.6, spirit: 0.9, vitality: 1.7 },
+    powerAttr: 'might',
+    shape: 'shield',
+    baseArmor: 80,
+    baseResist: 48,
+    moveSpeed: 100,
+    attack: {
+      kind: 'melee',
+      range: 50,
+      interval: 1.4,
+      damage: 12,
+      scaling: { attackPower: 0.85 },
+      school: 'physical',
+    },
+    preferredWeapons: ['sword', 'horn'],
+    startingSpells: ['rally', 'cleave'],
   },
 
   lancer: {

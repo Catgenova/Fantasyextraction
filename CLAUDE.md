@@ -26,7 +26,7 @@ background rather than blocking on them.
 ```bash
 for t in test-bestiary test-smith test-hunt test-achievements test-progression \
          test-movement test-loot test-extraction test-nav test-heroai \
-         test-ecology; do
+         test-ecology test-walkers; do
   node tools/$t.js
 done
 

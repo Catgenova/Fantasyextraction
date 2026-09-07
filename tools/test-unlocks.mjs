@@ -11,6 +11,7 @@
 //
 // Needs Playwright. Skips rather than fails if it is missing.
 
+import { ACHIEVEMENTS } from '../src/data/achievements.js';
 import { createServer } from 'node:http';
 import { readFile } from 'node:fs/promises';
 import { extname, join, normalize } from 'node:path';
@@ -90,12 +91,14 @@ for (const [label, opts] of [
   const lockedPills = () => trophies.locator('.pill').filter({ hasText: /^Locked$/ });
 
   // --- Locked ---------------------------------------------------------------
-  check(`${label}: the camp lists every trophy`, (await rows().count()) === 10,
-    String(await rows().count()));
-  check(`${label}: all ten start locked`,
-    (await lockedPills().count()) === 10, String(await lockedPills().count()));
+  const TROPHIES = ACHIEVEMENTS.length;
+  check(`${label}: the camp lists every trophy`, (await rows().count()) === TROPHIES,
+    `${await rows().count()} of ${TROPHIES}`);
+  check(`${label}: all of them start locked`,
+    (await lockedPills().count()) === TROPHIES, String(await lockedPills().count()));
   check(`${label}: the count agrees`,
-    /0 \/ 10 classes unlocked/.test(await trophies.locator('.panel-head').innerText()));
+    new RegExp(`0 / ${TROPHIES} classes unlocked`).test(await trophies.locator('.panel-head').innerText()),
+    await trophies.locator('.panel-head').innerText());
   // A locked row has to say what to kill and what it pays, or it is just a
   // greyed-out box the player cannot act on.
   const lockedText = await rows().first().innerText();
@@ -114,9 +117,10 @@ for (const [label, opts] of [
     (await trophies.locator('.trophy.got').count()) === 2,
     String(await trophies.locator('.trophy.got').count()));
   check(`${label}: and the rest stay locked`,
-    (await lockedPills().count()) === 8, String(await lockedPills().count()));
+    (await lockedPills().count()) === TROPHIES - 2, String(await lockedPills().count()));
   check(`${label}: the count follows`,
-    /2 \/ 10 classes unlocked/.test(await trophies.locator('.panel-head').innerText()));
+    new RegExp(`2 / ${TROPHIES} classes unlocked`).test(await trophies.locator('.panel-head').innerText()),
+    await trophies.locator('.panel-head').innerText());
   check(`${label}: an earned row is titled by the trophy, not the boss`,
     /Something That Would Not Fall/.test(await rows().first().innerText()));
   check(`${label}: the unlocked heroes joined the roster`,

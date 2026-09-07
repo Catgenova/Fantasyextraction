@@ -133,6 +133,11 @@ export const BEHAVIOURS = {
     desc: 'Leaves the ground entirely, then arrives all at once.',
     hint: { airborneFor: 4, diveDamageMult: 2.2, diveCooldown: 16 },
   },
+  relentless: {
+    id: 'relentless', name: 'Relentless',
+    desc: 'Does not hold ground, does not stop, and is still coming when you have.',
+    hint: { walks: 1, giveUp: 0, commit: 1, keepRange: 0 },
+  },
   constrict: {
     id: 'constrict', name: 'Constrict',
     desc: 'Coils around whoever is nearest and squeezes until they are let go of.',

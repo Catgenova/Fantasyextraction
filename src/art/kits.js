@@ -11,7 +11,8 @@ import { CLASSES } from '../data/classes.js';
 import {
   SWORD, GREATSWORD, DAGGER, AXE, GREATAXE, MACE, SPEAR, BOW,
   STAFF, STAFF_SHARD, STAFF_FLAME, STAFF_BOLT, STAFF_SKULL,
-  SHIELD, BUCKLER, TOME, QUIVER, inHand, helmCrest, helmHorns, helmHood,
+  SHIELD, BUCKLER, TOME, QUIVER, FLASK, BANNER,
+  inHand, helmCrest, helmHorns, helmHood,
 } from './gear.js';
 
 const INK = '#15120e';
@@ -61,7 +62,7 @@ const base = (classId, over = {}) => {
   };
 };
 
-// Thirteen classes have to be told apart at about twenty-six pixels across,
+// Sixteen classes have to be told apart at about twenty-six pixels across,
 // which is smaller than this sentence's line height. Colour does some of that
 // work and the name label does some, but the silhouette has to carry its share
 // or the roster is a row of identical dots.
@@ -170,6 +171,32 @@ export const KITS = {
     helm: helmHood(shade(CLASSES.rogue.color, 0.55)),
   }),
 
+  // Nothing in either hand — the only figure in the game with both free, and
+  // the fastest fidget of any melee. Where every other silhouette is a body
+  // plus a projection, this one is just the body, which at size is the most
+  // distinctive read available and cost nothing to draw.
+  monk: base('monk', {
+    shoulder: 0.44,
+    lineWidth: 0.082,
+    restless: 1.7,
+    strideLength: 1.25,
+    helm: helmHood(shade(CLASSES.monk.color, 0.45)),
+  }),
+
+  // Widest shoulders after the paladin, and the only figure carrying a banner:
+  // the outline goes out and then *broadens*, where every other weapon tapers.
+  warlord: base('warlord', {
+    shoulder: 0.6,
+    lineWidth: 0.092,
+    restless: 0.5,
+    strideLength: 0.9,
+    pauldrons: shade(CLASSES.warlord.color, 0.35),
+    cloak: shade(CLASSES.warlord.color, 0.6),
+    weapon: inHand(SWORD),
+    offhand: inHand(BANNER),
+    helm: helmCrest(shade(CLASSES.warlord.color, 0.3)),
+  }),
+
   // --------------------------------------------------------------- ranged --
 
   // The only curve in the game. A bow is held across the body rather than
@@ -235,6 +262,20 @@ export const KITS = {
     strideLength: 1.05,
     weapon: inHand(STAFF_FLAME),
     helm: helmHood(shade(CLASSES.fire_mage.color, 0.45)),
+  }),
+
+  // The caster who is not holding a staff. A flask barely projects at all, so
+  // the silhouette is short and busy where the four staff-carriers are long —
+  // which is the separation that matters, since a fifth staff with a fifth
+  // focus shape would be splitting a hair nobody can see at speed.
+  alchemist: base('alchemist', {
+    shoulder: 0.46,
+    lineWidth: 0.082,
+    restless: 1.45,
+    strideLength: 1.0,
+    weapon: inHand(FLASK),
+    offhand: inHand(TOME),
+    helm: helmHood(shade(CLASSES.alchemist.color, 0.5)),
   }),
 
   // Jagged focus, no curves in it anywhere, and a quick fidget. Sits between

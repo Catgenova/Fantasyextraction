@@ -110,7 +110,9 @@ export function createHuntPad(match) {
       'A hunt holds after the pack is cleared — the squad moves to the next one. '
       + 'They still fight whatever walks into them on the way. Nothing on the map '
       + 'comes back, so a species can be hunted out; when the last of it is gone '
-      + 'the squad says so and returns to the plan.'));
+      + 'the squad says so and returns to the plan. The three that walk are not '
+      + 'on this list and cannot be: there is nowhere to send anybody. They arrive '
+      + 'on the clock and find you.'));
   }
 
   function show() { root.hidden = false; render(); }

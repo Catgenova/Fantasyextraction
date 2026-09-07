@@ -30,7 +30,7 @@ import { KITS, KIT_IDS, kitFor } from '/src/art/kits.js';
 import { drawBeast, FRAME_UNITS as BEAST_UNITS } from '/src/art/beast.js';
 import { BEAST_ANIMATIONS, BEAST_ANIMATION_IDS, beastPoseForFrame } from '/src/art/beastanim.js';
 import { planFor, PLAN_IDS } from '/src/art/plans.js';
-import { LARGE_IDS } from '/src/data/creatures.js';
+import { SOLO_IDS } from '/src/data/creatures.js';
 
 const PREVIEW = 108;          // preview cell size in CSS px
 const RAID_SIZES = [28, 44, 72];
@@ -195,7 +195,7 @@ window.bakeBeastLineup = function bakeBeastLineup(ids, animId, frame, cell = 200
 };
 
 window.PLAN_IDS = PLAN_IDS;
-window.SOLO_IDS = LARGE_IDS;
+window.SOLO_IDS = SOLO_IDS;
 window.KIT_IDS = KIT_IDS;
 
 // --- Live preview -----------------------------------------------------------

@@ -227,6 +227,86 @@ put the difficulty back; measured over eight raids it changes the outcome mix
 not at all, which is why `PACK_BUDGET` was left alone rather than tuned to hide
 the shift.
 
+## The three that walk
+
+Everything else on the map is somewhere. A camp is a place, a solo ground is a
+place, and most of `src/sim/map.js` is about deciding which places. These three
+are not placed at all. They arrive on the clock — with twenty, fifteen and ten
+minutes left — and then walk, each one starting deeper and ranging wider than
+the last, so the danger closes in as the raid runs down instead of waiting
+where it was put.
+
+| Arrives | Creature | Health | Band | What it does |
+|---|---|---|---|---|
+| 20m left | Cairnwalker | 7,000 | 0.27–0.48 | Never stops closing |
+| 15m left | Sablemarch | 10,500 | 0.19–0.45 | Corrodes ground and armour |
+| 10m left | Duskherald | 14,000 | 0.12–0.42 | Calls escorts, and is not alone |
+
+They are solo hunts by every other measure — one creature, four to six carves,
+a trophy and a class — but they are the one kind you cannot order a hunt for. A
+quarry is a standing order resolved against the map, and a Duskherald is not
+anywhere: an order naming one would resolve to nothing for the first twenty
+minutes and then turn the squad into a chase. You do not hunt these. They come.
+
+### Making them arrive at all
+
+Three versions of the route, and the first two were measured to be scenery.
+
+**A circle was wrong.** A walker pinned to one radius only ever meets squads at
+that radius, and squads are wherever their plan puts them — which for the
+default plan is the outer ring. Over twelve raids the player met the Cairnwalker
+on its wide lap three times and the two deeper ones **not once**. Two of the
+three trophies were content nobody could reach. A lap now swings between an
+inner and an outer radius three times, and every band has to cross the country
+raids are actually fought in; `test-walkers.js` fails if one does not.
+
+**Blind was wrong too.** Even sweeping a band, one creature crossing a
+16,000-unit map coincides with one squad rarely: the player still met the
+Duskherald zero times in twelve. A patrol that investigates is still a patrol,
+and it is the honest reading of what these are — the fiction is that they heard
+the raid. A walker diverts to anything it notices within 2,600 units, closes,
+and picks its lap back up at the nearest waypoint the moment there is nobody in
+front of it. Somebody now runs into each of them in three raids out of four,
+and the player squad runs into one in two raids out of three.
+
+**The deepest one is still the hardest thing in the game.** The Duskherald
+lands at minute twenty, which is exactly when the default extract plan starts
+heading for a door — so its trophy is effectively gated behind choosing *Full
+timer*. Measured over twenty-four raids by a level-14 squad in pristine gear:
+Cairnwalker killed five times, Sablemarch eight, Duskherald once.
+
+### Two bugs worth keeping written down
+
+Both were invisible to reading and obvious to measurement.
+
+A walker's leash is measured from its current waypoint, and both of the things
+that move that waypoint were larger than the leash. Legs of the first circuit
+ran to 2,441 units against a leash of 2,200, so **every single waypoint advance
+tripped the leash**: the walkers spent 99% of the raid in the
+give-up-and-go-home state, sprinting between waypoints at 1.5× speed and
+healing to full at each one. They were not patrolling; they were fleeing in a
+circle. Then noticing a squad makes that squad the waypoint, at up to 2,600
+units — so a walker that spotted somebody leashed itself in the same instant
+and turned round. The leash is 3,000 now, over both, and `WALKER_LEASH` is
+exported so the test asserts against the real number instead of a copy of it.
+
+Subdividing the long legs fixed the first and introduced a third: the straight
+line between a waypoint pushed clear of an exit and its neighbour cuts back
+across the exit, and midpoints landed 78 units from a door. New points are
+cleared too, and the pass repeats until it converges.
+
+### What they did to the balance
+
+They put back the difficulty that spacing the camps out took away, which is the
+outcome the previous change explicitly declined to fake by tuning `PACK_BUDGET`.
+Same eight seeds, same squads:
+
+| | Before the walkers | After |
+|---|---|---|
+| Outcomes | 6 clean / 2 partial / 0 wiped | 2 clean / 5 partial / 1 wiped |
+| Loot kept | 32.0 | 17.6 |
+| Boss kills | 0.50 | 1.13 |
+
 ## Carving
 
 A corpse is worth stopping for and stopping is the cost. Carving takes 1.5
@@ -310,7 +390,9 @@ pointless.
 
 ## The bestiary
 
-Forty small species that hunt in packs, ten large ones that hunt alone.
+Forty small species that hunt in packs, and thirteen large ones that hunt
+alone — ten of them placed in grounds, three that arrive on the clock and
+walk.
 
 | Family | Species | What they are |
 |---|---|---|
@@ -321,23 +403,26 @@ Forty small species that hunt in packs, ten large ones that hunt alone.
 | Delver | 6 | Burrowers; they are not where you last saw them |
 | Mireborn | 4 | Control — grapples, slows, sticky ground |
 | Carrionkin | 4 | They do better against a squad already hurt |
+| Harrow | 3 | They are not anywhere. They arrive, and then they walk |
 
-Twelve small species are outer-ring, seventeen mid, eleven core. The ten large
-creatures run one outer (Bastionback), four mid, and five core, with Nightfell
-at the centre of the map.
+Twelve small species are outer-ring, seventeen mid, eleven core. The ten placed
+large creatures run one outer (Bastionback), four mid, and five core, with
+Nightfell at the centre of the map. The three Harrow have no ring of their own —
+see **The three that walk**.
 
 The thing that makes fifty species distinguishable without fifty special cases
-is `src/data/behaviours.js`: twenty-five behaviour archetypes — swarm, harry,
+is `src/data/behaviours.js`: twenty-six behaviour archetypes — swarm, harry,
 flank, pounce, spitter, ambusher, burrower, screamer, bulwark, tailwhip, leech,
 bomber, stalker, venomous, frenzy, retaliate, grapple, deathcloud, charger,
-breath, slam, sunder, roar, divebomb, constrict — each a set of `hint` fields
+breath, slam, sunder, roar, divebomb, relentless, constrict — each a set of
+`hint` fields
 the monster AI reads. A species picks one, and the same vocabulary names its
 set bonus, so what a creature does in a fight and what its armour does for you
 are the same word.
 
 ## Classes
 
-Three are yours from the first raid. The other ten are earned — see
+Three are yours from the first raid. The other thirteen are earned — see
 **Trophies** below.
 
 | Class | Role | Power attribute | Shape | Unlocked by |
@@ -355,21 +440,34 @@ Three are yours from the first raid. The other ten are earned — see
 | **Rogue** | Melee burst | Agility | Chevron | Venomcoil |
 | **Lancer** | Reach fighter | Might | Spike | Skyrender |
 | **Slayer** | Elite hunter | Might | Spike | Nightfell |
+| **Monk** | Melee DPS | Agility | Spike | Cairnwalker |
+| **Alchemist** | Ranged control | Spirit | Disc | Sablemarch |
+| **Warlord** | Command | Might | Shield | Duskherald |
 
 Each has seven spells and a three-branch, four-tier skill tree whose nodes
 grant passives, squad-wide auras, or unlock the five spells that are not
 starters. Four spells can be slotted at a time.
 
-None of the ten is a straight upgrade on a starter. The Berserker hits harder
+None of the thirteen is a straight upgrade on a starter. The Berserker hits harder
 than the Knight and dies faster for it; the Paladin mitigates less but heals
 the squad; the Fire Mage does the most damage in the game and has the least
 health to protect it. The Warden gives up damage entirely for snares and
 grapples, and the Lancer trades armour for reach — it opens at 66 units, which
 is further than any other melee class can start a fight.
 
-Silhouettes are shared by role rather than unique per class — thirteen shapes
+The three taught by the walkers are each the lesson of a creature that came to
+you rather than waited. The **Monk** is momentum: the fastest class in the
+game, a 0.9-second swing, and every spell it has is cheap and short — its power
+is how many of them land in a minute rather than any one of them. The
+**Alchemist** wins fights that have already finished, and half its spells do
+nothing at the moment they are cast. The **Warlord** is the only class whose
+identity is squad-wide numbers: alone it is a mediocre frontliner, and with two
+people to spend it on it is the reason they are still standing.
+
+Silhouettes are shared by role rather than unique per class — sixteen shapes
 would be unreadable at raid zoom — so colour and the name label separate
-classes within a role.
+classes within a role. The Monk is the one figure that carries nothing, which
+is the most distinctive read available at that size and cost nothing to draw.
 
 ## The art
 
@@ -529,11 +627,11 @@ runs. A missing asset costs the art and nothing else.
 
 ## Trophies
 
-Ten solo monsters, ten trophies, one hero class each. It is the only way to get
-a class: nothing here is bought, rolled for, or dropped, so a roster is a
-readable record of what its owner has actually killed. The camp lists all ten,
-and a locked row names the creature and the ring it is in, because a player who
-wants a Necromancer needs to know what to go and kill for it.
+Thirteen solo monsters, thirteen trophies, one hero class each. It is the only
+way to get a class: nothing here is bought, rolled for, or dropped, so a roster
+is a readable record of what its owner has actually killed. The camp lists all
+thirteen, and a locked row names the creature and the ring it is in, because a
+player who wants a Necromancer needs to know what to go and kill for it.
 
 | Ring | Creature | Trophy | Unlocks |
 |---|---|---|---|
@@ -547,6 +645,9 @@ wants a Necromancer needs to know what to go and kill for it.
 | Core | Venomcoil | Patience, Applied | Rogue |
 | Core | Skyrender | It Came Back Down | Lancer |
 | Centre | Nightfell | The One That Was Choosing | Slayer |
+| Walks, 20m left | Cairnwalker | It Did Not Stop | Monk |
+| Walks, 15m left | Sablemarch | What It Left Behind | Alchemist |
+| Walks, 10m left | Duskherald | Everyone Heard It | Warlord |
 
 The tiering doubles as the progression ladder. Bastionback is the one a fresh
 squad can realistically take, and it pays for a fourth class; each deeper kill
@@ -911,6 +1012,8 @@ node tools/test-smith.js
 node tools/test-hunt.js
 node tools/test-extraction.js
 node tools/test-achievements.js
+node tools/test-ecology.js
+node tools/test-walkers.js
 node tools/test-bags.mjs        # needs Playwright; skips if absent
 node tools/test-navigation.mjs  # needs Playwright; skips if absent
 node tools/test-layout.mjs      # needs Playwright; skips if absent
@@ -986,6 +1089,21 @@ It also re-measures `RING_TAKEN`, the share of each ring that its solo grounds
 take out of circulation, because those are measured numbers baked into a
 constant: move a ground or change the clearance without updating them and the
 core silently over-promises camps to species that cannot be seated.
+
+`test-walkers.js` covers the three that arrive on the clock: the route, the
+gait, and whether anybody ever meets them. Its two headline numbers were both
+chosen after being got wrong once. "The player meets every walker" is not a
+check — which of six squads a walker runs into swings hard on the seed base,
+and the same build measured 0 of 8 and 5 of 24 — so the per-walker claim is
+made about *any* squad, which is stable at 71-88%, and the player-specific one
+is made in aggregate. And "arrives in every raid" was failing on raids that
+ended before the walker was due, so it counts raids that actually reached the
+arrival time and asserts against that instead.
+
+Every check in it was verified by injecting the bug it guards: put the leash
+back under the notice radius and the walkers spend a tenth of the raid running
+home; pin the circuits to one radius and two of the three bands stop reaching
+the fought-in country; turn off the investigating and the meet rates halve.
 
 `test-extraction.js` guards the priority order that makes "extract now" mean
 it. That order is fragile — putting retreat, regrouping or chasing ahead of it
@@ -1088,7 +1206,7 @@ with no hunt order set:
 
 | Raid plan | Level | Runs | Clean | Partial | Wiped | Avg parts kept | Solo kills |
 |---|---|---|---|---|---|---|---|
-| Farm the ring | 5 | 12 | 8 | 3 | 1 | 31.5 | 0.42 |
+| Farm the ring | 5 | 12 | 4 | 7 | 1 | 22.0 | 1.25 |
 | Solo hunt | 5 | 8 | 0 | 1 | 7 | 1.5 | 0.38 |
 | Solo hunt | 14 | 8 | 0 | 3 | 5 | 7.0 | 3.25 |
 | Squad hunter | 10 | 8 | 7 | 0 | 1 | 41.1 | 1.88 |
@@ -1098,8 +1216,19 @@ monsters are a place you earn the right to visit. A level-5 solo hunt wipes
 seven times in eight and brings home under two parts; the same plan at 14 kills
 3.25 of them a raid and still wipes five times in eight.
 
+The farming row moved twice, in opposite directions, and both moves are worth
+reading as one thing. Spacing the camps out and stopping them respawning made
+farming markedly safer — over eight seeds it went from 2 clean / 5 partial / 1
+wiped to 6 / 2 / 0 with the haul roughly doubled, because being chain-pulled by
+two camps at once was what had been killing squads. Raising `PACK_BUDGET` by
+half was measured and does nothing to put that back: the same eight raids came
+out with an identical outcome mix, so the difficulty had never been in how big
+a pack was. The three walkers put it back through content instead, and the same
+eight seeds returned to 2 / 5 / 1. A solo kill a raid is now the norm rather
+than the exception, because one of the three usually finds somebody.
+
 Drawing a fauna per map rather than sprinkling forty species over seventy camps
-moved this a little, and not in the direction it looks. Farming at level 5
+moved this a little too, and not in the direction it looks. Farming at level 5
 reads worse than before (6/3/3 against 8/3/1) purely because seed 300 happens
 to draw a harsh outer ring — over eight seeds at 500 the same change went 2/3/3
 to 5/1/2 and the haul from 16.5 parts to 24.0. A map now has a character, which

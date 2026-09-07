@@ -804,6 +804,192 @@ export const SPELLS = {
     hint: { priority: 8, targetIsElite: true },
     desc: 'A committed run-through that leaves the target 20% more vulnerable.',
   },
+
+  // -------------------------------------------------------------------- MONK
+  // Everything here is cheap and short. A Monk's power is in how many of them
+  // land in a minute, not in any one of them, which is the Cairnwalker's whole
+  // argument made playable.
+  flurry: {
+    id: 'flurry', name: 'Flurry', classId: 'monk', tier: 0,
+    manaCost: 8, cooldown: 5, range: 46, target: 'enemy',
+    effects: [{ type: 'damage', school: 'physical', base: 15, scaling: { attackPower: 0.85 } }],
+    hint: { priority: 4 },
+    desc: 'A burst of strikes at whatever is in front of you.',
+  },
+  windstep: {
+    id: 'windstep', name: 'Windstep', classId: 'monk', tier: 0,
+    manaCost: 8, cooldown: 11, target: 'self',
+    effects: [{ type: 'buff', status: 'windstep', duration: 5, mods: { moveSpeedPct: 0.35, dodge: 0.18 } }],
+    hint: { priority: 5 },
+    desc: '+35% move speed and 18% dodge for 5s.',
+  },
+  palm_strike: {
+    id: 'palm_strike', name: 'Palm Strike', classId: 'monk', tier: 1,
+    manaCost: 14, cooldown: 10, range: 46, target: 'enemy',
+    effects: [
+      { type: 'damage', school: 'physical', base: 20, scaling: { attackPower: 1.0 } },
+      { type: 'debuff', status: 'dazed', duration: 1.4 },
+    ],
+    hint: { priority: 5 },
+    desc: 'Stops one thing where it stands for 1.4s.',
+  },
+  momentum: {
+    id: 'momentum', name: 'Momentum', classId: 'monk', tier: 1,
+    manaCost: 16, cooldown: 20, target: 'self',
+    effects: [{ type: 'buff', status: 'momentum', duration: 9, mods: { attackSpeedPct: 0.35, moveSpeedPct: 0.15 } }],
+    hint: { priority: 6 },
+    desc: '+35% attack speed and +15% move for 9s.',
+  },
+  cyclone: {
+    id: 'cyclone', name: 'Cyclone', classId: 'monk', tier: 2,
+    manaCost: 20, cooldown: 12, radius: 110, target: 'areaEnemy', range: 50,
+    effects: [{ type: 'damage', school: 'physical', base: 22, scaling: { attackPower: 0.9 } }],
+    hint: { priority: 5, enemiesWithin: 2 },
+    desc: 'Turns through everything within 110u.',
+  },
+  iron_body: {
+    id: 'iron_body', name: 'Iron Body', classId: 'monk', tier: 2,
+    manaCost: 18, cooldown: 26, target: 'self',
+    effects: [
+      { type: 'shield', base: 60, scaling: { spellPower: 0.7 }, duration: 8 },
+      { type: 'buff', status: 'iron_body', duration: 8, mods: { damageTakenPct: -0.18 } },
+    ],
+    hint: { priority: 7, selfHpBelow: 0.5 },
+    desc: 'A shield and 18% less damage taken for 8s.',
+  },
+  unbroken: {
+    id: 'unbroken', name: 'Unbroken', classId: 'monk', tier: 3,
+    manaCost: 30, cooldown: 55, target: 'self',
+    effects: [{ type: 'buff', status: 'unbroken', duration: 12, mods: { attackSpeedPct: 0.4, lifesteal: 0.22, moveSpeedPct: 0.2, damagePct: 0.15 } }],
+    hint: { priority: 8 },
+    desc: 'Twelve seconds of not stopping: faster, harder, and healing off it.',
+  },
+
+  // --------------------------------------------------------------- ALCHEMIST
+  // Half of these do nothing at the moment they are cast, which is the point.
+  acid_flask: {
+    id: 'acid_flask', name: 'Acid Flask', classId: 'alchemist', tier: 0,
+    manaCost: 12, cooldown: 7, range: 240, target: 'enemy',
+    effects: [
+      { type: 'damage', school: 'magic', base: 12, scaling: { spellPower: 0.55 } },
+      { type: 'dot', status: 'corroded', school: 'magic', base: 7, scaling: { spellPower: 0.3 }, duration: 8, tick: 1 },
+      { type: 'debuff', status: 'corroded', duration: 8, mods: { armor: -70 } },
+    ],
+    hint: { priority: 4 },
+    desc: 'Burns for 8s and takes 70 armour off while it does.',
+  },
+  tonic: {
+    id: 'tonic', name: 'Tonic', classId: 'alchemist', tier: 0,
+    manaCost: 14, cooldown: 9, range: 220, target: 'lowestAlly',
+    effects: [{ type: 'hot', status: 'tonic', base: 11, scaling: { spellPower: 0.42 }, duration: 8, tick: 1 }],
+    hint: { priority: 6, allyHpBelow: 0.75 },
+    desc: 'Heals whoever is worst off, steadily, for 8s.',
+  },
+  caustic_cloud: {
+    id: 'caustic_cloud', name: 'Caustic Cloud', classId: 'alchemist', tier: 1,
+    manaCost: 20, cooldown: 13, radius: 150, target: 'areaEnemy', range: 240,
+    effects: [
+      { type: 'damage', school: 'magic', base: 14, scaling: { spellPower: 0.5 } },
+      { type: 'dot', status: 'caustic', school: 'magic', base: 9, scaling: { spellPower: 0.34 }, duration: 9, tick: 1 },
+    ],
+    hint: { priority: 5, enemiesWithin: 2 },
+    desc: 'Leaves a cluster burning for 9s.',
+  },
+  solvent: {
+    id: 'solvent', name: 'Solvent', classId: 'alchemist', tier: 1,
+    manaCost: 16, cooldown: 15, range: 240, target: 'enemy',
+    effects: [{ type: 'debuff', status: 'solvent', duration: 10, mods: { vulnerability: 0.18, resist: -60 } }],
+    hint: { priority: 6, targetIsElite: true },
+    desc: 'Makes one thing 18% easier for everybody to kill.',
+  },
+  quicksilver: {
+    id: 'quicksilver', name: 'Quicksilver', classId: 'alchemist', tier: 2,
+    manaCost: 20, cooldown: 30, radius: 260, target: 'allAllies',
+    effects: [{ type: 'buff', status: 'quicksilver', duration: 10, mods: { attackSpeedPct: 0.18, moveSpeedPct: 0.16 } }],
+    hint: { priority: 6 },
+    desc: 'The whole squad moves and swings faster for 10s.',
+  },
+  panacea: {
+    id: 'panacea', name: 'Panacea', classId: 'alchemist', tier: 2,
+    manaCost: 22, cooldown: 22, range: 220, target: 'lowestAlly',
+    effects: [
+      { type: 'cleanse', count: 2 },
+      { type: 'heal', base: 34, scaling: { spellPower: 0.9 } },
+    ],
+    hint: { priority: 8, allyDebuffed: 1, allyHpBelow: 0.6 },
+    desc: 'Strips two debuffs and heals what they did.',
+  },
+  dissolution: {
+    id: 'dissolution', name: 'Dissolution', classId: 'alchemist', tier: 3,
+    manaCost: 32, cooldown: 52, radius: 200, target: 'areaEnemy', range: 260,
+    effects: [
+      { type: 'damage', school: 'magic', base: 40, scaling: { spellPower: 1.5 } },
+      { type: 'dot', status: 'dissolution', school: 'magic', base: 16, scaling: { spellPower: 0.6 }, duration: 10, tick: 1 },
+      { type: 'debuff', status: 'dissolution', duration: 10, mods: { armor: -140, resist: -90 } },
+    ],
+    hint: { priority: 9, enemiesWithin: 2 },
+    desc: 'Everything in it comes apart for the next ten seconds.',
+  },
+
+  // ----------------------------------------------------------------- WARLORD
+  // Almost every number here lands on somebody else. A Warlord alone is a
+  // mediocre frontliner; a Warlord with two people to spend it on is the
+  // reason the squad is still standing.
+  rally: {
+    id: 'rally', name: 'Rally', classId: 'warlord', tier: 0,
+    manaCost: 14, cooldown: 18, radius: 280, target: 'allAllies',
+    effects: [{ type: 'buff', status: 'rally', duration: 10, mods: { damagePct: 0.14, might: 4 } }],
+    hint: { priority: 6 },
+    desc: 'The squad hits 14% harder for 10s.',
+  },
+  cleave: {
+    id: 'cleave', name: 'Cleave', classId: 'warlord', tier: 0,
+    manaCost: 12, cooldown: 8, radius: 100, target: 'areaEnemy', range: 55,
+    effects: [{ type: 'damage', school: 'physical', base: 17, scaling: { attackPower: 0.8 } }],
+    hint: { priority: 4, enemiesWithin: 2 },
+    desc: 'One swing through everything in front.',
+  },
+  warcry: {
+    id: 'warcry', name: 'War Cry', classId: 'warlord', tier: 1,
+    manaCost: 16, cooldown: 16, radius: 220, target: 'areaEnemy',
+    effects: [
+      { type: 'taunt', duration: 4 },
+      { type: 'debuff', status: 'warcry', duration: 8, mods: { damagePct: -0.15 } },
+    ],
+    hint: { priority: 7, alliesThreatened: 1 },
+    desc: 'Pulls them onto you and takes 15% off what they hit for.',
+  },
+  hold_the_line: {
+    id: 'hold_the_line', name: 'Hold The Line', classId: 'warlord', tier: 1,
+    manaCost: 20, cooldown: 24, radius: 280, target: 'allAllies',
+    effects: [{ type: 'shield', base: 42, scaling: { spellPower: 0.6 }, duration: 9 }],
+    hint: { priority: 7, alliesHurt: 2 },
+    desc: 'A shield on everyone for 9s.',
+  },
+  press: {
+    id: 'press', name: 'Press', classId: 'warlord', tier: 2,
+    manaCost: 18, cooldown: 20, target: 'self',
+    effects: [{ type: 'buff', status: 'press', duration: 8, mods: { armor: 90, damageTakenPct: -0.12, attackSpeedPct: 0.15 } }],
+    hint: { priority: 6, selfHpBelow: 0.7 },
+    desc: 'Stand further forward and take less for it.',
+  },
+  standard: {
+    id: 'standard', name: 'Standard', classId: 'warlord', tier: 2,
+    manaCost: 24, cooldown: 34, radius: 300, target: 'allAllies',
+    effects: [{ type: 'buff', status: 'standard', duration: 14, mods: { armor: 60, resist: 45, maxHpFlat: 70 } }],
+    hint: { priority: 7, alliesHurt: 1 },
+    desc: 'Plants a standard: armour, resist and health for the squad.',
+  },
+  last_order: {
+    id: 'last_order', name: 'Last Order', classId: 'warlord', tier: 3,
+    manaCost: 34, cooldown: 60, radius: 320, target: 'allAllies',
+    effects: [
+      { type: 'buff', status: 'last_order', duration: 12, mods: { damagePct: 0.28, attackSpeedPct: 0.2, moveSpeedPct: 0.12, cooldownPct: 0.15 } },
+      { type: 'heal', base: 30, scaling: { spellPower: 0.7 } },
+    ],
+    hint: { priority: 9, alliesThreatened: 1 },
+    desc: 'Twelve seconds where the squad is simply better at everything.',
+  },
 };
 
 export const SPELL_LIST = Object.values(SPELLS);

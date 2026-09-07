@@ -229,6 +229,43 @@ export const TOME = (ctx, kit) => {
 };
 
 /**
+ * A round-bottomed flask. The only curved thing anyone carries in a hand, and
+ * it barely projects — an Alchemist's silhouette is a caster who is *not*
+ * holding a staff, which is the read that separates it from the four who are.
+ */
+export const FLASK = (ctx, kit) => {
+  ctx.strokeStyle = ink(kit); ctx.lineWidth = 0.05;
+  ctx.fillStyle = kit.focus ?? '#b9c24e';
+  ctx.beginPath(); ctx.arc(0.2, 0, 0.15, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+  ctx.strokeStyle = ink(kit); ctx.lineWidth = 0.06;
+  ctx.beginPath(); ctx.moveTo(0.02, 0); ctx.lineTo(0.1, 0); ctx.stroke();
+  // A stopper, so at size the shape is not simply a dot.
+  ctx.fillStyle = kit.haft ?? '#6b4f34'; ctx.lineWidth = 0.04;
+  ctx.beginPath(); ctx.rect(-0.02, -0.045, 0.06, 0.09); ctx.fill(); ctx.stroke();
+};
+
+/**
+ * A banner. The tallest thing anyone carries and the only one that is wider at
+ * the far end than at the grip, so the Warlord is the one figure whose
+ * outline goes out and then broadens. At twenty-six pixels that is the whole
+ * silhouette: everything else tapers.
+ */
+export const BANNER = (ctx, kit) => {
+  ctx.strokeStyle = kit.haft ?? '#6b4f34'; ctx.lineWidth = 0.075;
+  ctx.beginPath(); ctx.moveTo(-0.34, 0); ctx.lineTo(1.02, 0); ctx.stroke();
+  ctx.strokeStyle = ink(kit); ctx.lineWidth = 0.045;
+  ctx.beginPath(); ctx.moveTo(-0.34, 0); ctx.lineTo(1.02, 0); ctx.stroke();
+  // The cloth hangs to one side. Symmetrical it read as a second weapon.
+  ctx.fillStyle = kit.focus ?? '#e0789c'; ctx.lineWidth = 0.045;
+  ctx.beginPath();
+  ctx.moveTo(0.42, -0.02); ctx.lineTo(0.98, -0.02);
+  ctx.lineTo(0.9, -0.34); ctx.lineTo(0.5, -0.28);
+  ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = kit.steel ?? '#aeb6c2';
+  ctx.beginPath(); ctx.arc(1.06, 0, 0.06, 0, Math.PI * 2); ctx.fill(); ctx.stroke();
+};
+
+/**
  * Wrap a drawing so it can be handed to a kit's `weapon` / `offhand` slot.
  *
  * The wrapper keeps a reference to what it wraps. Without it every weapon in

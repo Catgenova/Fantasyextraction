@@ -1622,7 +1622,12 @@ export function updateMonster(match, e, dt) {
   let target = match.byId(e.target);
   if (target && !target.alive) { target = null; e.target = null; }
 
-  if (e.kind === 'boss') updateBossAbilities(match, e, target, dt);
+  // Abilities need something to use them on. Left ungated, a walker crossing
+  // an empty quarter of the map dropped a telegraphed slam every ten seconds
+  // on its own feet, and a boss standing alone in its ground burned its
+  // cooldowns before anyone arrived. One per call, so a creature that has been
+  // walking for two minutes does not open with everything at once.
+  if (e.kind === 'boss' && target) updateBossAbilities(match, e, target);
 
   // Evading monsters are going home and nothing else — no target, no attacks.
   if (e.evading) {
@@ -1637,12 +1642,20 @@ export function updateMonster(match, e, dt) {
       e.hp = e.maxHp;
       e.shield = 0;
       e.threat.clear();
+      // A walker that has given up rejoins its lap rather than standing at the
+      // waypoint it happened to be nearest when the chase ended.
+      if (e.patrol) advancePatrol(match, e);
     }
     return;
   }
 
   if (!target) {
-    // Nothing to fight: walk home and forget who annoyed us.
+    // Nothing to fight: walk home and forget who annoyed us. For a walker,
+    // home is the next point on its circuit, so "go home" and "carry on
+    // patrolling" are the same instruction and the leash below still means
+    // something — it is measured against wherever the lap has reached, not
+    // against a spawn point it left twenty minutes ago.
+    if (e.patrol) advancePatrol(match, e);
     if (dist(e.pos, e.homePos) > 24) steer(match, e, e.homePos, dt);
     else { e.vel.x = 0; e.vel.y = 0; }
     return;
@@ -1654,6 +1667,73 @@ export function updateMonster(match, e, dt) {
   else { e.vel.x = 0; e.vel.y = 0; }
 
   if (e.attackTimer <= 0 && d <= range) autoAttack(match, e, target);
+}
+
+// How close is close enough to call a waypoint reached. Wider than it looks
+// necessary: a walker with a 30-unit radius steering around a rock can circle
+// a tight waypoint forever without ever being inside it.
+const PATROL_ARRIVE = 90;
+// How far off its route a walker will go to look at something.
+//
+// This is what makes the walkers a threat rather than scenery. Blind circuits
+// were measured and they do not work: one creature crossing a 16000-unit map
+// coincides with one squad rarely enough that over twelve raids the player met
+// the Duskherald zero times, and its trophy was content nobody could reach.
+// A patrol that investigates is still a patrol, and it is the honest reading
+// of what these are for — the fiction is that they heard the raid.
+//
+// Bounded on purpose. 2600 is roughly four times the widest aggro range on the
+// map: near enough that the walker was going to arrive anyway, far enough that
+// it closes with intent instead of drifting past. It does not track across the
+// map, it does not follow you to the door, and it goes back to its lap the
+// moment there is nobody in front of it.
+//
+// It must stay under the leash a walker is given in `Match#releaseWalker`,
+// because noticing somebody makes them the waypoint the leash is measured
+// from. Larger than the leash and a walker leashes itself the moment it sees
+// anything.
+const PATROL_DRAWN_TO = 2600;
+
+/**
+ * Move a walker's home along: to whatever it has noticed, or failing that to
+ * the next point on its circuit once it arrives at this one.
+ */
+function advancePatrol(match, e) {
+  const route = e.patrol.points;
+
+  // Something worth looking at overrides the route. Squads make noise.
+  let seen = null;
+  let bestD = PATROL_DRAWN_TO;
+  for (const h of match.neighbours(e.pos, PATROL_DRAWN_TO)) {
+    if (h.team === e.team || !h.alive || h.extracted || h.kind !== 'hero') continue;
+    const d = dist(e.pos, h.pos);
+    if (d < bestD) { bestD = d; seen = h; }
+  }
+  if (seen) {
+    e.patrol.chasing = seen.id;
+    e.homePos = { ...seen.pos };
+    return;
+  }
+  // Nothing in front of it any more: pick up the lap at the nearest waypoint
+  // rather than walking back to the one it left, which on a wide band can be
+  // most of a minute in the wrong direction.
+  if (e.patrol.chasing) {
+    e.patrol.chasing = null;
+    let near = 0;
+    let nearD = Infinity;
+    for (let i = 0; i < route.length; i++) {
+      const d = dist(e.pos, route[i]);
+      if (d < nearD) { nearD = d; near = i; }
+    }
+    e.patrol.index = near;
+    e.homePos = { ...route[near] };
+    return;
+  }
+
+  if (dist(e.pos, e.homePos) > PATROL_ARRIVE) return;
+  e.patrol.index = (e.patrol.index + 1) % route.length;
+  e.homePos = { ...route[e.patrol.index] };
+  e.patrol.laps += e.patrol.index === 0 ? 1 : 0;
 }
 
 function monsterThink(match, e) {
@@ -1688,16 +1768,28 @@ function monsterThink(match, e) {
   if (!best) e.threat.clear();
 }
 
-function updateBossAbilities(match, e, target, dt) {
+/**
+ * Fire at most one of a large creature's abilities.
+ *
+ * One, not all of them. The timers all tick whether or not the creature has
+ * anyone to use them on, so anything that has been walking or waiting for a
+ * minute has every ability off cooldown at the moment a squad arrives — and
+ * before this fired all three in the same tick, which is not an opening, it is
+ * an execution. Taking one leaves the rest hot for the next think a third of a
+ * second later, so the burst spreads over a second instead of landing at once.
+ *
+ * Kinds the sim has not caught up with yet cost nothing: the cooldown is set
+ * where the ability is actually used, so an inert `cone` or `dive` in the data
+ * does not silently eat a creature's turn every time it comes up.
+ */
+function updateBossAbilities(match, e, target) {
   for (const ab of e.def.abilities ?? []) {
     if ((e.abilityTimers[ab.id] ?? 0) > 0) continue;
-    e.abilityTimers[ab.id] = ab.cooldown;
 
     if (ab.kind === 'ground') {
-      const at = { ...(target?.pos ?? e.pos) };
-      const radius = ab.radius;
       match.pushTelegraph({
-        pos: at, radius, delay: ab.telegraph ?? 1.2, sourceId: e.id,
+        pos: { ...target.pos }, radius: ab.radius,
+        delay: ab.telegraph ?? 1.2, sourceId: e.id,
         damage: { base: ab.damage, school: ab.school ?? 'physical', scaling: {} },
       });
     } else if (ab.kind === 'summon') {
@@ -1706,7 +1798,12 @@ function updateBossAbilities(match, e, target, dt) {
     } else if (ab.kind === 'buff') {
       applyStatus(match, e, e, { status: ab.id, type: 'buff', duration: ab.duration, mods: ab.mods });
       match.pushFloat(e.pos, 'Enraged!', '#ff6b5c', true);
+    } else {
+      continue;
     }
+
+    e.abilityTimers[ab.id] = ab.cooldown;
+    return;
   }
 }
 

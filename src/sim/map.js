@@ -787,6 +787,146 @@ export function resolveCollisions(map, pos, radius) {
   return pos;
 }
 
+/**
+ * A circuit for one of the walkers.
+ *
+ * A ring of waypoints at a fraction of the world radius, jittered so two
+ * raids do not run the same lap, and pushed off anything a squad has to be
+ * able to stand on. Landing zones get the widest berth of the three: a
+ * creature that walks a circle through the drop is a creature that eventually
+ * spawn-camps somebody, and nothing else on this map is allowed to do that.
+ * Exits get a berth too, but a smaller one — an extraction under pressure is
+ * a good raid, an extraction that is impossible is not.
+ *
+ * The route is a loop, so the last point leads back to the first and the
+ * walker never runs out of anywhere to be.
+ */
+// Waypoints are spaced by arc length rather than counted, so a leg is the same
+// length whatever ring the circuit is on. That matters more than it sounds:
+// a walker's leash is measured from its current waypoint, and the first
+// version cut every circuit into fourteen points — which on the outer ring is
+// a leg of 2441 units against a leash of 2200. Every single advance tripped
+// the leash, so the walkers spent 99% of the raid in the give-up-and-go-home
+// state, sprinting between waypoints at 1.5x speed and healing to full at
+// each one. They were not patrolling. They were fleeing in a circle.
+const PATROL_SPACING = 900;
+// How many times a lap swings between its inner and outer radius.
+const PATROL_PETALS = 3;
+const PATROL_SPAWN_CLEAR = 600;
+const PATROL_EXTRACT_CLEAR = 700;
+
+/**
+ * A circuit for one of the walkers.
+ *
+ * Not a circle. A circle was the first version and it was measured to be
+ * nearly useless: a walker pinned to one radius only ever meets squads that
+ * happen to be at that radius, and squads are wherever their plan puts them —
+ * which for the default plan is the outer ring. Over ten raids the player
+ * squad met the Cairnwalker on its wide lap three times and the two deeper
+ * ones not once. Two of the three trophies were unreachable content.
+ *
+ * So a lap swings between an inner and an outer radius three times, and each
+ * walker's band is deeper *and* wider than the last. That keeps the escalation
+ * — the Duskherald starts in the core, where a squad has no business being at
+ * twenty minutes — while guaranteeing all three cross the band where raids are
+ * actually fought.
+ *
+ * The waypoints are then pushed off anything a squad has to be able to stand
+ * on. Landing zones need less room than you would think: spawn protection
+ * lasts 90 seconds and the earliest walker sets off at ten minutes, so by the
+ * time one passes a landing there has been nobody in it for eight minutes —
+ * that clearance is legibility, not safety. Exits are the opposite case, in
+ * use from three minutes to thirty; 700 keeps a walker off the door without
+ * keeping it away from the approach, which is the pressure these are for.
+ */
+/**
+ * Shove one waypoint clear of the exits and landing zones, along its own
+ * radius.
+ *
+ * The direction is whichever way is actually away from the thing being
+ * cleared. Always pushing outward looks right and is wrong half the time: a
+ * waypoint inside the landing ring pushed outward moves *toward* the landings,
+ * and the outer circuit ended up shoved from 5400 units out to 8100 — through
+ * the ring it was supposed to stay inside.
+ */
+function clearWaypoint(map, p) {
+  let r = dist(p, CENTER);
+  const a = Math.atan2(p.y - CENTER.y, p.x - CENTER.x);
+  let out = { ...p };
+  for (let pass = 0; pass < 12; pass++) {
+    let worst = 0;
+    let sign = 1;
+    const consider = (o, clear) => {
+      const short = clear - dist(out, o);
+      if (short <= worst) return;
+      worst = short;
+      sign = dist(out, CENTER) >= dist(o, CENTER) ? 1 : -1;
+    };
+    for (const sp of map.spawns) consider(sp, PATROL_SPAWN_CLEAR);
+    for (const ex of map.extracts) consider(ex, PATROL_EXTRACT_CLEAR);
+    if (worst <= 0) break;
+    r = Math.max(400, r + sign * worst * 0.7);
+    out = { x: CENTER.x + Math.cos(a) * r, y: CENTER.y + Math.sin(a) * r };
+  }
+  return {
+    x: clamp(out.x, MAP_MARGIN, WORLD_SIZE - MAP_MARGIN),
+    y: clamp(out.y, MAP_MARGIN, WORLD_SIZE - MAP_MARGIN),
+  };
+}
+
+export function patrolRoute(map, rng, from, to) {
+  const inner = WORLD_SIZE * from;
+  const outer = WORLD_SIZE * to;
+  const mid = (inner + outer) / 2;
+  const swing = (outer - inner) / 2;
+  const count = Math.max(12, Math.round((2 * Math.PI * mid) / PATROL_SPACING));
+  const turn = rng() * Math.PI * 2;
+  const phase = rng() * Math.PI * 2;
+
+  let points = [];
+  for (let i = 0; i < count; i++) {
+    const a = turn + (i / count) * Math.PI * 2;
+    // Jitter the radius rather than the angle: even angular spacing is what
+    // keeps the pace steady, and a wobbling radius is what stops the lap
+    // reading as a drawn circle.
+    const r = (mid + swing * Math.sin(PATROL_PETALS * (a - turn) + phase))
+      * (0.94 + rng() * 0.12);
+    points.push(clearWaypoint(map, { x: CENTER.x + Math.cos(a) * r, y: CENTER.y + Math.sin(a) * r }));
+  }
+
+  // Split any leg the clearance left over-long, and clear the new points too.
+  //
+  // Waypoints start evenly spaced, but shoving one radially clear of an exit
+  // stretches the legs either side of it — measured at up to 2251 units
+  // against a nominal 900 — and a leg is how far a walker is from its own
+  // leash anchor the moment it advances. Subdividing without re-clearing does
+  // not work either: the straight line between a pushed waypoint and its
+  // neighbour cuts back across the exit it was pushed off, and midpoints
+  // landed 78 units from a door. So it is both, twice, which converges.
+  const LONG_LEG = PATROL_SPACING * 1.5;
+  for (let pass = 0; pass < 3; pass++) {
+    const next = [];
+    let split = false;
+    for (let i = 0; i < points.length; i++) {
+      const a = points[i];
+      const b = points[(i + 1) % points.length];
+      next.push(a);
+      const legs = Math.ceil(dist(a, b) / LONG_LEG);
+      if (legs <= 1) continue;
+      split = true;
+      for (let k = 1; k < legs; k++) {
+        next.push(clearWaypoint(map, {
+          x: a.x + (b.x - a.x) * (k / legs),
+          y: a.y + (b.y - a.y) * (k / legs),
+        }));
+      }
+    }
+    points = next;
+    if (!split) break;
+  }
+  return points;
+}
+
 /** How long a landing zone protects the squads that dropped there. */
 export const SPAWN_PROTECTION_SECONDS = 90;
 

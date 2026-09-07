@@ -22,6 +22,9 @@ const NAMES = {
   lightning_mage: ['Volt Ashby', 'Ianthe', 'Sparrow Kade', 'Delphine', 'Auric', 'Mirren Fyfe'],
   warden: ['Holt', 'Bryn Ashgrove', 'Serel', 'Marchand', 'Quill Vantry', 'Ossa'],
   lancer: ['Cass Verrin', 'Idris', 'Perrault', 'Solveig', 'Tam Redlance', 'Aurel'],
+  monk: ['Shen Adair', 'Rowan Still', 'Kavi', 'Onyeka', 'Brother Vane', 'Tessel'],
+  alchemist: ['Meline Voss', 'Curio', 'Doctor Ashgrave', 'Ilse Petrov', 'Grigor', 'Amaranth'],
+  warlord: ['Vaska Dren', 'Commander Orrell', 'Ismene', 'Tarquin Vale', 'Bereth', 'Hallis Crown'],
 };
 
 let seq = 0;

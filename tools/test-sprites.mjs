@@ -20,7 +20,7 @@ import { ANIMATIONS, ANIMATION_IDS, poseForFrame } from '../src/art/anim.js';
 import { KITS, kitFor } from '../src/art/kits.js';
 import * as GEAR from '../src/art/gear.js';
 import { animFor, beastAnimFor } from '../src/ui/sprites.js';
-import { CREATURES, SMALL_IDS, LARGE_IDS } from '../src/data/creatures.js';
+import { CREATURES, SMALL_IDS, SOLO_IDS } from '../src/data/creatures.js';
 import { planFor, PLAN_IDS, FAMILY_IDS } from '../src/art/plans.js';
 import { BEAST_ANIMATIONS, BEAST_ANIMATION_IDS, beastPoseForFrame } from '../src/art/beastanim.js';
 import { restPose } from '../src/art/rig.js';
@@ -42,10 +42,15 @@ check('a kit for every class',
 check('and no kit for a class that does not exist',
   Object.keys(KITS).every((id) => CLASSES[id]),
   Object.keys(KITS).filter((id) => !CLASSES[id]).join(',') || 'none');
-check('every kit carries something',
-  classIds.every((id) => typeof kitFor(id).weapon === 'function'),
-  classIds.filter((id) => typeof kitFor(id).weapon !== 'function').join(',') || 'all armed');
-// Thirteen figures have to be told apart at about twenty-six pixels, and the
+// Exactly one class carries nothing. Empty hands are the Monk's whole
+// silhouette — the only figure that is body and no projection — so the rule is
+// not "everyone is armed", it is that being unarmed is a deliberate one-off
+// rather than a kit somebody forgot to finish.
+const unarmed = classIds.filter((id) => typeof kitFor(id).weapon !== 'function');
+check('every kit but one carries something', unarmed.length === 1,
+  unarmed.join(',') || 'all armed');
+check('and the one that does not is the Monk', unarmed[0] === 'monk', unarmed[0] ?? '-');
+// Sixteen figures have to be told apart at about twenty-six pixels, and the
 // only levers that survive that are width, reach and grip. If two classes
 // match on all of shoulder width, weapon and offhand they are the same
 // silhouette in two colours.
@@ -125,9 +130,9 @@ check('a faster hero cycles its walk faster', fastStep > slowStep,
 // --------------------------------------------------------------- creatures --
 console.log('\n=== every creature has a body ===');
 
-check('a plan for all fifty species',
-  PLAN_IDS.length === 50 && PLAN_IDS.every((id) => planFor(id)),
-  `${PLAN_IDS.filter((id) => !planFor(id)).length} missing`);
+check('a plan for every species in the bestiary',
+  PLAN_IDS.length === Object.keys(CREATURES).length && PLAN_IDS.every((id) => planFor(id)),
+  `${PLAN_IDS.length} plans, ${PLAN_IDS.filter((id) => !planFor(id)).length} missing`);
 check('every plan has a body and a head',
   PLAN_IDS.every((id) => { const p = planFor(id); return p.bodyLen > 0 && p.bodyWide > 0 && p.headLen > 0; }));
 check('and a species that does not exist has no plan', planFor('nothing') === null);
@@ -163,7 +168,7 @@ check('and species vary within their family',
   varied.length >= 5, `${varied.length}/${famShape.size} families vary`);
 
 // The solo monsters are hand-shaped, so no two should coincide at all.
-const soloShapes = LARGE_IDS.map(shape);
+const soloShapes = SOLO_IDS.map(shape);
 check('no two solo monsters share a body',
   new Set(soloShapes).size === soloShapes.length,
   `${new Set(soloShapes).size}/${soloShapes.length} distinct`);
@@ -262,7 +267,7 @@ if (atlas) {
   // A solo monster is drawn twice the size of a pack creature, so baking them
   // at the same cell throws away half the resolution where it is most visible.
   const smallCells = SMALL_IDS.map((id) => atlas.creatures?.[id]?.cell).filter(Boolean);
-  const largeCells = LARGE_IDS.map((id) => atlas.creatures?.[id]?.cell).filter(Boolean);
+  const largeCells = SOLO_IDS.map((id) => atlas.creatures?.[id]?.cell).filter(Boolean);
   check('solo monsters are baked larger than pack creatures',
     largeCells.length > 0 && Math.min(...largeCells) > Math.max(...smallCells),
     `${Math.max(...smallCells)} vs ${Math.min(...largeCells)}`);

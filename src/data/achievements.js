@@ -1,4 +1,5 @@
-// Trophies. Ten solo hunts, and each one is the only way to unlock a class.
+// Trophies. Thirteen solo kills, and each one is the only way to unlock a
+// class.
 //
 // These are the game's progression spine: the three launch classes get you
 // through the outer ring, the outer-ring boss pays for a fourth, and each
@@ -6,11 +7,15 @@
 // bought, rolled for, or dropped — a class is unlocked by the deed or not at
 // all, so a roster is a readable record of what its owner has actually killed.
 //
+// Ten of them are hunts you go and take. The last three are not: the walkers
+// arrive on the clock and come to you, so their trophies are the only ones a
+// player can earn without ever having decided to.
+//
 // The kill is the achievement, not the extraction. Bosses are hard enough that
 // dying on the way out with the trophy already earned is a fair trade — you
 // still lose everything you were carrying, which is punishment enough.
 
-import { LARGE_CREATURES } from './creatures.js';
+import { CREATURES } from './creatures.js';
 import { CLASSES } from './classes.js';
 
 export const ACHIEVEMENTS = [
@@ -94,6 +99,30 @@ export const ACHIEVEMENTS = [
     blurb: 'Take a Skyrender alone in the core.',
     flavour: 'It spent half the fight out of reach and the other half arriving. Reach, and knowing when to close it, is the whole lesson.',
   },
+  {
+    id: 'cairnwalker',
+    bossId: 'cairnwalker',
+    name: 'It Did Not Stop',
+    unlocks: 'monk',
+    blurb: 'Put down a Cairnwalker. It sets off with twenty minutes left and does not stop.',
+    flavour: 'You outran it four times and it was still coming each time you looked. Standing still was the only mistake available, so you stopped making it.',
+  },
+  {
+    id: 'sablemarch',
+    bossId: 'sablemarch',
+    name: 'What It Left Behind',
+    unlocks: 'alchemist',
+    blurb: 'Put down a Sablemarch. It crosses the exit ring with fifteen minutes left.',
+    flavour: 'Your plate came apart before you did, and the ground it crossed was still working an hour later. Whatever was doing that can be bottled.',
+  },
+  {
+    id: 'duskherald',
+    bossId: 'duskherald',
+    name: 'Everyone Heard It',
+    unlocks: 'warlord',
+    blurb: 'Put down a Duskherald. It comes up out of the core with ten minutes left, and it is not alone.',
+    flavour: 'It called once and half the ring answered. Nothing it did afterwards mattered as much as that — a field is won by who is standing on it.',
+  },
 ];
 
 export const ACHIEVEMENT_BY_ID = Object.fromEntries(ACHIEVEMENTS.map((a) => [a.id, a]));
@@ -103,7 +132,7 @@ export const ACHIEVEMENT_BY_BOSS = Object.fromEntries(ACHIEVEMENTS.map((a) => [a
 export const achievementForBoss = (bossId) => ACHIEVEMENT_BY_BOSS[bossId] ?? null;
 
 /** Boss definition an achievement is about — for names, colour and tier in the UI. */
-export const bossForAchievement = (ach) => LARGE_CREATURES[ach.bossId] ?? null;
+export const bossForAchievement = (ach) => CREATURES[ach.bossId] ?? null;
 
 /** Class an achievement unlocks. */
 export const classForAchievement = (ach) => CLASSES[ach.unlocks] ?? null;

@@ -3,7 +3,7 @@
 
 import { makeRng, randInt, pick, randomInCircle } from '../core/rng.js';
 import { dist, dist2, norm, clamp } from '../core/vec.js';
-import { generateMap, WORLD_SIZE, CENTER, tierAt, extractIsOpen, resolveCollisions } from './map.js';
+import { generateMap, WORLD_SIZE, CENTER, tierAt, extractIsOpen, resolveCollisions, patrolRoute } from './map.js';
 import { makeHeroEntity, makeEnemyEntity, resetIds, lootableFrom, hpFrac, recomputeStats } from './entity.js';
 import { updateHero, updateMonster, squadObjective, tryDeathSave } from './ai.js';
 import { tickStatuses, updateProjectiles, dealDamage } from './combat.js';
@@ -43,6 +43,16 @@ const GRID_SPAN = 1024;
 const gridKey = (x, y) =>
   Math.floor(y / ENTITY_CELL) * GRID_SPAN + Math.floor(x / ENTITY_CELL);
 const ENTITY_BUDGET = 240;   // camps stop streaming in past this
+/**
+ * How far a walker will stray from its lap before giving up and rejoining it.
+ *
+ * It has to clear two separate things, and it was set below both of them at
+ * first. PATROL_DRAWN_TO, because noticing a squad makes them the waypoint
+ * this is measured from — under it, a walker leashed itself the instant it saw
+ * anybody and turned round. And the longest leg of a circuit, because
+ * advancing a waypoint moves the anchor a whole leg away in one step.
+ */
+export const WALKER_LEASH = 3000;
 const CARCASS_SECONDS = 100; // how long an uncarved body is worth walking back to
 // Sustained damage a pack is allowed to represent, by ring. A large pack is
 // a little over twice this.
@@ -78,6 +88,8 @@ export class Match {
     this.feed = [];
     this.activeEvents = [];
     this.firedEvents = new Set();
+    // Entity ids of the walkers that have arrived, for the UI and the tests.
+    this.walkers = [];
     this.collapseActive = false;
     this.collapseRadius = COLLAPSE_MAX_R;
     this.enemyDamageMult = 1;
@@ -495,6 +507,53 @@ export class Match {
         this.log(`${boss.name} stirs.`, 'boss');
       }
     }
+  }
+
+  /**
+   * Put one of the walkers on the map and start it round its circuit.
+   *
+   * It enters at the point on its own lap furthest from anybody living, which
+   * is the only part of this that needs saying twice. Dropped at a random
+   * waypoint it can materialise on top of a squad — a fourteen-thousand-health
+   * creature appearing inside a fight nobody could have seen coming is not
+   * pressure, it is a coin toss — and dropped at a fixed one it is in the same
+   * place every raid. Furthest-from-anyone gives it a walk in, which is time
+   * for the squad to notice the log line and decide.
+   */
+  #releaseWalker(def) {
+    const species = CREATURES[def.walker];
+    if (!species) return;
+    const points = patrolRoute(this.map, this.rng, species.ringFrom, species.ringTo);
+    const living = this.entities.filter((e) => e.alive && e.kind === 'hero' && !e.extracted);
+
+    let start = 0;
+    let bestGap = -Infinity;
+    for (let i = 0; i < points.length; i++) {
+      const gap = living.length ? Math.min(...living.map((h) => dist(points[i], h.pos))) : 0;
+      if (gap > bestGap) { bestGap = gap; start = i; }
+    }
+
+    const e = makeEnemyEntity(species.id, {
+      pos: { ...points[start] }, tierScale: 1, rng: this.rng,
+    });
+    // A walker crosses the whole map, so it cannot be leashed to a camp's
+    // distance — but it still needs one, or it can be walked into the sea by
+    // one hero with a head start. The leash is against the moving waypoint, so
+    // this is how far it will stray from its lap, not from where it started.
+    //
+    // It has to clear PATROL_DRAWN_TO. When a walker notices somebody it makes
+    // them its waypoint, and at 2200 against a notice radius of 2600 that put
+    // it over its own leash in the same instant — so the thing that had just
+    // spotted a squad turned round and went home. Nine per cent of every
+    // walker's raid was spent doing that, and it is why the player squad met
+    // the Cairnwalker in none of eight raids instead of half of them.
+    e.leash = WALKER_LEASH;
+    e.patrol = { points, index: start, laps: 0 };
+    e.homePos = { ...points[start] };
+    this.addEntity(e);
+    this.walkers.push(e.id);
+    this.notice(species.id, {});
+    this.log(`${def.name}: ${def.blurb}`, 'boss');
   }
 
   #populateCamp(poi) {
@@ -915,6 +974,12 @@ export class Match {
       this.enemyDamageMult = def.modifiers.enemyDamageMult;
       this.activeEvents.push(ev);
       this.log(`${def.name}: ${def.blurb}`, 'event');
+      return;
+    }
+
+    if (def.kind === 'walker') {
+      this.#releaseWalker(def);
+      this.activeEvents.push(ev);
       return;
     }
 

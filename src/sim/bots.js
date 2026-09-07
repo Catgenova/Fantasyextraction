@@ -5,7 +5,6 @@
 import { makeRng, pick, randInt, chance, shuffle } from '../core/rng.js';
 import { STARTER_CLASS_IDS } from '../data/classes.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
-import { LARGE_CREATURES } from '../data/creatures.js';
 import { createHero, sanitizeHero, autoAllocate, availableSpells } from './heroes.js';
 import { craftItem, SLOTS, slotsForPart, canEquip } from '../data/gear.js';
 import { QUALITY_ORDER } from '../data/parts.js';
@@ -65,7 +64,7 @@ export function generateBotSquads(seed, count, playerLevel) {
 function classPoolFor(level) {
   const pool = [...STARTER_CLASS_IDS];
   for (const ach of ACHIEVEMENTS) {
-    const tier = LARGE_CREATURES[ach.bossId]?.tier ?? 2;
+    const tier = CREATURES[ach.bossId]?.tier ?? 2;
     if (level >= READY_FOR_BOSS_TIER[tier]) pool.push(ach.unlocks);
   }
   return pool;

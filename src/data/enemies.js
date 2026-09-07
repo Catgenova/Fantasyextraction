@@ -34,10 +34,28 @@ export const WORLD_EVENTS = [
     captureSeconds: 45,
     guardTable: [{ enemy: 'mirefang', count: 4 }, { enemy: 'nettlefang', count: 3 }],
   },
+  // The three that walk. Their times, rings and difficulty all come off the
+  // species (see WALKING_CREATURES in creatures.js) so the schedule cannot
+  // drift from the creature: the event only says that one arrives.
+  {
+    id: 'cairnwalker_walks', name: 'Something Is Walking', at: 600, window: 999, kind: 'walker',
+    blurb: 'A Cairnwalker has set off, and it will not stop. Twenty minutes left.',
+    walker: 'cairnwalker',
+  },
+  {
+    id: 'sablemarch_walks', name: 'The Ground Is Going Bad', at: 900, window: 999, kind: 'walker',
+    blurb: 'A Sablemarch is crossing the exit ring. Fifteen minutes left.',
+    walker: 'sablemarch',
+  },
   {
     id: 'nightfell_wakes', name: 'Nightfell Stirs', at: 1080, window: 999, kind: 'boss',
     blurb: 'The apex wakes at the centre of the map.',
     boss: 'nightfell',
+  },
+  {
+    id: 'duskherald_walks', name: 'Something Called', at: 1200, window: 999, kind: 'walker',
+    blurb: 'A Duskherald is coming up out of the core, and it did not come alone. Ten minutes left.',
+    walker: 'duskherald',
   },
   {
     id: 'collapse', name: 'The Collapse', at: 1500, window: 999, kind: 'collapse',

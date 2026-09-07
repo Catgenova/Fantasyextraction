@@ -44,10 +44,21 @@ export const HUNT_KINDS = {
 
 export const HUNT_KIND_IDS = Object.keys(HUNT_KINDS);
 
-/** The only hunt kind a species can be the subject of. */
+/**
+ * The only hunt kind a species can be the subject of.
+ *
+ * The three that walk are the exception, and they are the exception to the
+ * whole system rather than a gap in it. A quarry is a standing order resolved
+ * against the map — `findQuarry` walks the POI list and returns somewhere the
+ * squad can be sent — and a Duskherald is not anywhere. It arrives on the
+ * clock and then moves, so an order naming one would either resolve to nothing
+ * for the first twenty minutes or turn the squad into a chase. You do not hunt
+ * these. They come.
+ */
 export const kindsForSpecies = (speciesId) => {
   const c = CREATURES[speciesId];
   if (!c) return [];
+  if (c.walks) return [];
   return c.hunt === 'solo' ? ['solo'] : ['small', 'large'];
 };
 
