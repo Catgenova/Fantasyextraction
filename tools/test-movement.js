@@ -13,6 +13,12 @@
 // The last one is the reason this is measured rather than eyeballed: a wedged
 // hero is running at full speed and a naive "are they moving?" check passes.
 //
+// The map currently generates no obstacles at all (see `OBSTACLE_CLUSTERS` in
+// src/sim/map.js), so all three failure modes are dormant and the numbers here
+// are close to ideal: 1.2% stuck against 8.3% with rocks on the map, and a
+// worst pin of 18s against 253s. The checks stay because the rocks are meant
+// to come back, and this is what tells us whether the steering is ready.
+//
 //   node tools/test-movement.js
 
 import { Match, TICK } from '../src/sim/match.js';
@@ -41,7 +47,8 @@ const FAR = 60;           // only judge heroes that have somewhere to be
 // classes and five boss arenas took it from 66.0 units/s to 57.4: four of the
 // eight new classes are melee, so squads crowd the same spot and jam each
 // other more often, and seven arenas put more on the map to stand and fight.
-// Both are the content doing what it was added to do.
+// Both were the content doing what it was added to do. Clearing the obstacles
+// took it back to 66.7, which is the ceiling for this squad layout.
 //
 // Do not mistake this for a sensitive detector of bad steering. Deleting
 // obstacle avoidance outright barely moves it — it stays a coarse floor on

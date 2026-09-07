@@ -33,6 +33,41 @@ function runRaid(seed, profile) {
     `${a.outcome}/${a.stats.kills} vs ${b.outcome}/${b.stats.kills}`);
 }
 
+// --- Death costs everything ------------------------------------------------
+// Asserted against `applyMatchResult` rather than by waiting for a raid to
+// kill somebody: it is a rule of the game, so it should hold whether or not
+// the current balance happens to produce a corpse.
+{
+  const profile = newProfile(31);
+  const hero = profile.roster[0];
+  const worn = Object.values(hero.equipped).filter(Boolean);
+  const carried = [profile.stash[3], profile.stash[4]].filter(Boolean);
+  const stashBefore = profile.stash.length;
+
+  const summary = applyMatchResult(profile, {
+    seed: 31, duration: 600, outcome: 'partial', bossesKilled: [],
+    stats: { kills: 10, bossKills: 0, heroKills: 0 },
+    heroes: [{
+      entityId: 'e1', heroId: hero.id, name: hero.name, classId: hero.classId,
+      extracted: false, alive: false, xp: 100, kills: 3, damage: 0, healing: 0, taken: 0,
+      kept: [], keptEquipped: {}, keptConsumables: [],
+      lost: [...worn, ...carried],
+    }],
+  });
+
+  check('a hero who did not extract is stripped of everything worn',
+    Object.values(hero.equipped).every((i) => !i),
+    `${Object.values(hero.equipped).filter(Boolean).length} items still equipped`);
+  check('and their belt is emptied', hero.consumables.length === 0);
+  check('the report lists what was lost',
+    summary.lost.length === worn.length + carried.length,
+    `${summary.lost.length} of ${worn.length + carried.length}`);
+  check('none of it reaches the stash',
+    profile.stash.length === stashBefore
+    && !profile.stash.some((i) => worn.some((w) => w.id === i.id)),
+    `${stashBefore} -> ${profile.stash.length}`);
+}
+
 // --- Progression across several raids --------------------------------------
 {
   const profile = newProfile(4242);
@@ -61,7 +96,11 @@ function runRaid(seed, profile) {
   }
 
   check('at least one raid ended in an extraction', extractedOnce);
-  check('at least one death cost its hero their gear', lostGearOnce);
+  // Reported for interest, not asserted. Whether anybody dies in six seeded
+  // raids is a property of the difficulty curve, not of this rule — removing
+  // the map's obstacles was enough to make every squad come home — so the
+  // rule itself is tested directly below.
+  console.log(`      (a death cost somebody their gear in these raids: ${lostGearOnce ? 'yes' : 'no'})`);
   check('heroes gained levels over six raids',
     profile.roster.some((h, i) => h.level > startLevels[i]),
     profile.roster.map((h) => `${h.name} L${h.level}`).join(', '));

@@ -25,8 +25,8 @@ const UNREACHABLE_FOR = 20;  // how long a hero ignores a target it cannot catch
 const PERCEPTION = 820;      // how far a hero looks for targets
 const PICKUP_RANGE = 110;    // must exceed the widest formation spacing
 const LOOT_SEARCH_RADIUS = 900;
-const LOOT_PATIENCE = 5;      // seconds standing on a pile before writing it off
-const LOOT_TRAVEL_LIMIT = 25; // seconds pursuing one pile, arrived or not
+export const LOOT_PATIENCE = 5;      // seconds standing on a pile before writing it off
+export const LOOT_TRAVEL_LIMIT = 25; // seconds pursuing one pile, arrived or not
 
 // Steering around scenery. Without these a hero walks straight into a rock,
 // gets pushed back out by collision resolution, and walks into it again —

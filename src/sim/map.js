@@ -160,8 +160,17 @@ export function generateMap(seed) {
   map.eventSites = eventAnchors.map((p, i) => ({ id: `site_${i}`, x: p.x, y: p.y }));
 
   // --- Obstacles: clustered rocks and ruins that block movement ------------
-  const clusters = 420;
-  for (let c = 0; c < clusters; c++) {
+  // Temporarily switched off. Everything below still works — the grid, the
+  // collision resolution, the steering that avoids and detours around
+  // scenery — it simply has nothing to act on, so raids are fought on open
+  // ground. Set this back to 420 to bring the rocks back.
+  //
+  // They are the source of the one movement problem this project has never
+  // properly solved: a hero wedged between two rocks that steering forces plus
+  // collision resolution cannot free. With none on the map, heroes stuck with
+  // somewhere to be fall from 8.3% of the time to effectively zero.
+  const OBSTACLE_CLUSTERS = 0;
+  for (let c = 0; c < OBSTACLE_CLUSTERS; c++) {
     const cx = rand(rng, 150, WORLD_SIZE - 150);
     const cy = rand(rng, 150, WORLD_SIZE - 150);
     const n = randInt(rng, 2, 6);

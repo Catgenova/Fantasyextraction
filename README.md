@@ -213,6 +213,15 @@ deleting them.
 A boss only spawns once a squad comes within 1500 units of its arena, so a
 raid you spend in the outer ring never pays for the core's population.
 
+**The map currently generates no obstacles.** Rocks and ruins are switched off
+at `OBSTACLE_CLUSTERS` in `src/sim/map.js` — everything that reads them still
+works, there is simply nothing to read — so raids are fought on open ground.
+It costs some of the map's character and makes the outer ring safer still, but
+it removes the one movement problem this project has never properly solved:
+heroes stuck with somewhere to be fall from 8.3% of the time to 1.2%, the
+worst pin from 253 seconds to 18, and the sim gets about 30% cheaper per tick.
+Set the constant back to 420 to bring them back.
+
 Landing zones are safe ground for the first 90 seconds; nobody gets
 spawn-camped out of a raid.
 
@@ -334,15 +343,21 @@ gear and a spent skill tree — against five rival squads:
 
 | Raid plan | Level | Runs | Clean | Partial | Wiped | Avg items kept | Boss kills |
 |---|---|---|---|---|---|---|---|
-| Farm the ring | 5 | 12 | 9 | 3 | 0 | 20.8 | 0.75 |
-| Boss hunt | 5 | 8 | 0 | 3 | 5 | 1.1 | 0.25 |
-| Boss hunt | 14 | 8 | 0 | 5 | 3 | 8.3 | 4.00 |
-| Squad hunter | 10 | 8 | 3 | 2 | 3 | 26.0 | 3.38 |
+| Farm the ring | 5 | 12 | 11 | 1 | 0 | 25.4 | 0.83 |
+| Boss hunt | 5 | 8 | 0 | 1 | 7 | 0.5 | 0.00 |
+| Boss hunt | 14 | 8 | 0 | 4 | 4 | 6.4 | 4.00 |
+| Squad hunter | 10 | 8 | 4 | 1 | 3 | 22.4 | 3.38 |
 
 That spread is the intent: farming is a reliable income, and the core is a
 place you earn the right to visit. Boss hunting at level 5 is close to
 hopeless and turns into the best source of trophies in the game once you are
 geared for it.
+
+Clearing the obstacles pushed both ends further apart. Farming is now close to
+risk-free — eleven clean runs in twelve, and 25.4 items home — because nothing
+snags a squad on the way anywhere. Boss hunting got *harder*, because open
+ground cuts both ways: with no scenery to break up a charge, everything that
+aggros arrives at once.
 
 The old known soft spot — boss kills were rare, 0.1–0.6 a raid even on the
 boss plan, because squads died to core trash on the way in — is fixed, and by
@@ -374,10 +389,12 @@ which is what makes looting one meaningful — they are wearing real gear.
 Scrap accumulates but has nothing to spend it on yet: item repair is the next
 thing to build on it.
 
-The known weak spot is steering, not content. Heroes still occasionally jam —
-two of them from opposing squads wedged in the same rock notch, each at the
-exact separation distance, neither able to leave. The escape machinery now
-widens its detour on every failed attempt, which took the worst observed case
-over ninety raids from 995 seconds pinned to 40, but the real fix is a proper
-character controller rather than steering forces plus collision resolution.
-See the note above `obstaclesNear` in `src/sim/map.js`.
+The known weak spot is steering, and it is currently dormant rather than
+fixed: the map generates no obstacles, so there is nothing to wedge against.
+With rocks on the map heroes still jam — two of them from opposing squads
+caught in the same notch, each at the exact separation distance, neither able
+to leave. The escape machinery widens its detour on every failed attempt,
+which took the worst observed case over ninety raids from 995 seconds pinned
+to 40, but the real fix is a proper character controller rather than steering
+forces plus collision resolution. That is the work to do before the obstacles
+come back. See the note above `obstaclesNear` in `src/sim/map.js`.

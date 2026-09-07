@@ -22,10 +22,19 @@ import { makeRng } from '../src/core/rng.js';
 import { MATCH_SECONDS } from '../src/data/enemies.js';
 import { canTake, wantsItem } from '../src/sim/ai.js';
 
+import { LOOT_PATIENCE, LOOT_TRAVEL_LIMIT } from '../src/sim/ai.js';
+
 const RUNS = 6;
 // Generous ceilings: these catch a squad that has stopped playing, not a
 // squad that is merely being thorough.
-const MAX_STALL = 30;        // seconds in loot mode with nothing collected
+//
+// The stall is measured per pile. It used to run until the squad left loot
+// mode entirely, so consecutive failed piles chained into one number with no
+// ceiling the sim could justify — and a fixed 30s guard was one abandoned
+// pile away from firing at any time. A squad moving briskly between piles is
+// not parked; a squad stuck on one is, and that is what the AI's own two
+// limits bound. Thrashing between piles is still caught, by the share below.
+const MAX_STALL = LOOT_TRAVEL_LIMIT + LOOT_PATIENCE + 4;
 const MAX_LOOT_SHARE = 0.25; // fraction of the raid spent looting
 
 let failures = 0;
@@ -97,6 +106,7 @@ for (let i = 0; i < RUNS; i++) {
   let stall = 0;
   let lootTime = 0;
   let lastSig = '';
+  let lastPile = null;
   let ticks = 0;
   while (match.phase !== 'ended' && ticks < MATCH_SECONDS / TICK + 50) {
     match.update(TICK);
@@ -104,10 +114,15 @@ for (let i = 0; i < RUNS; i++) {
     const sig = members().map((m) => m.inventory.length).join(',');
     if (squad.order?.mode === 'loot') {
       lootTime += TICK;
-      stall = sig === lastSig ? stall + TICK : 0;
+      // Reset on a pickup or on committing to a different pile: this measures
+      // time sunk into one pile that yielded nothing.
+      const samePile = squad.order.pileId === lastPile;
+      stall = sig === lastSig && samePile ? stall + TICK : 0;
+      lastPile = squad.order.pileId;
       worstStall = Math.max(worstStall, stall);
     } else {
       stall = 0;
+      lastPile = null;
     }
     lastSig = sig;
   }
