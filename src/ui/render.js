@@ -3,7 +3,7 @@
 // because a 14000x14000 map is far too big to redraw per frame.
 
 import { WORLD_SIZE, RING_CORE, RING_MID, CENTER, BIOMES, extractIsOpen } from '../sim/map.js';
-import { RARITIES } from '../data/gear.js';
+import { QUALITIES } from '../data/parts.js';
 import { CLASSES } from '../data/classes.js';
 import { hpFrac, manaFrac } from '../sim/entity.js';
 import { canTake } from '../sim/ai.js';
@@ -422,7 +422,7 @@ export function createRenderer(canvas, minimapCanvas) {
     for (const pile of match.lootPiles) {
       if (pile.dead || !pile.items.length) continue;
       if (!inView(view, pile.pos.x, pile.pos.y, 30)) continue;
-      const colour = RARITIES[pile.best?.rarity]?.color ?? '#b9bfc9';
+      const colour = QUALITIES[pile.best?.quality]?.color ?? '#b9bfc9';
       const bob = Math.sin(match.time * 3 + pile.pos.x * 0.01) * 2;
 
       // Loot the squad will refuse — filtered out by policy, or simply no room

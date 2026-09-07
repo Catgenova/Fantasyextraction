@@ -1,7 +1,17 @@
-// Gear: slots, base item types, affix pool, rarity, and the roller that turns
-// a loot-table entry into a concrete item instance.
+// Equipment, and where it comes from now.
+//
+// Nothing drops any more. There are no base types, no affix pool and no
+// rarity roll: every piece of equipment in the game is made by the blacksmith
+// out of parts carved off a corpse, and it is described by the three things
+// that carve was — which species, which part, and how good the part was.
+//
+// What a species' gear is *good at* is not a fourth field to keep in sync. It
+// is read off the creature's own stat block, so a Boulderhide plate really is
+// heavy armour and a Glasswing membrane really is light, without anyone having
+// to remember to say so twice.
 
-import { rand, pick, weightedPick, shuffle } from '../core/rng.js';
+import { CREATURES } from './creatures.js';
+import { PART_TYPES, QUALITIES, QUALITY_ORDER } from './parts.js';
 
 export const SLOTS = ['weapon', 'offhand', 'head', 'chest', 'hands', 'legs', 'trinket', 'pouch'];
 
@@ -19,256 +29,212 @@ export const SLOT_NAMES = {
 // ---------------------------------------------------------------------------
 // Pouches
 // ---------------------------------------------------------------------------
-// The pouch is the only slot whose value is not a stat: it decides how much a
-// hero can carry out. That makes it the one piece of gear an extraction game
-// can hang a whole progression on. It adds to the eight slots everyone has
-// anyway, so nobody is ever left unable to loot, and a legendary takes a hero
-// from 8 to 28 — losing it costs the run's capacity rather than a few points
-// of armour.
+// Unchanged in spirit: a base pack of eight plus whatever the pouch adds, and
+// a pouch is now sewn from hide or membrane like everything else.
 
-/** Extra slots a pouch grants, on top of what every hero can carry anyway. */
-export const POUCH_SLOTS = {
-  common: 4, uncommon: 8, rare: 12, epic: 16, legendary: 20,
-};
-
-/** What a hero carries with an empty pouch slot. */
+export const POUCH_SLOTS = { ragged: 4, sound: 8, fine: 12, pristine: 16, mythic: 20 };
 export const BASE_PACK_SLOTS = 8;
 
-/** Pack slots this item grants, or 0 if it is not a pouch. */
 export const pouchSlots = (item) =>
-  item?.slot === 'pouch' && item.kind === 'gear' ? (POUCH_SLOTS[item.rarity] ?? 0) : 0;
+  item?.slot === 'pouch' && item.kind === 'gear' ? (POUCH_SLOTS[item.quality] ?? 0) : 0;
 
-/**
- * How many pack slots a hero has: the base eight plus whatever the pouch
- * adds, so a legendary carries 28. Takes the equipped map, so it works on both
- * a persisted hero record and a live raid entity.
- */
 export function packCapacity(equipped) {
   return BASE_PACK_SLOTS + pouchSlots(equipped?.pouch);
 }
 
-export const RARITIES = {
-  common: { id: 'common', name: 'Common', color: '#b9bfc9', affixes: 1, power: 1.0, weight: 100 },
-  uncommon: { id: 'uncommon', name: 'Uncommon', color: '#6fd08c', affixes: 2, power: 1.25, weight: 45 },
-  rare: { id: 'rare', name: 'Rare', color: '#5aa9f7', affixes: 3, power: 1.6, weight: 16 },
-  epic: { id: 'epic', name: 'Epic', color: '#b57af3', affixes: 4, power: 2.1, weight: 5 },
-  legendary: { id: 'legendary', name: 'Legendary', color: '#f0a33c', affixes: 5, power: 2.8, weight: 1 },
+// ---------------------------------------------------------------------------
+// What each part can become
+// ---------------------------------------------------------------------------
+// A carve is not a slot. Three Boulderhide plates is a real decision — a
+// cuirass, a helm, or something to hold — and that is most of what makes the
+// blacksmith interesting.
+
+export const PART_SLOTS = {
+  hide: ['chest', 'legs', 'hands', 'head', 'pouch'],
+  scale: ['chest', 'legs', 'head', 'offhand'],
+  plate: ['chest', 'head', 'hands', 'offhand'],
+  claw: ['weapon', 'hands'],
+  fang: ['weapon', 'trinket'],
+  horn: ['head', 'weapon'],
+  tail: ['weapon', 'offhand'],
+  membrane: ['legs', 'hands', 'offhand', 'pouch'],
+  gland: ['trinket', 'offhand'],
+  marrow: ['trinket'],
 };
 
-export const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
+export const slotsForPart = (partType) => PART_SLOTS[partType] ?? [];
+export const partsForSlot = (slot) =>
+  Object.keys(PART_SLOTS).filter((p) => PART_SLOTS[p].includes(slot));
 
-// ---------------------------------------------------------------------------
-// Base item types
-// ---------------------------------------------------------------------------
-// `implicit` is the guaranteed stat block scaled by item level; affixes roll on
-// top of it. `classes: null` means anyone can equip it.
+/** How much stat a slot is worth relative to the others. */
+const SLOT_BUDGET = {
+  weapon: 1.0, chest: 0.95, head: 0.6, legs: 0.6,
+  offhand: 0.55, hands: 0.45, trinket: 0.5, pouch: 0.3,
+};
 
-// Classes that wear the same weight of armour share its base types, so loot
-// out of one raid stays useful to more than one hero on the bench.
-const PLATE = ['knight', 'paladin', 'slayer', 'berserker'];
-const LEATHER = ['archer', 'rogue'];
-const CLOTH = ['priest', 'necromancer', 'ice_mage', 'fire_mage', 'lightning_mage'];
-// Armour is shared across the cloth classes, but weapons are not: the Priest
-// heals off its staff's implicit `healPower`, and putting the damage casters'
-// rune staff in the same pool meant half its rolls came back with no healing
-// on them at all. Attack casters get their own weapon and off-hand.
-const ARCANE = ['necromancer', 'ice_mage', 'fire_mage', 'lightning_mage'];
+/**
+ * What a part type contributes, before the species colours it. Weights are
+ * relative and get normalised — the numbers only matter against each other.
+ */
+const PART_SHAPE = {
+  hide: { armor: 3, agility: 2, moveSpeedPct: 1 },
+  scale: { armor: 2, resist: 2, vitality: 1.5 },
+  plate: { armor: 5, vitality: 2, blockChance: 0.6 },
+  claw: { weaponDamage: 3, attackSpeedPct: 1.5, critChance: 1 },
+  fang: { weaponDamage: 3, armorPen: 2, critDamage: 1.5 },
+  horn: { vitality: 2.5, might: 2, armor: 1.5 },
+  tail: { weaponDamage: 2, rangeBonus: 2.5, aoeRadiusPct: 1 },
+  membrane: { dodge: 1.5, moveSpeedPct: 2, resist: 1.5 },
+  gland: { spirit: 3, dotPct: 2, manaRegen: 1.5 },
+  marrow: { might: 2, agility: 2, spirit: 2, vitality: 2 },
+};
 
-export const BASES = [
-  // --- Weapons -------------------------------------------------------------
-  { id: 'sword', name: 'Longsword', slot: 'weapon', classes: ['knight', 'paladin'], implicit: { weaponDamage: 9, might: 2 } },
-  { id: 'mace', name: 'War Mace', slot: 'weapon', classes: ['knight', 'paladin'], implicit: { weaponDamage: 11, attackInterval: 0.15 } },
-  { id: 'bow', name: 'Recurve Bow', slot: 'weapon', classes: ['archer'], implicit: { weaponDamage: 8, agility: 2 } },
-  { id: 'staff', name: 'Oaken Staff', slot: 'weapon', classes: ['priest'], implicit: { weaponDamage: 5, spirit: 3, healPower: 0.04 } },
-  { id: 'dagger', name: 'Fang Dagger', slot: 'weapon', classes: ['rogue'], implicit: { weaponDamage: 6, agility: 3, attackInterval: -0.1 } },
-  { id: 'greataxe', name: 'Greataxe', slot: 'weapon', classes: ['berserker'], implicit: { weaponDamage: 14, might: 2, attackInterval: 0.2 } },
-  { id: 'greatsword', name: 'Greatsword', slot: 'weapon', classes: ['slayer'], implicit: { weaponDamage: 13, might: 3, armorPen: 30 } },
-  { id: 'runestaff', name: 'Rune Staff', slot: 'weapon', classes: ARCANE, implicit: { weaponDamage: 7, spirit: 3, critChance: 0.02 } },
+/**
+ * A species' leaning, read off its own stat block rather than authored twice.
+ * A heavily plated creature makes armour; a fast one makes light kit; anything
+ * that fights at range or with magic makes gear for casters.
+ */
+export function speciesAffinity(creature) {
+  if (!creature) return {};
+  const dps = creature.damage / creature.attackInterval;
+  const caster = creature.school === 'magic' || creature.projectile ? 1 : 0;
+  const raw = {
+    armor: creature.armor,
+    resist: creature.resist,
+    vitality: creature.hp / 6,
+    might: dps * 1.6,
+    agility: creature.moveSpeed * 0.5,
+    spirit: 12 + caster * 70,
+    weaponDamage: dps * 1.8,
+    moveSpeedPct: creature.moveSpeed * 0.45,
+    dodge: creature.moveSpeed * 0.4,
+    rangeBonus: creature.range > 120 ? 90 : 18,
+  };
 
-  // --- Off-hands -----------------------------------------------------------
-  { id: 'kite_shield', name: 'Kite Shield', slot: 'offhand', classes: ['knight', 'paladin'], implicit: { armor: 34, blockChance: 0.08 } },
-  { id: 'quiver', name: 'Quiver', slot: 'offhand', classes: ['archer'], implicit: { critChance: 0.03, attackSpeedPct: 0.05 } },
-  { id: 'tome', name: 'Prayer Tome', slot: 'offhand', classes: ['priest'], implicit: { spirit: 3, manaRegen: 0.8 } },
-  { id: 'parrying_dagger', name: 'Parrying Dagger', slot: 'offhand', classes: ['rogue', 'slayer', 'berserker'], implicit: { dodge: 0.03, critChance: 0.02 } },
-  { id: 'focus', name: 'Arcane Focus', slot: 'offhand', classes: ARCANE, implicit: { spirit: 2, cooldownPct: 0.04 } },
+  // Affinity is a *shape*, not a magnitude. Left raw, a Nightfell's sixteen
+  // thousand health made every trinket cut from it a vitality trinket; how
+  // powerful a species' gear is belongs to its tier and the carve's quality,
+  // not to how much health it happened to have.
+  const values = Object.values(raw);
+  const mean = values.reduce((a, b) => a + b, 0) / values.length || 1;
+  const shaped = {};
+  for (const [stat, value] of Object.entries(raw)) {
+    shaped[stat] = Math.max(0.45, Math.min(1.9, value / mean));
+  }
+  return shaped;
+}
 
-  // --- Armour (shared, but weight class gates who wants it) ----------------
-  { id: 'plate_helm', name: 'Plate Helm', slot: 'head', classes: PLATE, implicit: { armor: 26, vitality: 3 } },
-  { id: 'hood', name: 'Ranger Hood', slot: 'head', classes: LEATHER, implicit: { armor: 12, agility: 3 } },
-  { id: 'circlet', name: 'Silver Circlet', slot: 'head', classes: CLOTH, implicit: { resist: 18, spirit: 3 } },
+/** Rounding that keeps percentages readable and flat stats whole. */
+const PCT = new Set([
+  'critChance', 'critDamage', 'attackSpeedPct', 'moveSpeedPct', 'damagePct',
+  'healPower', 'lifesteal', 'cooldownPct', 'dodge', 'blockChance', 'dotPct', 'aoeRadiusPct',
+]);
+const roundStat = (stat, value) =>
+  PCT.has(stat) ? Math.round(value * 1000) / 1000
+    : stat === 'manaRegen' ? Math.round(value * 10) / 10
+      : Math.round(value);
 
-  { id: 'plate_chest', name: 'Plate Cuirass', slot: 'chest', classes: PLATE, implicit: { armor: 44, vitality: 5 } },
-  { id: 'leather_chest', name: 'Leather Jerkin', slot: 'chest', classes: LEATHER, implicit: { armor: 22, agility: 4 } },
-  { id: 'robe', name: 'Woven Robe', slot: 'chest', classes: CLOTH, implicit: { resist: 28, spirit: 4 } },
-
-  { id: 'gauntlets', name: 'Gauntlets', slot: 'hands', classes: null, implicit: { armor: 14, might: 2 } },
-  { id: 'gloves', name: 'Supple Gloves', slot: 'hands', classes: null, implicit: { armor: 8, attackSpeedPct: 0.04 } },
-
-  { id: 'greaves', name: 'Greaves', slot: 'legs', classes: null, implicit: { armor: 20, vitality: 2 } },
-  { id: 'trousers', name: 'Padded Trousers', slot: 'legs', classes: null, implicit: { armor: 10, moveSpeedPct: 0.04 } },
-
-  // Pouches carry no combat stat of their own — their rarity is their capacity
-  // (see POUCH_SLOTS). Affixes still roll on top, so a rare pouch is both more
-  // room and a little something else.
-  { id: 'belt_pouch', name: 'Belt Pouch', slot: 'pouch', classes: null, implicit: {} },
-  { id: 'satchel', name: 'Field Satchel', slot: 'pouch', classes: null, implicit: {} },
-
-  { id: 'ring', name: 'Signet Ring', slot: 'trinket', classes: null, implicit: { critChance: 0.02 } },
-  { id: 'amulet', name: 'Amulet', slot: 'trinket', classes: null, implicit: { resist: 12, manaRegen: 0.5 } },
-  { id: 'charm', name: 'Bone Charm', slot: 'trinket', classes: null, implicit: { vitality: 3, lifesteal: 0.02 } },
-];
-
-export const BASES_BY_ID = Object.fromEntries(BASES.map((b) => [b.id, b]));
-
-// ---------------------------------------------------------------------------
-// Affixes
-// ---------------------------------------------------------------------------
-// `roll` is the value range at item level 1; it scales with ilvl and rarity.
-// `slots: null` means the affix can appear on any slot.
-
-export const AFFIXES = [
-  { id: 'of_might', name: 'of Might', stat: 'might', roll: [2, 5], slots: null, weight: 10 },
-  { id: 'of_agility', name: 'of the Hawk', stat: 'agility', roll: [2, 5], slots: null, weight: 10 },
-  { id: 'of_spirit', name: 'of Spirit', stat: 'spirit', roll: [2, 5], slots: null, weight: 10 },
-  { id: 'of_vitality', name: 'of the Bear', stat: 'vitality', roll: [2, 6], slots: null, weight: 10 },
-  { id: 'plated', name: 'Plated', stat: 'armor', roll: [8, 20], slots: ['head', 'chest', 'hands', 'legs', 'offhand'], weight: 9 },
-  { id: 'warded', name: 'Warded', stat: 'resist', roll: [8, 18], slots: ['head', 'chest', 'hands', 'legs', 'trinket'], weight: 8 },
-  { id: 'keen', name: 'Keen', stat: 'critChance', roll: [0.015, 0.04], slots: ['weapon', 'hands', 'trinket'], weight: 7, pct: true },
-  { id: 'brutal', name: 'Brutal', stat: 'critDamage', roll: [0.08, 0.22], slots: ['weapon', 'trinket'], weight: 6, pct: true },
-  { id: 'swift', name: 'Swift', stat: 'attackSpeedPct', roll: [0.03, 0.08], slots: ['weapon', 'hands', 'offhand'], weight: 7, pct: true },
-  { id: 'fleet', name: 'Fleet', stat: 'moveSpeedPct', roll: [0.03, 0.07], slots: ['legs', 'trinket'], weight: 6, pct: true },
-  { id: 'cruel', name: 'Cruel', stat: 'damagePct', roll: [0.04, 0.10], slots: ['weapon', 'trinket'], weight: 5, pct: true },
-  { id: 'hallowed', name: 'Hallowed', stat: 'healPower', roll: [0.04, 0.12], slots: ['weapon', 'offhand', 'trinket'], weight: 5, pct: true },
-  { id: 'vampiric', name: 'Vampiric', stat: 'lifesteal', roll: [0.015, 0.045], slots: ['weapon', 'trinket'], weight: 4, pct: true },
-  { id: 'attuned', name: 'Attuned', stat: 'manaRegen', roll: [0.4, 1.2], slots: ['offhand', 'trinket', 'head'], weight: 6 },
-  { id: 'hasty', name: 'Hasty', stat: 'cooldownPct', roll: [0.03, 0.08], slots: ['head', 'trinket', 'offhand'], weight: 5, pct: true },
-  { id: 'evasive', name: 'Evasive', stat: 'dodge', roll: [0.015, 0.04], slots: ['legs', 'hands', 'trinket'], weight: 5, pct: true },
-  { id: 'thickset', name: 'Thickset', stat: 'maxHpFlat', roll: [14, 40], slots: ['chest', 'legs', 'trinket'], weight: 8 },
-];
-
-const PREFIXES = new Set(['plated', 'warded', 'keen', 'brutal', 'swift', 'fleet', 'cruel', 'hallowed', 'vampiric', 'attuned', 'hasty', 'evasive', 'thickset']);
+/** Scale of a flat point of each stat, so one budget buys sensible amounts. */
+const STAT_SCALE = {
+  might: 0.42, agility: 0.42, spirit: 0.42, vitality: 0.38,
+  armor: 3.4, resist: 2.8, maxHpFlat: 4, weaponDamage: 0.7, armorPen: 5, rangeBonus: 3,
+  manaRegen: 0.08, critChance: 0.0028, critDamage: 0.014, attackSpeedPct: 0.009,
+  moveSpeedPct: 0.007, dodge: 0.0034, blockChance: 0.0055, dotPct: 0.014, aoeRadiusPct: 0.014,
+};
 
 let itemCounter = 0;
 export const nextItemId = () => `it_${(itemCounter++).toString(36)}_${Math.random().toString(36).slice(2, 7)}`;
 
-/** Item level scales every rolled number; ~1 + 6% per level. */
-const ilvlScale = (ilvl) => 1 + (ilvl - 1) * 0.06;
-
 /**
- * Roll a concrete item.
- * @param rng seeded rng
- * @param {{slot?, baseId?, classId?, rarity?, ilvl?}} opts
+ * Forge a piece of equipment.
+ *
+ * @param {{speciesId, partType, slot, quality, classId?}} spec
+ *        `classId` restricts a weapon to the hero it was made for; armour is
+ *        universal, because a Plateback cuirass does not care who is in it.
  */
-export function rollItem(rng, opts = {}) {
-  const ilvl = Math.max(1, opts.ilvl ?? 1);
-  const scale = ilvlScale(ilvl);
+export function craftItem({ speciesId, partType, slot, quality, classId = null }) {
+  const creature = CREATURES[speciesId];
+  const shape = PART_SHAPE[partType];
+  if (!creature || !shape) return null;
+  if (!slotsForPart(partType).includes(slot)) return null;
 
-  let base;
-  if (opts.baseId) {
-    base = BASES_BY_ID[opts.baseId];
-  } else {
-    let pool = BASES;
-    if (opts.slot) pool = pool.filter((b) => b.slot === opts.slot);
-    if (opts.classId) pool = pool.filter((b) => !b.classes || b.classes.includes(opts.classId));
-    if (!pool.length) pool = BASES;
-    base = pick(rng, pool);
+  const grade = QUALITIES[quality] ?? QUALITIES.ragged;
+  const budget = 26 * (SLOT_BUDGET[slot] ?? 0.5) * grade.power * (1 + creature.tier * 0.45);
+
+  // Blend what the part is with what the creature is, then spend the budget
+  // across whatever survives the blend.
+  // A weapon has to be a weapon whatever it was cut from, or a Nightfell horn
+  // club comes out as the best chest piece in the game.
+  const shaped = slot === 'weapon' ? { weaponDamage: 3, ...shape } : shape;
+
+  const affinity = speciesAffinity(creature);
+  const blended = {};
+  for (const [stat, weight] of Object.entries(shaped)) {
+    blended[stat] = weight * (0.55 + 0.45 * (affinity[stat] ?? 0.7));
   }
+  const total = Object.values(blended).reduce((a, b) => a + b, 0) || 1;
 
-  const rarityId = opts.rarity ?? weightedPick(rng, RARITY_ORDER.map((id) => RARITIES[id])).id;
-  const rarity = RARITIES[rarityId];
-
-  // Implicit stats scale with ilvl and rarity power.
   const mods = {};
-  for (const [stat, value] of Object.entries(base.implicit)) {
-    // attackInterval is a malus (slower weapon) — it must not scale up with power.
-    if (stat === 'attackInterval') mods[stat] = value;
-    else mods[stat] = roundStat(stat, value * scale * (1 + (rarity.power - 1) * 0.35));
-  }
-
-  // Affixes.
-  const legal = AFFIXES.filter((a) => !a.slots || a.slots.includes(base.slot));
-  const chosen = shuffle(rng, legal).slice(0, Math.min(rarity.affixes, legal.length));
-  const affixes = [];
-  for (const affix of chosen) {
-    const raw = rand(rng, affix.roll[0], affix.roll[1]) * scale * rarity.power;
-    const value = roundStat(affix.stat, raw);
-    mods[affix.stat] = roundStat(affix.stat, (mods[affix.stat] ?? 0) + value);
-    affixes.push({ id: affix.id, name: affix.name, stat: affix.stat, value, pct: !!affix.pct });
+  for (const [stat, weight] of Object.entries(blended)) {
+    const share = (weight / total) * budget;
+    const value = roundStat(stat, share * (STAT_SCALE[stat] ?? 1));
+    if (value) mods[stat] = value;
   }
 
   return {
     id: nextItemId(),
     kind: 'gear',
-    baseId: base.id,
-    name: buildName(base, affixes),
-    slot: base.slot,
-    classes: base.classes,
-    rarity: rarityId,
-    ilvl,
+    slot,
+    quality,
+    speciesId,
+    speciesName: creature.name,
+    partType,
+    tier: creature.tier,
+    classes: slot === 'weapon' && classId ? [classId] : null,
+    name: `${creature.name} ${PART_TYPES[partType]?.name ?? partType} ${SLOT_NAMES[slot]}`,
     mods,
-    affixes,
   };
 }
 
-function buildName(base, affixes) {
-  const prefix = affixes.find((a) => PREFIXES.has(a.id));
-  const suffix = affixes.find((a) => !PREFIXES.has(a.id));
-  let name = base.name;
-  if (prefix) name = `${prefix.name} ${name}`;
-  if (suffix) name = `${name} ${suffix.name}`;
-  return name;
-}
-
-/** Percent-ish stats keep 3 decimals; flat stats are integers. */
-function roundStat(stat, v) {
-  const fractional = [
-    'critChance', 'critDamage', 'attackSpeedPct', 'moveSpeedPct', 'damagePct',
-    'healPower', 'lifesteal', 'cooldownPct', 'dodge', 'blockChance', 'manaRegen', 'attackInterval',
-  ];
-  return fractional.includes(stat) ? Math.round(v * 1000) / 1000 : Math.round(v);
-}
-
-/** Rough single number for "is this an upgrade" sorting and bot budgets. */
+/**
+ * How good a piece is, for sorting and for the AI deciding what to carry.
+ * Pouches are scored by the room they give, which no stat weight can see.
+ */
 export function itemScore(item) {
-  // Consumables and anything without a stat block score zero rather than
-  // throwing — callers sort mixed stash contents through here.
   if (!item?.mods) return 0;
   const w = {
     might: 3, agility: 3, spirit: 3, vitality: 2.5, armor: 0.6, resist: 0.6,
-    weaponDamage: 4, maxHpFlat: 0.35, manaRegen: 3,
+    weaponDamage: 4, maxHpFlat: 0.35, manaRegen: 3, armorPen: 0.5, rangeBonus: 0.8,
     critChance: 160, critDamage: 55, attackSpeedPct: 180, moveSpeedPct: 140,
     damagePct: 200, healPower: 120, lifesteal: 200, cooldownPct: 170,
-    dodge: 180, blockChance: 120, attackInterval: -120,
+    dodge: 180, blockChance: 120, dotPct: 90, aoeRadiusPct: 90,
   };
   let score = 0;
   for (const [stat, value] of Object.entries(item.mods)) score += (w[stat] ?? 1) * value;
-  // A pouch's worth is the room it gives, which no stat weight can see. Priced
-  // so a legendary pouch outranks most legendary gear: on an extraction run,
-  // capacity is what converts a good raid into a kept haul.
   score += pouchSlots(item) * 26;
   return Math.round(score);
 }
 
 export function canEquip(item, classId) {
-  if (!item) return false;
-  if (item.kind !== 'gear') return false;
+  if (!item || item.kind !== 'gear') return false;
   return !item.classes || item.classes.includes(classId);
 }
 
-/** Starter kit so a fresh hero is not naked. */
+/**
+ * What a hero owns before they have hunted anything: a Plateback kit, which is
+ * the tier-0 species anybody can find. Deliberately plain — the first real
+ * armour is meant to be the one you carve.
+ */
 export function startingLoadout(rng, classId) {
-  const wanted = {
-    knight: ['sword', 'kite_shield', 'plate_helm', 'plate_chest', 'belt_pouch'],
-    archer: ['bow', 'quiver', 'hood', 'leather_chest', 'belt_pouch'],
-    priest: ['staff', 'tome', 'circlet', 'robe', 'belt_pouch'],
-    rogue: ['dagger', 'parrying_dagger', 'hood', 'leather_chest', 'belt_pouch'],
-    berserker: ['greataxe', 'parrying_dagger', 'plate_helm', 'plate_chest', 'belt_pouch'],
-    slayer: ['greatsword', 'parrying_dagger', 'plate_helm', 'plate_chest', 'belt_pouch'],
-    paladin: ['mace', 'kite_shield', 'plate_helm', 'plate_chest', 'belt_pouch'],
-    necromancer: ['runestaff', 'focus', 'circlet', 'robe', 'belt_pouch'],
-    ice_mage: ['runestaff', 'focus', 'circlet', 'robe', 'belt_pouch'],
-    fire_mage: ['runestaff', 'focus', 'circlet', 'robe', 'belt_pouch'],
-    lightning_mage: ['runestaff', 'focus', 'circlet', 'robe', 'belt_pouch'],
-  }[classId];
-  return wanted.map((baseId) => rollItem(rng, { baseId, rarity: 'common', ilvl: 1 }));
+  const kit = [
+    { partType: 'claw', slot: 'weapon', speciesId: 'threshclaw', classId },
+    { partType: 'plate', slot: 'chest', speciesId: 'plateback' },
+    { partType: 'plate', slot: 'head', speciesId: 'plateback' },
+    { partType: 'hide', slot: 'pouch', speciesId: 'threshclaw' },
+  ];
+  return kit.map((spec) => craftItem({ ...spec, quality: 'ragged' })).filter(Boolean);
 }
+
+// Quality is the axis rarity used to be; the UI still wants an ordered list
+// and a colour per grade, and both live with the parts.
+export { QUALITIES, QUALITY_ORDER };

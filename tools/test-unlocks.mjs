@@ -100,13 +100,13 @@ for (const [label, opts] of [
   // greyed-out box the player cannot act on.
   const lockedText = await rows().first().innerText();
   check(`${label}: a locked row names its boss and its reward`,
-    /The Quiet Knife/.test(lockedText) && /Rogue/.test(lockedText),
+    /Bastionback/.test(lockedText) && /Paladin/.test(lockedText),
     lockedText.replace(/\n/g, ' · '));
   check(`${label}: the roster is only the three starters`,
     (await page.locator('.hero-card').count()) === 3, String(await page.locator('.hero-card').count()));
 
   // --- Earned ---------------------------------------------------------------
-  await grant(page, ['quiet_knife', 'the_warden']);
+  await grant(page, ['bastionback', 'nightfell']);
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
 
@@ -118,15 +118,15 @@ for (const [label, opts] of [
   check(`${label}: the count follows`,
     /2 \/ 8 classes unlocked/.test(await trophies.locator('.panel-head').innerText()));
   check(`${label}: an earned row is titled by the trophy, not the boss`,
-    /The Knife Goes Quiet/.test(await rows().first().innerText()));
+    /Something That Would Not Fall/.test(await rows().first().innerText()));
   check(`${label}: the unlocked heroes joined the roster`,
     (await page.locator('.hero-card').count()) === 5, String(await page.locator('.hero-card').count()));
   check(`${label}: and they are the right classes`,
-    (await page.getByText('Rogue · Melee burst').count()) === 1
+    (await page.getByText('Slayer · Elite hunter').count()) === 1
     && (await page.getByText('Paladin · Frontline support').count()) === 1);
 
   // --- An unlocked class is a real, configurable hero -----------------------
-  const rogueCard = page.locator('.hero-card').filter({ hasText: 'Rogue' }).first();
+  const rogueCard = page.locator('.hero-card').filter({ hasText: 'Slayer' }).first();
   await rogueCard.click();
   await page.waitForTimeout(400);
   check(`${label}: its hero screen opens`, (await page.locator('.screen').count()) > 0);
@@ -136,15 +136,15 @@ for (const [label, opts] of [
   const nodes = await page.locator('.node').count();
   check(`${label}: its skill tree is fully built`, nodes === 18, `${nodes} nodes`);
   check(`${label}: with three branches`,
-    (await page.getByText('Assassination').count()) >= 1
-    && (await page.getByText('Subtlety').count()) >= 1
-    && (await page.getByText('Venom').count()) >= 1);
+    (await page.getByText('Bane').count()) >= 1
+    && (await page.getByText('Ironclad').count()) >= 1
+    && (await page.getByText('Execution').count()) >= 1);
 
   await page.getByRole('button', { name: 'Spells' }).click();
   await page.waitForTimeout(300);
   check(`${label}: it has its own starting spells`,
-    (await page.getByText('Eviscerate').count()) >= 1
-    && (await page.getByText('Shadowstep').count()) >= 1);
+    (await page.getByText('Sunder').count()) >= 1
+    && (await page.getByText("Giant's Bane").count()) >= 1);
 
   await page.getByRole('button', { name: 'Gear' }).click();
   await page.waitForTimeout(300);
@@ -159,7 +159,7 @@ for (const [label, opts] of [
 
   const squadPanel = page.locator('.panel').filter({ has: page.getByRole('heading', { name: 'Your squad' }) });
   const benched = page.locator('.panel').filter({ has: page.getByRole('heading', { name: 'Roster' }) })
-    .locator('.squad-grid > div').filter({ hasText: 'Rogue' }).first();
+    .locator('.squad-grid > div').filter({ hasText: 'Slayer' }).first();
 
   // A full squad has to be told who is leaving. One button had to guess, and
   // its guess always fell on the same slot.
@@ -176,7 +176,7 @@ for (const [label, opts] of [
 
   const after = await squadPanel.locator('.hero-card .nm').allInnerTexts();
   check(`${label}: it can be added to the squad`,
-    (await squadPanel.locator('.hero-card').filter({ hasText: 'Rogue' }).count()) === 1);
+    (await squadPanel.locator('.hero-card').filter({ hasText: 'Slayer' }).count()) === 1);
   check(`${label}: the hero the player chose is the one who left`,
     !after.includes(target) && after.includes(squadNames[2]),
     `${squadNames.join(', ')} -> ${after.join(', ')}`);

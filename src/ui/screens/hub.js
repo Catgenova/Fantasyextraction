@@ -8,36 +8,18 @@ import { XP_PER_LEVEL, MAX_LEVEL } from '../../data/classes.js';
 import { FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, LOOT_FLOORS } from '../../data/tactics.js';
 import { computeStats } from '../../sim/stats.js';
 import { availablePoints } from '../../sim/heroes.js';
-import {
-  squadHeroes, STASH_LIMIT, salvageFromStash, achievementProgress,
-  SALVAGE_FILTERS, salvagePreview, salvageAll,
-} from '../../game/profile.js';
+import { squadHeroes, STASH_LIMIT, achievementProgress, stashParts, stashGear } from '../../game/profile.js';
+import { QUALITIES, QUALITY_ORDER, partValue } from '../../data/parts.js';
+import { CREATURES } from '../../data/creatures.js';
 import { bossForAchievement } from '../../data/achievements.js';
-import { salvageValue, canSalvage, salvageTable } from '../../data/economy.js';
 import { itemScore, SLOTS, packCapacity } from '../../data/gear.js';
 
 export function hubScreen(app) {
   const root = el('div.screen');
-  // Salvaging cannot be undone, so it takes two taps: the first arms this.
-  let armed = null;
-
   function render() {
     hideTooltip();
     clear(root);
     const profile = app.profile;
-
-    function salvage(key, run) {
-      if (armed === key) {
-        const gained = run();
-        armed = null;
-        app.save();
-        render();
-        return gained;
-      }
-      armed = key;
-      render();
-      return 0;
-    }
 
     root.appendChild(el('div.hub', null, [
       el('div.hub-main', null, [squadPanel(), rosterPanel()]),
@@ -215,7 +197,7 @@ export function hubScreen(app) {
               onclick: () => { t.avoidPlayers = !t.avoidPlayers; app.save(); render(); },
             }, t.avoidPlayers ? 'Avoid — break off from other squads' : 'Engage when contacted'),
           ]),
-          selectField('Minimum loot rarity',
+          selectField('Minimum carve quality',
             Object.values(LOOT_FLOORS).map((f) => ({ value: f.id, label: f.name })),
             t.lootFloor ?? 'any', set('lootFloor'),
             `${LOOT_FLOORS[t.lootFloor ?? 'any']?.desc} Applies on top of each hero's own loot policy — the stricter of the two wins.`),
@@ -263,68 +245,70 @@ export function hubScreen(app) {
     }
 
     // ---------------------------------------------------------------- stash
+    // Two things live here now: parts waiting for the smith, and finished
+    // equipment nobody is wearing. Parts are grouped by species, because that
+    // is the unit the blacksmith works in and the unit a player thinks in —
+    // "how close am I to a full Boulderhide set" is the only question that
+    // matters when looking at a pile of carves.
     function stashPanel() {
-      const sorted = profile.stash.slice().sort((a, b) => {
-        if (a.kind === 'consumable' && b.kind !== 'consumable') return 1;
-        if (b.kind === 'consumable' && a.kind !== 'consumable') return -1;
-        return itemScore(b) - itemScore(a);
-      });
-      // One row per way of asking "clear this out". Only the ones that would
-      // actually destroy something are shown, so the row shrinks as the stash
-      // gets cleaner rather than offering a wall of dead buttons.
-      const bulk = Object.values(SALVAGE_FILTERS)
-        .map((filter) => ({ filter, ...salvagePreview(profile, filter.id) }))
-        .filter((entry) => entry.count > 0);
+      const parts = stashParts(profile);
+      const gear = stashGear(profile);
+      const other = profile.stash.filter((i) => i.kind !== 'part' && i.kind !== 'gear');
+
+      const bySpecies = new Map();
+      for (const part of parts) {
+        if (!bySpecies.has(part.speciesId)) bySpecies.set(part.speciesId, []);
+        bySpecies.get(part.speciesId).push(part);
+      }
+      const species = [...bySpecies.entries()]
+        .map(([id, list]) => ({
+          id,
+          name: CREATURES[id]?.name ?? list[0].speciesName,
+          colour: CREATURES[id]?.color ?? 'var(--line)',
+          list: list.slice().sort((a, b) =>
+            QUALITY_ORDER.indexOf(b.quality) - QUALITY_ORDER.indexOf(a.quality)),
+        }))
+        .sort((a, b) => b.list.length - a.list.length);
 
       return el('div.panel.grow.scroll', { style: { minHeight: '0' } }, [
         el('div.panel-head', null, [
           el('h2', null, 'Stash'),
-          el('div.row', { style: { gap: '10px' } }, [
-            el('span.scrap', {
-              title: `Scrap, for repairing gear later. Salvage pays ${
-                salvageTable().map((r) => `${r.rarity} ${r.scrap}`).join(', ')}, +5% per item level.`,
-            }, [
-              el('span.scrap-pip'),
-              el('span', null, String(profile.scrap ?? 0)),
-            ]),
-            el('span.small.muted', null, `${profile.stash.length} / ${STASH_LIMIT}`),
-          ]),
+          el('span.small.muted', null, `${profile.stash.length} / ${STASH_LIMIT}`),
         ]),
-        el('div.panel-body.col', { style: { gap: '6px' } }, [
-          bulk.length
-            ? el('div.salvage-all', null, [
-              el('div.tiny.dim', null, 'Salvage all'),
-              el('div.row', { style: { gap: '4px', flexWrap: 'wrap' } },
-                bulk.map(({ filter, count, scrap: worth }) => {
-                  const key = `bulk:${filter.id}`;
-                  const isArmed = armed === key;
-                  return el('button.sm' + (isArmed ? '.danger.armed' : ''), {
-                    title: isArmed
-                      ? 'Tap again — these are gone for good'
-                      : `${filter.desc} ${count} item${count === 1 ? '' : 's'} for ${worth} scrap.`,
-                    onclick: () => salvage(key, () => salvageAll(profile, filter.id)),
-                  }, isArmed
-                    ? `${count} for ${worth}?`
-                    : `${filter.name} (${count})`);
-                })),
+        el('div.panel-body.col', { style: { gap: '8px' } }, [
+          parts.length
+            ? el('div.col', { style: { gap: '6px' } }, species.map((sp) => {
+              const counts = {};
+              for (const part of sp.list) {
+                counts[part.partType] = (counts[part.partType] ?? 0) + 1;
+              }
+              const best = sp.list[0];
+              return el('div.species-lot', { style: { '--cls': sp.colour } }, [
+                el('div.spread', null, [
+                  el('div.nm', null, sp.name),
+                  el('span.pill', { style: { color: QUALITIES[best.quality]?.color } },
+                    `${sp.list.length} carve${sp.list.length === 1 ? '' : 's'}`),
+                ]),
+                el('div.tiny.dim', null, Object.entries(counts)
+                  .map(([type, n]) => `${n}× ${type}`).join(' · ')),
+                el('div.tiny.dim', null, `best ${QUALITIES[best.quality]?.name ?? best.quality}`),
+              ]);
+            }))
+            : el('div.item.empty', null, 'No parts. Carve something and bring it home.'),
+
+          gear.length
+            ? el('div.col', { style: { gap: '6px' } }, [
+              el('h3', { style: { margin: '6px 0 0' } }, `Forged (${gear.length})`),
+              ...gear.map((item) => itemRow(item, {})),
             ])
             : null,
-          ...(sorted.length
-            ? sorted.map((item) => {
-              const worth = salvageValue(item);
-              const key = `item:${item.id}`;
-              return itemRow(item, {
-                right: canSalvage(item)
-                  ? el('button.sm' + (armed === key ? '.danger.armed' : ''), {
-                    title: armed === key
-                      ? 'Tap again — the item is gone for good'
-                      : `Break down for ${worth} scrap`,
-                    onclick: () => salvage(key, () => salvageFromStash(profile, item.id)),
-                  }, armed === key ? 'Sure?' : `Salvage ${worth}`)
-                  : el('span.tiny.dim', null, 'used, not salvaged'),
-              });
-            })
-            : [el('div.item.empty', null, 'Empty. Extract with loot to fill it.')]),
+
+          other.length
+            ? el('div.col', { style: { gap: '6px' } }, [
+              el('h3', { style: { margin: '6px 0 0' } }, 'Supplies'),
+              ...other.map((item) => itemRow(item, {})),
+            ])
+            : null,
         ]),
       ]);
     }

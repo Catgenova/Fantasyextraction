@@ -25,9 +25,25 @@ import { Match, TICK } from '../src/sim/match.js';
 import { newProfile, squadHeroes } from '../src/game/profile.js';
 import { generateBotSquads } from '../src/sim/bots.js';
 import { autoAllocate, sanitizeHero } from '../src/sim/heroes.js';
-import { rollItem, SLOTS, canEquip } from '../src/data/gear.js';
+import { craftItem, SLOTS, slotsForPart, canEquip, packCapacity } from '../src/data/gear.js';
+import { QUALITY_ORDER } from '../src/data/parts.js';
+import { CREATURES } from '../src/data/creatures.js';
 import { makeRng } from '../src/core/rng.js';
 import { MATCH_SECONDS } from '../src/data/enemies.js';
+
+// Kit forged from species of the squad's own depth — the tests need a squad
+// that has been hunting, not one in its starter rags.
+const FORGEABLE = Object.values(CREATURES);
+function forgeFor(rng, slot, classId, quality, level) {
+  const depth = level >= 12 ? 2 : level >= 7 ? 1 : 0;
+  const pool = FORGEABLE.filter((c) => c.tier <= depth
+    && Object.keys(c.parts).some((p) => slotsForPart(p).includes(slot)));
+  if (!pool.length) return null;
+  const species = pool[Math.floor(rng() * pool.length)];
+  const options = Object.keys(species.parts).filter((p) => slotsForPart(p).includes(slot));
+  const partType = options[Math.floor(rng() * options.length)];
+  return craftItem({ speciesId: species.id, partType, slot, quality, classId });
+}
 
 const RUNS = 6;
 const SAMPLE = 1;         // seconds between position samples
@@ -77,8 +93,8 @@ for (let i = 0; i < RUNS; i++) {
     hero.level = 5;
     autoAllocate(rng, hero);
     for (const slot of SLOTS) {
-      const item = rollItem(rng, { slot, classId: hero.classId, rarity: 'common', ilvl: 5 });
-      if (canEquip(item, hero.classId)) hero.equipped[slot] = item;
+      const item = forgeFor(rng, slot, hero.classId, 'sound', hero.level ?? 5);
+      if (item && canEquip(item, hero.classId)) hero.equipped[slot] = item;
     }
     sanitizeHero(hero);
   }

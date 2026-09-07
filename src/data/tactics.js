@@ -19,13 +19,13 @@ export const TARGET_PRIORITIES = {
   players_first: { id: 'players_first', name: 'Rival squads', desc: 'Always prefer enemy heroes over PvE.' },
 };
 
-// Loot filters are expressed in rarity, not in an opaque score, so what the
-// player picks in the UI is exactly what they see happen on the ground.
+// Filters are expressed in carve quality, not in an opaque score, so what the
+// player picks is exactly what they see kept.
 export const LOOT_POLICIES = {
-  greedy: { id: 'greedy', name: 'Take everything', minRarity: 'common', desc: 'Every drop within reach, commons included.' },
-  valuable: { id: 'valuable', name: 'Uncommon and better', minRarity: 'uncommon', desc: 'Skip grey trash, keep everything else.' },
-  upgrades: { id: 'upgrades', name: 'Rare and better', minRarity: 'rare', desc: 'Only the good stuff. Bags stay light.' },
-  ignore: { id: 'ignore', name: 'Ignore loot', minRarity: null, desc: 'Never stop to loot.' },
+  greedy: { id: 'greedy', name: 'Keep everything', minQuality: 'ragged', desc: 'Every carve, however poor.' },
+  valuable: { id: 'valuable', name: 'Sound and better', minQuality: 'sound', desc: 'Leave the ragged cuts behind.' },
+  upgrades: { id: 'upgrades', name: 'Fine and better', minQuality: 'fine', desc: 'Only what the smith can really use.' },
+  ignore: { id: 'ignore', name: 'Carve nothing', minQuality: null, desc: 'Never stop to cut up a corpse.' },
 };
 
 /**
@@ -35,11 +35,11 @@ export const LOOT_POLICIES = {
  * a greedy hero but never loosens a picky one.
  */
 export const LOOT_FLOORS = {
-  any: { id: 'any', name: 'Anything', minRarity: 'common', desc: 'Whatever each hero wants, commons included.' },
-  uncommon: { id: 'uncommon', name: 'Uncommon and better', minRarity: 'uncommon', desc: 'Nobody stops for grey trash.' },
-  rare: { id: 'rare', name: 'Rare and better', minRarity: 'rare', desc: 'Bags stay light for the walk out.' },
-  epic: { id: 'epic', name: 'Epic and better', minRarity: 'epic', desc: 'Only what the core drops.' },
-  legendary: { id: 'legendary', name: 'Legendary only', minRarity: 'legendary', desc: 'Walk past everything else.' },
+  any: { id: 'any', name: 'Anything', minQuality: 'ragged', desc: 'Whatever each hero wants, ragged cuts included.' },
+  sound: { id: 'sound', name: 'Sound and better', minQuality: 'sound', desc: 'Nobody stops for a ruined cut.' },
+  fine: { id: 'fine', name: 'Fine and better', minQuality: 'fine', desc: 'Bags stay light for the walk out.' },
+  pristine: { id: 'pristine', name: 'Pristine and better', minQuality: 'pristine', desc: 'Only what a solo hunt yields.' },
+  mythic: { id: 'mythic', name: 'Mythic only', minQuality: 'mythic', desc: 'Walk past everything else.' },
 };
 
 export const SPELL_POLICIES = {

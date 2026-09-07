@@ -5,9 +5,11 @@
 import { makeRng, pick, randInt, chance, shuffle } from '../core/rng.js';
 import { STARTER_CLASS_IDS } from '../data/classes.js';
 import { ACHIEVEMENTS } from '../data/achievements.js';
-import { BOSSES } from '../data/enemies.js';
+import { LARGE_CREATURES } from '../data/creatures.js';
 import { createHero, sanitizeHero, autoAllocate, availableSpells } from './heroes.js';
-import { rollItem, SLOTS, RARITY_ORDER, canEquip } from '../data/gear.js';
+import { craftItem, SLOTS, slotsForPart, canEquip } from '../data/gear.js';
+import { QUALITY_ORDER } from '../data/parts.js';
+import { CREATURES } from '../data/creatures.js';
 import { makeConsumable, CONSUMABLE_LIST } from '../data/consumables.js';
 import { defaultSquadTactics, EXTRACT_PLANS, FORMATIONS, STANCES, TARGET_PRIORITIES, READY_FOR_BOSS_TIER } from '../data/tactics.js';
 import { SPELL_SLOTS } from '../data/spells.js';
@@ -63,10 +65,24 @@ export function generateBotSquads(seed, count, playerLevel) {
 function classPoolFor(level) {
   const pool = [...STARTER_CLASS_IDS];
   for (const ach of ACHIEVEMENTS) {
-    const tier = BOSSES[ach.bossId]?.tier ?? 2;
+    const tier = LARGE_CREATURES[ach.bossId]?.tier ?? 2;
     if (level >= READY_FOR_BOSS_TIER[tier]) pool.push(ach.unlocks);
   }
   return pool;
+}
+
+// Every rival's kit was carved off something, the same as yours. A deeper
+// squad wears deeper species, which is why looting one is worth the fight.
+const FORGEABLE = Object.values(CREATURES);
+
+function forgeFor(rng, slot, classId, quality, level) {
+  const depth = level >= 12 ? 2 : level >= 7 ? 1 : 0;
+  const pool = FORGEABLE.filter((c) => c.tier <= depth
+    && Object.keys(c.parts).some((p) => slotsForPart(p).includes(slot)));
+  if (!pool.length) return null;
+  const species = pick(rng, pool);
+  const partType = pick(rng, Object.keys(species.parts).filter((p) => slotsForPart(p).includes(slot)));
+  return craftItem({ speciesId: species.id, partType, slot, quality, classId });
 }
 
 function weightedPlan(rng, powerDelta) {
@@ -87,9 +103,9 @@ function buildBotHero(rng, classId, level, powerDelta = 0) {
   for (const slot of SLOTS) {
     if (chance(rng, slot === 'weapon' ? 0.98 : fillChance)) {
       const bump = chance(rng, 0.22) ? 1 : 0;
-      const rarity = RARITY_ORDER[Math.min(RARITY_ORDER.length - 1, bandBase + bump)];
-      const item = rollItem(rng, { slot, classId, rarity, ilvl });
-      if (canEquip(item, classId)) hero.equipped[slot] = item;
+      const quality = QUALITY_ORDER[Math.min(QUALITY_ORDER.length - 1, bandBase + bump)];
+      const item = forgeFor(rng, slot, classId, quality, level);
+      if (item && canEquip(item, classId)) hero.equipped[slot] = item;
     }
   }
 

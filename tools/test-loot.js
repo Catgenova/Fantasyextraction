@@ -17,12 +17,28 @@ import { Match, TICK } from '../src/sim/match.js';
 import { newProfile, squadHeroes } from '../src/game/profile.js';
 import { generateBotSquads } from '../src/sim/bots.js';
 import { autoAllocate, sanitizeHero } from '../src/sim/heroes.js';
-import { rollItem, SLOTS, canEquip, packCapacity } from '../src/data/gear.js';
+import { craftItem, SLOTS, slotsForPart, canEquip, packCapacity } from '../src/data/gear.js';
+import { QUALITY_ORDER } from '../src/data/parts.js';
+import { CREATURES } from '../src/data/creatures.js';
 import { makeRng } from '../src/core/rng.js';
 import { MATCH_SECONDS } from '../src/data/enemies.js';
 import { canTake, wantsItem } from '../src/sim/ai.js';
 
 import { LOOT_PATIENCE, LOOT_TRAVEL_LIMIT } from '../src/sim/ai.js';
+
+// Kit forged from species of the squad's own depth — the tests need a squad
+// that has been hunting, not one in its starter rags.
+const FORGEABLE = Object.values(CREATURES);
+function forgeFor(rng, slot, classId, quality, level) {
+  const depth = level >= 12 ? 2 : level >= 7 ? 1 : 0;
+  const pool = FORGEABLE.filter((c) => c.tier <= depth
+    && Object.keys(c.parts).some((p) => slotsForPart(p).includes(slot)));
+  if (!pool.length) return null;
+  const species = pool[Math.floor(rng() * pool.length)];
+  const options = Object.keys(species.parts).filter((p) => slotsForPart(p).includes(slot));
+  const partType = options[Math.floor(rng() * options.length)];
+  return craftItem({ speciesId: species.id, partType, slot, quality, classId });
+}
 
 const RUNS = 6;
 // Generous ceilings: these catch a squad that has stopped playing, not a
@@ -50,17 +66,17 @@ const check = (name, ok, detail = '') => {
   // so "cannot take it" is a statement about the swap rule rather than about
   // which base types happened to roll — rolling distinct commons made this
   // fixture quietly depend on the size of the base-item pool.
-  const common = rollItem(rng, { baseId: 'gloves', rarity: 'common', ilvl: 1 });
+  const common = craftItem({ speciesId: 'threshclaw', partType: 'hide', slot: 'hands', quality: 'ragged' });
   // Pack size comes from the pouch now, so the fixture has to wear one to have
   // a capacity to fill at all.
-  const pouch = rollItem(rng, { baseId: 'belt_pouch', rarity: 'common', ilvl: 1 });
+  const pouch = craftItem({ speciesId: 'threshclaw', partType: 'hide', slot: 'pouch', quality: 'ragged' });
   const hero = {
     tactics: { lootPolicy: 'greedy' },
     equipped: { pouch },
     consumables: [],
     inventory: Array.from({ length: packCapacity({ pouch }) }, () => ({ ...common })),
   };
-  const legendary = rollItem(rng, { baseId: 'gloves', rarity: 'legendary', ilvl: 20 });
+  const legendary = craftItem({ speciesId: 'nightfell', partType: 'marrow', slot: 'trinket', quality: 'mythic' });
 
   check('a full pack still *wants* a common', wantsItem(hero, common));
   check('but cannot take it', !canTake(hero, common));
@@ -86,8 +102,8 @@ for (let i = 0; i < RUNS; i++) {
     hero.level = 5;
     autoAllocate(rng, hero);
     for (const slot of SLOTS) {
-      const item = rollItem(rng, { slot, classId: hero.classId, rarity: 'common', ilvl: 5 });
-      if (canEquip(item, hero.classId)) hero.equipped[slot] = item;
+      const item = forgeFor(rng, slot, hero.classId, 'sound', hero.level ?? 5);
+      if (item && canEquip(item, hero.classId)) hero.equipped[slot] = item;
     }
     sanitizeHero(hero);
   }

@@ -6,7 +6,7 @@ import { el, clear, fmtTime, hideTooltip } from '../dom.js';
 import { createRenderer } from '../render.js';
 import { createRunBags } from './runbags.js';
 import { createNavPad } from './navpad.js';
-import { RARITIES, RARITY_ORDER } from '../../data/gear.js';
+import { QUALITIES, QUALITY_ORDER } from '../../data/parts.js';
 import { CLASSES } from '../../data/classes.js';
 import { MATCH_SECONDS } from '../../data/enemies.js';
 import { bestExtract } from '../../sim/map.js';
@@ -107,7 +107,7 @@ export function matchScreen(app, match) {
         el('button.sm.ghost', { onclick: () => { legend.hidden = true; } }, '✕'),
       ]),
       el('div.tiny.dim', { style: { margin: '4px 0 3px' } }, 'LOOT ON THE GROUND'),
-      ...RARITY_ORDER.map((id) => swatch(RARITIES[id].color, RARITIES[id].name)),
+      ...QUALITY_ORDER.map((id) => swatch(QUALITIES[id].color, QUALITIES[id].name)),
       el('div.legend-row.faded', null, [
         el('span.legend-gem', { style: { background: 'var(--common)' } }),
         el('span', null, 'Faded — your squad will skip it'),

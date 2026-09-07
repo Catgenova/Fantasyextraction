@@ -7,9 +7,9 @@ import { generateMap, WORLD_SIZE, CENTER, tierAt, extractIsOpen, resolveCollisio
 import { makeHeroEntity, makeEnemyEntity, resetIds, lootableFrom, hpFrac, recomputeStats } from './entity.js';
 import { updateHero, updateMonster, squadObjective, tryDeathSave } from './ai.js';
 import { tickStatuses, updateProjectiles, dealDamage } from './combat.js';
-import { ENEMIES, WORLD_EVENTS, MATCH_SECONDS } from '../data/enemies.js';
-import { rollLoot } from '../data/loot.js';
-import { RARITIES } from '../data/gear.js';
+import { WORLD_EVENTS, MATCH_SECONDS } from '../data/enemies.js';
+import { QUALITIES, CARVE_PROFILE, QUALITY_ORDER, makePart } from '../data/parts.js';
+import { CREATURES } from '../data/creatures.js';
 import { treeMods, addMods, emptyMods } from './stats.js';
 import { READY_FOR_BOSS_TIER } from '../data/tactics.js';
 
@@ -25,6 +25,10 @@ const COLLAPSE_MAX_R = WORLD_SIZE * 0.75;
 const COLLAPSE_MIN_R = WORLD_SIZE * 0.32;
 const ENTITY_CELL = 400;
 const ENTITY_BUDGET = 240;   // camps stop streaming in past this
+const CARCASS_SECONDS = 100; // how long an uncarved body is worth walking back to
+// Sustained damage a pack is allowed to represent, by ring. A large pack is
+// a little over twice this.
+const PACK_BUDGET = { 0: 115, 1: 210, 2: 330 };
 
 export class Match {
   /**
@@ -275,7 +279,7 @@ export class Match {
   }
 
   rarityColor(item) {
-    return RARITIES[item.rarity]?.color ?? '#cfd6e2';
+    return QUALITIES[item.quality]?.color ?? '#cfd6e2';
   }
 
   // ---------------------------------------------------------------- tick ----
@@ -414,7 +418,7 @@ export class Match {
         }
       } else if (poi.kind === 'boss' && !poi.spawned && nearest < 1500) {
         const boss = makeEnemyEntity(poi.bossId, {
-          pos: { x: poi.x, y: poi.y }, isBoss: true, tierScale: 1, ownerPoi: poi.id, rng: this.rng,
+          pos: { x: poi.x, y: poi.y }, tierScale: 1, ownerPoi: poi.id, rng: this.rng,
         });
         this.addEntity(boss);
         poi.spawned = true;
@@ -425,23 +429,30 @@ export class Match {
   }
 
   #populateCamp(poi) {
-    const pools = {
-      0: ['rat_swarm', 'bandit', 'bandit', 'bandit_archer'],
-      1: ['ghoul', 'ghoul', 'cultist', 'ogre'],
-      2: ['wraith', 'wraith', 'revenant', 'ghoul'],
-    };
-    const pool = pools[poi.tier] ?? pools[0];
-    const count = randInt(this.rng, 3, 6) + (poi.tier === 2 ? 2 : 0);
+    // A pack is one species, not a mixed camp. That is what makes "hunt a
+    // small pack of Sicklejaw" a thing a player can ask for, and what makes
+    // the carve at the end of it predictable enough to plan around.
+    const species = CREATURES[poi.speciesId] ?? this.#pickPackSpecies(poi.tier);
+    poi.speciesId = species.id;
+
+    // Pack size is a threat budget, not a headcount. A species' own packSize
+    // says how many of them travel together and caps the group, but eleven
+    // Skiterlings and three Thornbacks are not the same fight — sizing on the
+    // raw number put nineteen bodies on a starter squad and wiped it inside a
+    // minute. The budget makes a small pack of anything a comparable ask.
+    const [lo, hi] = species.packSize;
+    const dps = species.damage / species.attackInterval;
+    const budget = PACK_BUDGET[poi.tier] ?? PACK_BUDGET[0];
+    const wanted = Math.round((poi.packKind === 'large' ? budget * 2.1 : budget) / dps);
+    const cap = poi.packKind === 'large' ? Math.round(hi * 1.9) : hi;
+    const count = Math.max(2, Math.min(cap, wanted));
     const tierScale = (1 + poi.tier * 0.3) * (1 + this.time / MATCH_SECONDS * 0.35);
 
     poi.active = true;
     poi.spawnedIds = [];
     for (let i = 0; i < count; i++) {
-      const off = randomInCircle(this.rng, poi.radius * 0.8);
-      const defId = pick(this.rng, pool);
-      // Elites are rare in a camp; one at most.
-      if (ENEMIES[defId].rank === 'elite' && poi.spawnedIds.some((id) => this.byId(id)?.rank === 'elite')) continue;
-      const e = makeEnemyEntity(defId, {
+      const off = randomInCircle(this.rng, poi.radius * (poi.packKind === 'large' ? 1.1 : 0.8));
+      const e = makeEnemyEntity(species.id, {
         pos: { x: poi.x + off.x, y: poi.y + off.y }, tierScale, ownerPoi: poi.id, rng: this.rng,
       });
       resolveCollisions(this.map, e.pos, e.radius);
@@ -449,6 +460,14 @@ export class Match {
       this.addEntity(e);
       poi.spawnedIds.push(e.id);
     }
+  }
+
+  /** A pack species that belongs in this ring. */
+  #pickPackSpecies(tier) {
+    const pool = Object.values(CREATURES).filter((c) => c.hunt === 'small' && c.tier === tier);
+    const fallback = Object.values(CREATURES).filter((c) => c.hunt === 'small');
+    const list = pool.length ? pool : fallback;
+    return list[Math.floor(this.rng() * list.length)];
   }
 
   summonAdds(source, defId, count, opts = {}) {
@@ -485,8 +504,16 @@ export class Match {
         this.#removeEntity(e);
         continue;
       }
-      // Corpses linger briefly for readability, then leave the array.
+      // A body with cuts left in it is not scenery, it is the reason the fight
+      // happened. It waits long enough to be worth coming back for — a solo
+      // carcass is four to six cuts at four seconds each — and only starts the
+      // short readability countdown once there is nothing left to take.
       if (e.alive || e.kind === 'hero') continue;
+      if (e.carvesLeft > 0) {
+        e.carcassTimer = (e.carcassTimer ?? CARCASS_SECONDS) - TICK;
+        if (e.carcassTimer > 0) continue;
+        e.carvesLeft = 0;
+      }
       e.corpseTimer = (e.corpseTimer ?? 6) - TICK;
       if (e.corpseTimer <= 0) {
         this.entityIndex.delete(e.id);
@@ -532,10 +559,59 @@ export class Match {
       if (killerSquad) this.#awardXp(killerSquad, target.xp);
       if (killer?.kind === 'hero') killer.stats_run.kills++;
 
-      const ilvl = 1 + Math.round((tierAt(target.pos) * 3) + this.time / 200);
-      const drops = rollLoot(this.rng, target.lootTable ?? 'trash_low', { ilvl, luck: target.rank === 'boss' ? 0.25 : 0 });
-      if (drops.length) this.dropLoot(target.pos, drops, {});
+      // Nothing drops. The body is what is worth something, and only if
+      // somebody has time to stand over it with a knife.
+      const profile = target.carve ?? CARVE_PROFILE.small;
+      const [lo, hi] = profile.carves;
+      target.carvesLeft = lo + Math.floor(this.rng() * (hi - lo + 1));
     }
+  }
+
+  /**
+   * Parts from a species chosen for the ring the drop landed in — somebody
+   * else's carving, abandoned. `bias` pushes the grades up the way a solo
+   * corpse does.
+   */
+  #cacheParts(count, bias = 0) {
+    const tier = tierAt({ x: this.map.center.x, y: this.map.center.y });
+    const pool = Object.values(CREATURES).filter((c) => c.hunt === 'small' && c.tier <= Math.max(tier, 1));
+    const out = [];
+    for (let i = 0; i < count; i++) {
+      const species = pool[Math.floor(this.rng() * pool.length)];
+      if (!species) break;
+      out.push(this.rollPart(species, bias));
+    }
+    return out;
+  }
+
+  /** One carve off a species: a part type from its own table, at a rolled grade. */
+  rollPart(species, bias = 0) {
+    const entries = Object.entries(species.parts);
+    const total = entries.reduce((sum, [, w]) => sum + w, 0);
+    let roll = this.rng() * total;
+    let partType = entries[0][0];
+    for (const [type, weight] of entries) {
+      roll -= weight;
+      if (roll <= 0) { partType = type; break; }
+    }
+
+    // Quality weights, pushed up by the carve profile and by how deep the
+    // species lives. Nothing off a Nightfell is ever ragged.
+    const steps = bias + species.tier;
+    let best = 0;
+    for (let attempt = 0; attempt <= steps; attempt++) {
+      let pick = 0;
+      let acc = this.rng() * QUALITY_ORDER.reduce((sum, q) => sum + QUALITIES[q].weight, 0);
+      for (let i = 0; i < QUALITY_ORDER.length; i++) {
+        acc -= QUALITIES[QUALITY_ORDER[i]].weight;
+        if (acc <= 0) { pick = i; break; }
+      }
+      best = Math.max(best, pick);
+    }
+    return makePart({
+      speciesId: species.id, speciesName: species.name, partType,
+      quality: QUALITY_ORDER[Math.min(best, QUALITY_ORDER.length - 1)], tier: species.tier,
+    });
   }
 
   #awardXp(squad, xp) {
@@ -649,8 +725,7 @@ export class Match {
       ev.holder = squadId;
       if (ev.progress >= ev.captureSeconds) {
         ev.claimed = true;
-        const drops = rollLoot(this.rng, ev.lootTable, { ilvl: 8 + Math.round(this.time / 150), luck: 0.2 });
-        this.dropLoot(ev.pos, drops, {});
+        this.dropLoot(ev.pos, this.#cacheParts(6, 2), {});
         this.log(`${this.squads.get(squadId)?.name ?? 'A squad'} claimed the ${ev.name}.`, 'event');
       }
     }
@@ -677,7 +752,7 @@ export class Match {
 
     if (def.kind === 'boss') {
       const poi = this.map.pois.find((p) => p.kind === 'boss_event');
-      const boss = makeEnemyEntity(def.boss, { pos: { x: poi.x, y: poi.y }, isBoss: true, ownerPoi: poi.id, rng: this.rng });
+      const boss = makeEnemyEntity(def.boss, { pos: { x: poi.x, y: poi.y }, ownerPoi: poi.id, rng: this.rng });
       this.addEntity(boss);
       ev.pos = { x: poi.x, y: poi.y };
       ev.bossId = boss.id;
@@ -701,8 +776,7 @@ export class Match {
       }
     }
     if (def.kind === 'cache') {
-      const drops = rollLoot(this.rng, def.lootTable, { ilvl: 6 + Math.round(this.time / 180) });
-      const pile = this.dropLoot(ev.pos, drops, {});
+      const pile = this.dropLoot(ev.pos, this.#cacheParts(5, 1), {});
       ev.pileId = pile?.id ?? null;
     }
     this.activeEvents.push(ev);
@@ -832,6 +906,9 @@ export class Match {
   }
 }
 
+/** Where an item sits on the five-step ladder, whichever ladder it uses. */
 function rarityRank(item) {
+  const q = QUALITY_ORDER.indexOf(item.quality);
+  if (q >= 0) return q;
   return ['common', 'uncommon', 'rare', 'epic', 'legendary'].indexOf(item.rarity ?? 'common');
 }

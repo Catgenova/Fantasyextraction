@@ -195,6 +195,16 @@ button.sm { padding: 4px 9px; font-size: 12px; }
 .item .slot-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 .item .mods { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
+.species-lot {
+  position: relative; padding: 8px 10px 8px 13px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
+}
+.species-lot::before {
+  content: ''; position: absolute; inset: 0 auto 0 0; width: 3px;
+  background: var(--cls, var(--accent)); border-radius: var(--radius) 0 0 var(--radius);
+}
+.species-lot .nm { font-family: var(--serif); font-size: 14px; }
+
 .salvage-all {
   display: flex; flex-direction: column; gap: 5px;
   padding: 7px 9px; margin-bottom: 3px;

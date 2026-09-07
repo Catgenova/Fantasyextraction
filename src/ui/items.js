@@ -3,7 +3,9 @@
 // everywhere in the game.
 
 import { el, tooltip, titleCase } from './dom.js';
-import { RARITIES, SLOT_NAMES, itemScore, BASES_BY_ID, pouchSlots, BASE_PACK_SLOTS } from '../data/gear.js';
+import { SLOT_NAMES, itemScore, pouchSlots, BASE_PACK_SLOTS } from '../data/gear.js';
+import { QUALITIES, PART_TYPES, partValue } from '../data/parts.js';
+import { CREATURES } from '../data/creatures.js';
 import { CONSUMABLES } from '../data/consumables.js';
 
 const PCT_STATS = new Set([
@@ -34,13 +36,22 @@ export function formatStat(stat, value) {
   return `${value > 0 ? '+' : ''}${Math.round(value)}`;
 }
 
+/**
+ * Carve quality drives colour now. Consumables still carry a rarity, so both
+ * ladders resolve here and the five colours are shared between them.
+ */
+const GRADE_COLOURS = {
+  common: '#b9bfc9', uncommon: '#6fd08c', rare: '#5aa9f7', epic: '#b57af3', legendary: '#f0a33c',
+};
 export const rarityColor = (item) =>
-  item?.kind === 'consumable'
-    ? (RARITIES[item.rarity]?.color ?? 'var(--common)')
-    : (RARITIES[item?.rarity]?.color ?? 'var(--common)');
+  QUALITIES[item?.quality]?.color ?? GRADE_COLOURS[item?.rarity] ?? 'var(--common)';
 
 /** Short "+4 Might, +12 Armour" summary used on collapsed item rows. */
 export function modSummary(item, limit = 3) {
+  if (item.kind === 'part') {
+    const grade = QUALITIES[item.quality]?.name ?? item.quality;
+    return `${grade} · ${PART_TYPES[item.partType]?.desc ?? 'Carved material.'}`;
+  }
   if (item.kind === 'consumable') {
     const def = CONSUMABLES[item.defId];
     return def ? def.desc : '';
@@ -72,11 +83,22 @@ export function itemTooltip(item, opts = {}) {
     return nodes;
   }
 
-  const base = BASES_BY_ID[item.baseId];
+  if (item.kind === 'part') {
+    const grade = QUALITIES[item.quality];
+    nodes.push(el('div.t-name', { style: { color: rarityColor(item) } }, item.name));
+    nodes.push(el('div.t-sub', null,
+      `${grade?.name ?? item.quality} carve · ${CREATURES[item.speciesId]?.name ?? item.speciesName}`));
+    nodes.push(el('div.t-mod', null, PART_TYPES[item.partType]?.desc ?? ''));
+    nodes.push(el('div.t-desc', null, 'Take it to the blacksmith. Nothing else uses it.'));
+    return nodes;
+  }
+
+  const species = CREATURES[item.speciesId];
   nodes.push(el('div.t-name', { style: { color: rarityColor(item) } }, item.name));
   nodes.push(el('div.t-sub', null,
-    `${titleCase(item.rarity)} ${SLOT_NAMES[item.slot] ?? item.slot} · item level ${item.ilvl}` +
-    (base?.classes ? ` · ${base.classes.map(titleCase).join('/')} only` : '')));
+    `${QUALITIES[item.quality]?.name ?? titleCase(item.quality ?? '')} ${SLOT_NAMES[item.slot] ?? item.slot}`
+    + (species ? ` · forged from ${species.name}` : '')
+    + (item.classes ? ` · ${item.classes.map(titleCase).join('/')} only` : '')));
 
   const slots = pouchSlots(item);
   if (slots) {

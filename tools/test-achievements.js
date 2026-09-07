@@ -17,16 +17,33 @@ import {
   achievementProgress, recordBossKill, hasAchievement,
 } from '../src/game/profile.js';
 import { ACHIEVEMENTS, achievementForBoss } from '../src/data/achievements.js';
-import { BOSSES, MATCH_SECONDS } from '../src/data/enemies.js';
+import { MATCH_SECONDS } from '../src/data/enemies.js';
+import { LARGE_CREATURES as BOSSES } from '../src/data/creatures.js';
 import { CLASSES, CLASS_IDS, STARTER_CLASS_IDS } from '../src/data/classes.js';
 import { TREES, unlockedSpells } from '../src/data/skilltrees.js';
 import { spellsForClass, SPELL_SLOTS } from '../src/data/spells.js';
 import { computeStats } from '../src/sim/stats.js';
 import { createHero, autoAllocate, availableSpells, sanitizeHero } from '../src/sim/heroes.js';
-import { startingLoadout, canEquip, SLOTS, rollItem } from '../src/data/gear.js';
+import { craftItem, SLOTS, slotsForPart, canEquip, packCapacity, startingLoadout } from '../src/data/gear.js';
+import { QUALITY_ORDER } from '../src/data/parts.js';
+import { CREATURES } from '../src/data/creatures.js';
 import { makeRng } from '../src/core/rng.js';
 import { defaultSquadTactics } from '../src/data/tactics.js';
 import { squadHeroes } from '../src/game/profile.js';
+
+// Kit forged from species of the squad's own depth — the tests need a squad
+// that has been hunting, not one in its starter rags.
+const FORGEABLE = Object.values(CREATURES);
+function forgeFor(rng, slot, classId, quality, level) {
+  const depth = level >= 12 ? 2 : level >= 7 ? 1 : 0;
+  const pool = FORGEABLE.filter((c) => c.tier <= depth
+    && Object.keys(c.parts).some((p) => slotsForPart(p).includes(slot)));
+  if (!pool.length) return null;
+  const species = pool[Math.floor(rng() * pool.length)];
+  const options = Object.keys(species.parts).filter((p) => slotsForPart(p).includes(slot));
+  const partType = options[Math.floor(rng() * options.length)];
+  return craftItem({ speciesId: species.id, partType, slot, quality, classId });
+}
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -41,9 +58,14 @@ const result = (over = {}) => ({
 
 console.log('=== the mapping ===');
 
-check('every boss grants exactly one class',
-  Object.keys(BOSSES).every((id) => achievementForBoss(id)),
-  `${ACHIEVEMENTS.length} achievements for ${Object.keys(BOSSES).length} bosses`);
+// Ten solo hunts, eight unlockable classes: two great hunts grant no class at
+// all, and that is the roster having a shape rather than a gap.
+check('every trophy names a real solo hunt',
+  ACHIEVEMENTS.every((a) => BOSSES[a.bossId]),
+  `${ACHIEVEMENTS.length} achievements against ${Object.keys(BOSSES).length} solo species`);
+check('some solo hunts are worth taking for the parts alone',
+  Object.keys(BOSSES).filter((id) => !achievementForBoss(id)).length === 2,
+  Object.keys(BOSSES).filter((id) => !achievementForBoss(id)).join(','));
 
 const unlockable = CLASS_IDS.filter((id) => !STARTER_CLASS_IDS.includes(id));
 const granted = ACHIEVEMENTS.map((a) => a.unlocks);
@@ -61,17 +83,17 @@ console.log('\n=== earning them ===');
     unlockedClassIds(p).join(',') === STARTER_CLASS_IDS.join(','), unlockedClassIds(p).join(','));
   check('and no trophies', achievementProgress(p).every((r) => !r.earned));
 
-  const sum = applyMatchResult(p, result({ bossesKilled: ['gravemaw'] }));
-  check('killing a boss earns its trophy', hasAchievement(p, 'gravemaw'));
+  const sum = applyMatchResult(p, result({ bossesKilled: ['deepdelver'] }));
+  check('killing a boss earns its trophy', hasAchievement(p, 'deepdelver'));
   check('and unlocks its class', unlockedClassIds(p).includes('necromancer'));
   check('and recruits a hero to play it',
     p.roster.length === 4 && p.roster[3].classId === 'necromancer',
     p.roster.map((h) => h.classId).join(','));
   check('the report names what was earned',
-    sum.unlocked.length === 1 && sum.unlocked[0].ach.id === 'gravemaw');
+    sum.unlocked.length === 1 && sum.unlocked[0].ach.id === 'deepdelver');
 
   // The whole point of a one-off unlock: farming the same boss must not pay again.
-  const again = applyMatchResult(p, result({ bossesKilled: ['gravemaw'] }));
+  const again = applyMatchResult(p, result({ bossesKilled: ['deepdelver'] }));
   check('killing it again grants nothing',
     again.unlocked.length === 0 && p.roster.length === 4, `roster ${p.roster.length}`);
 }
@@ -80,9 +102,9 @@ console.log('\n=== earning them ===');
   // Bosses are hard enough that dying on the way out is common. The kill is
   // the achievement, so the trophy has to survive the wipe that follows it.
   const p = newProfile(2);
-  applyMatchResult(p, result({ outcome: 'wiped', bossesKilled: ['the_warden'] }));
+  applyMatchResult(p, result({ outcome: 'wiped', bossesKilled: ['nightfell'] }));
   check('a wipe after the kill still keeps the trophy',
-    hasAchievement(p, 'the_warden') && unlockedClassIds(p).includes('paladin'));
+    hasAchievement(p, 'nightfell') && unlockedClassIds(p).includes('slayer'));
 }
 
 {
@@ -94,7 +116,7 @@ console.log('\n=== earning them ===');
 
 {
   const p = newProfile(4);
-  applyMatchResult(p, result({ bossesKilled: ['quiet_knife', 'grendrak', 'hoarfrost'] }));
+  applyMatchResult(p, result({ bossesKilled: ['bastionback', 'tyrannoclast', 'glaciermaw'] }));
   check('three kills in one raid unlock three classes',
     p.roster.length === 6, p.roster.map((h) => h.classId).join(','));
   check('history records the unlocks', p.history[0].unlocked.length === 3);
@@ -108,10 +130,10 @@ console.log('\n=== earning them ===');
   check('a save with no trophies at all sanitises to none',
     Object.keys(p.achievements).length === 0 && unlockedClassIds(p).length === 3);
 
-  p.achievements = { gravemaw: { at: 1 }, a_boss_that_was_cut: { at: 2 } };
+  p.achievements = { deepdelver: { at: 1 }, a_species_that_was_cut: { at: 2 } };
   sanitizeProfile(p);
   check('a trophy for a boss that no longer exists is dropped',
-    Object.keys(p.achievements).join(',') === 'gravemaw');
+    Object.keys(p.achievements).join(',') === 'deepdelver');
 }
 
 console.log('\n=== the unlocked classes are actually playable ===');
@@ -166,8 +188,8 @@ function equipForRaid(profile, seed, level) {
     hero.level = level;
     autoAllocate(r, hero);
     for (const slot of SLOTS) {
-      const item = rollItem(r, { slot, classId: hero.classId, rarity: 'rare', ilvl: level });
-      if (canEquip(item, hero.classId)) hero.equipped[slot] = item;
+      const item = forgeFor(r, slot, hero.classId, 'fine', level);
+      if (item && canEquip(item, hero.classId)) hero.equipped[slot] = item;
     }
     sanitizeHero(hero);
   }
@@ -210,8 +232,12 @@ function equipForRaid(profile, seed, level) {
   if (sawKill) {
     const p = newProfile(9);
     applyMatchResult(p, result({ bossesKilled: [...killed] }));
-    check('and the profile turns it into a class', p.roster.length === 3 + killed.size,
-      p.roster.map((h) => h.classId).join(','));
+    // Not every solo hunt grants a class — two of the ten are worth taking for
+    // their parts alone — so count the ones that do.
+    const granting = [...killed].filter((id) => achievementForBoss(id)).length;
+    check('and the profile turns the granting ones into classes',
+      p.roster.length === 3 + granting,
+      `${[...killed].join(',')} -> ${p.roster.map((h) => h.classId).join(',')}`);
   }
 }
 

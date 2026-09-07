@@ -3,6 +3,9 @@
 
 import { makeRng, rand, randInt, chance, pick, shuffle } from '../core/rng.js';
 import { dist } from '../core/vec.js';
+import { CREATURES } from '../data/creatures.js';
+
+const PACK_SPECIES = Object.values(CREATURES).filter((c) => c.hunt === 'small');
 
 // The raid map is deliberately huge: crossing it corner to corner takes most
 // of the 30-minute timer on foot, so where you land and where you extract are
@@ -112,23 +115,36 @@ export function generateMap(seed) {
       if (clearOfSpawnsAndExits(map, c, 480)) { p = c; break; }
     }
     if (!p) continue;
-    map.pois.push({ id: `camp_${i}`, kind: 'camp', x: p.x, y: p.y, tier: tierAt(p), radius: 220, cleared: false });
+    const tier = tierAt(p);
+    // One species per pack, decided at generation so a squad can be told to go
+    // and hunt a named creature rather than "whatever is over there".
+    const pool = PACK_SPECIES.filter((c) => c.tier === tier);
+    const species = pool.length ? pool[randInt(rng, 0, pool.length - 1)] : PACK_SPECIES[0];
+    map.pois.push({
+      id: `camp_${i}`, kind: 'camp', x: p.x, y: p.y, tier, radius: 220, cleared: false,
+      speciesId: species.id,
+      // Roughly a third of packs are the larger, riskier version of themselves.
+      packKind: chance(rng, 0.34) ? 'large' : 'small',
+    });
   }
 
-  // Boss arenas sit at fixed radii but pick an angle that keeps them away from
+  // Solo hunting grounds sit at fixed radii but pick an angle that keeps them
+  // away from
   // any landing zone — nobody should be greeted by a boss on the drop — and
   // away from each other, so pulling one is never pulling two. Each grants a
   // class on its first kill (see `src/data/achievements.js`), so the radii
   // double as difficulty signposting: the outer-ring boss is the one a fresh
   // squad can take, and the core three are the end of a long raid.
   const arenaSpec = [
-    { id: 'arena_knife', bossId: 'quiet_knife', radius: 5200, tier: 0 },
-    { id: 'arena_grendrak', bossId: 'grendrak', radius: 3900, tier: 1 },
-    { id: 'arena_gravemaw', bossId: 'gravemaw', radius: 3400, tier: 1 },
-    { id: 'arena_hoarfrost', bossId: 'hoarfrost', radius: 3000, tier: 1 },
-    { id: 'arena_emberjaw', bossId: 'emberjaw', radius: 1900, tier: 2 },
-    { id: 'arena_ashenveil', bossId: 'ashenveil', radius: 1500, tier: 2 },
-    { id: 'arena_malgareth', bossId: 'malgareth', radius: 1200, tier: 2 },
+    { id: 'ground_bastionback', bossId: 'bastionback', radius: 5200, tier: 0 },
+    { id: 'ground_tyrannoclast', bossId: 'tyrannoclast', radius: 3900, tier: 1 },
+    { id: 'ground_deepdelver', bossId: 'deepdelver', radius: 3400, tier: 1 },
+    { id: 'ground_glaciermaw', bossId: 'glaciermaw', radius: 3000, tier: 1 },
+    { id: 'ground_mirethane', bossId: 'mirethane', radius: 2600, tier: 1 },
+    { id: 'ground_pyroclast', bossId: 'pyroclast', radius: 1900, tier: 2 },
+    { id: 'ground_stormcrest', bossId: 'stormcrest', radius: 1600, tier: 2 },
+    { id: 'ground_venomcoil', bossId: 'venomcoil', radius: 1300, tier: 2 },
+    { id: 'ground_skyrender', bossId: 'skyrender', radius: 1000, tier: 2 },
   ];
   const ARENA_SEPARATION = 1500;
   const placedArenas = [];
@@ -153,7 +169,7 @@ export function generateMap(seed) {
   }
 
   // The apex boss wakes at the exact centre when its event fires.
-  map.pois.push({ id: 'arena_apex', kind: 'boss_event', bossId: 'the_warden', x: CENTER.x, y: CENTER.y, radius: 520, tier: 2 });
+  map.pois.push({ id: 'ground_nightfell', kind: 'boss_event', bossId: 'nightfell', x: CENTER.x, y: CENTER.y, radius: 520, tier: 2 });
 
   // Event sites: fixed anchors the scheduled world events attach to.
   const eventAnchors = shuffle(rng, map.pois.filter((p) => p.kind === 'camp')).slice(0, 6);

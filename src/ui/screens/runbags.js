@@ -6,7 +6,8 @@
 
 import { el, clear, hideTooltip } from '../dom.js';
 import { itemRow } from '../items.js';
-import { SLOTS, SLOT_NAMES, RARITIES, packCapacity } from '../../data/gear.js';
+import { SLOTS, SLOT_NAMES, packCapacity } from '../../data/gear.js';
+import { QUALITIES } from '../../data/parts.js';
 import { LOOT_FLOORS } from '../../data/tactics.js';
 import { CONSUMABLE_SLOTS } from '../../data/consumables.js';
 import { CLASSES } from '../../data/classes.js';
@@ -130,7 +131,7 @@ export function createRunBags(match, controls = null) {
               title: f.desc,
               onclick: () => act(() => { orders.lootFloor = f.id; }),
             },
-            f.id === 'any' ? 'Any' : RARITIES[f.minRarity].name,
+            f.id === 'any' ? 'Any' : QUALITIES[f.minQuality].name,
           )),
           el('button.sm' + (orders.takeConsumables === false ? '' : '.primary'), {
             title: orders.takeConsumables === false

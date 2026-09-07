@@ -109,10 +109,10 @@ for (const [label, opts] of [
   check(`${label}: it starts on Any`,
     (await orders.locator('button.primary').filter({ hasText: 'Any' }).count()) === 1);
 
-  await orders.getByRole('button', { name: 'Rare', exact: true }).click();
+  await orders.getByRole('button', { name: 'Fine', exact: true }).click();
   await page.waitForTimeout(250);
   check(`${label}: picking a floor selects it`,
-    (await orders.locator('button.primary').filter({ hasText: 'Rare' }).count()) === 1
+    (await orders.locator('button.primary').filter({ hasText: 'Fine' }).count()) === 1
     && (await orders.locator('button.primary').filter({ hasText: 'Any' }).count()) === 0);
   const potions = orders.getByRole('button', { name: 'Potions' });
   check(`${label}: potions start switched on`,

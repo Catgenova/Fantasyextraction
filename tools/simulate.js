@@ -9,7 +9,9 @@ import { newProfile, squadHeroes } from '../src/game/profile.js';
 import { autoAllocate, sanitizeHero } from '../src/sim/heroes.js';
 import { generateBotSquads } from '../src/sim/bots.js';
 import { MATCH_SECONDS } from '../src/data/enemies.js';
-import { rollItem, SLOTS, RARITY_ORDER, canEquip } from '../src/data/gear.js';
+import { craftItem, SLOTS, slotsForPart, canEquip } from '../src/data/gear.js';
+import { QUALITY_ORDER } from '../src/data/parts.js';
+import { CREATURES } from '../src/data/creatures.js';
 import { makeConsumable } from '../src/data/consumables.js';
 import { makeRng } from '../src/core/rng.js';
 
@@ -24,6 +26,19 @@ const baseSeed = Number(flag('seed', 1234));
 const plan = flag('plan', null);
 const level = Number(flag('level', 5));
 
+// A squad that has been hunting: kit forged from species of their own depth.
+const FORGEABLE = Object.values(CREATURES);
+function forgeFor(rng, slot, classId, quality, level) {
+  const depth = level >= 12 ? 2 : level >= 7 ? 1 : 0;
+  const pool = FORGEABLE.filter((c) => c.tier <= depth
+    && Object.keys(c.parts).some((p) => slotsForPart(p).includes(slot)));
+  if (!pool.length) return null;
+  const species = pool[Math.floor(rng() * pool.length)];
+  const options = Object.keys(species.parts).filter((p) => slotsForPart(p).includes(slot));
+  const partType = options[Math.floor(rng() * options.length)];
+  return craftItem({ speciesId: species.id, partType, slot, quality, classId });
+}
+
 /** Roll a level-appropriate kit for every hero so tests compare like with like. */
 function equipForLevel(profile, seed, level) {
   const rng = makeRng(seed ^ 0x5bf03635);
@@ -33,8 +48,8 @@ function equipForLevel(profile, seed, level) {
     // would compare a half-built squad against fully-built rivals.
     autoAllocate(rng, hero);
     for (const slot of SLOTS) {
-      const item = rollItem(rng, { slot, classId: hero.classId, rarity: RARITY_ORDER[band], ilvl: level });
-      if (canEquip(item, hero.classId)) hero.equipped[slot] = item;
+      const item = forgeFor(rng, slot, hero.classId, QUALITY_ORDER[band], level);
+      if (item && canEquip(item, hero.classId)) hero.equipped[slot] = item;
     }
     hero.consumables = [makeConsumable('greater_potion', 3), makeConsumable('mana_tonic', 2)];
     sanitizeHero(hero);

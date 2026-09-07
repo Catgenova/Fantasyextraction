@@ -13,6 +13,8 @@ import { hpFrac, manaFrac, recomputeStats } from './entity.js';
 import { dist, dist2, dirTo, norm, add, scale, sub } from '../core/vec.js';
 import { resolveCollisions, obstaclesNear, bestExtract, extractIsOpen } from './map.js';
 import { itemScore, packCapacity } from '../data/gear.js';
+import { QUALITY_ORDER, partValue } from '../data/parts.js';
+import { CREATURES } from '../data/creatures.js';
 import { stowConsumable, canPackConsumable } from './inventory.js';
 
 const OUT_OF_COMBAT_AFTER = 5;
@@ -85,6 +87,9 @@ export function updateHero(match, e, dt) {
 
   if (e._desired) steer(match, e, e._desired.pos, dt, e._desired.speedMult ?? 1);
   else { e.vel.x *= 0.8; e.vel.y *= 0.8; }
+
+  // A stopwatch, so it runs every tick rather than on the think cadence.
+  tryCarve(match, e, dt);
 
   if (target?.alive && e.attackTimer <= 0) {
     const range = e.stats.attackRange + e.radius + target.radius;
@@ -894,6 +899,41 @@ function squadLevel(match, squad) {
   return n ? sum / n : 1;
 }
 
+/**
+ * The nearest body the squad still wants to cut up.
+ *
+ * "Wants" is the squad's carve filter applied to what the species can yield:
+ * a squad set to keep only Fine carves should not walk across a field for a
+ * Threshclaw, whose carves are almost never that good. Judging it on the best
+ * grade the species can plausibly give avoids both walking for nothing and
+ * ignoring a Nightfell because the filter is strict.
+ */
+function nearestCarcass(match, squad, members, centroid) {
+  let best = null;
+  let bestD = LOOT_SEARCH_RADIUS;
+  const anyoneHasRoom = members.some((m) => m.inventory.length < packCapacity(m.equipped));
+  if (!anyoneHasRoom) return null;
+
+  for (const e of match.entities) {
+    if (e.alive || e.kind === 'hero' || !(e.carvesLeft > 0)) continue;
+    if (squad.ignoredPiles?.has(e.id)) continue;
+    const d = dist(centroid, e.pos);
+    if (d >= bestD) continue;
+    // A solo carcass is always worth the walk; a pack body has to clear the filter.
+    const species = CREATURES[e.defId];
+    if (species && species.hunt === 'small' && !members.some((m) => wantsGrade(m, species))) continue;
+    best = e;
+    bestD = d;
+  }
+  return best;
+}
+
+/** Could this species plausibly yield something this hero would keep? */
+function wantsGrade(e, species) {
+  const reach = Math.min(QUALITY_ORDER.length - 1, 1 + species.tier);
+  return wantsItem(e, { kind: 'part', quality: QUALITY_ORDER[reach] });
+}
+
 function nearest(e, list) {
   let best = list[0];
   let bd = Infinity;
@@ -955,10 +995,10 @@ export function wantsItem(e, item) {
   if (item.kind === 'consumable') return squad ? squad.takeConsumables !== false : true;
 
   const policy = LOOT_POLICIES[e.tactics.lootPolicy] ?? LOOT_POLICIES.greedy;
-  if (!policy.minRarity) return false;
+  if (!policy.minQuality) return false;
   const floor = LOOT_FLOORS[squad?.lootFloor ?? 'any'] ?? LOOT_FLOORS.any;
-  const need = Math.max(rarityRank(policy.minRarity), rarityRank(floor.minRarity));
-  return rarityRank(item.rarity) >= need;
+  const need = Math.max(gradeRank(policy.minQuality), gradeRank(floor.minQuality));
+  return gradeRank(item.quality) >= need;
 }
 
 /**
@@ -976,10 +1016,75 @@ export function canTake(e, item) {
   return valueOf(item) > worst * SWAP_MARGIN;
 }
 
+/** Corpses within reach that still have carves left and are worth taking. */
+export function carvableNear(match, e, radius = PICKUP_RANGE) {
+  const out = [];
+  for (const other of match.entities) {
+    if (other.alive || other.kind === 'hero' || !(other.carvesLeft > 0)) continue;
+    if (dist(e.pos, other.pos) > radius) continue;
+    out.push(other);
+  }
+  return out;
+}
+
+/**
+ * Cut up whatever is dead underfoot.
+ *
+ * Carving is the only way anything enters a pack now, and it is deliberately
+ * not instant: a corpse takes `carve.seconds` per cut and a solo monster takes
+ * four to six of them, which is the tension at the end of every fight. A hero
+ * who wanders off mid-carve simply loses the progress — the corpse keeps its
+ * remaining cuts for whoever comes back to it.
+ */
+export function tryCarve(match, e, dt) {
+  const target = e.carvingId ? match.byId(e.carvingId) : null;
+  if (target && (!(target.carvesLeft > 0) || dist(e.pos, target.pos) > PICKUP_RANGE)) {
+    e.carvingId = null;
+    e.carveProgress = 0;
+  }
+
+  if (!e.carvingId) {
+    const corpse = carvableNear(match, e)[0];
+    if (!corpse) return;
+    // No point starting if the pack is full and the squad refuses poor cuts —
+    // the AI would stand over a body producing nothing.
+    if (e.inventory.length >= packCapacity(e.equipped)) return;
+    e.carvingId = corpse.id;
+    e.carveProgress = 0;
+  }
+
+  const corpse = match.byId(e.carvingId);
+  if (!corpse) { e.carvingId = null; return; }
+
+  e.carveProgress = (e.carveProgress ?? 0) + dt;
+  const perCut = corpse.carve?.seconds ?? 1.5;
+  if (e.carveProgress < perCut) return;
+
+  e.carveProgress = 0;
+  corpse.carvesLeft -= 1;
+  corpse.carvedBy = e.squadId;
+
+  const species = CREATURES[corpse.defId];
+  if (!species) return;
+  const part = match.rollPart(species, corpse.carve?.qualityBias ?? 0);
+
+  if (!wantsItem(e, part)) {
+    match.pushFloat(e.pos, `left ${part.name}`, '#8c8578');
+    return;
+  }
+  if (e.inventory.length < packCapacity(e.equipped)) {
+    e.inventory.push(part);
+    match.pushFloat(e.pos, part.name, match.rarityColor(part));
+    match.onLooted?.(e, part);
+  } else {
+    match.pushFloat(e.pos, 'pack full', '#c86b5a');
+  }
+}
+
 export function tryPickup(match, e) {
   const policy = LOOT_POLICIES[e.tactics.lootPolicy] ?? LOOT_POLICIES.greedy;
   const wantsConsumables = e.squadTactics ? e.squadTactics.takeConsumables !== false : true;
-  if (!policy.minRarity && !wantsConsumables) return;
+  if (!policy.minQuality && !wantsConsumables) return;
 
   const capacity = packCapacity(e.equipped);
 
@@ -1033,12 +1138,21 @@ const SWAP_MARGIN = 1.15;
 
 /** Rough desirability, used only for full-bag swaps. */
 function valueOf(item) {
-  if (item.kind === 'consumable') return 120 + rarityRank(item.rarity) * 90;
-  return itemScore(item) + rarityRank(item.rarity) * 110;
+  if (item.kind === 'consumable') return 120 + gradeRank(item.rarity) * 90;
+  if (item.kind === 'part') return partValue(item) + gradeRank(item.quality) * 110;
+  return itemScore(item) + gradeRank(item.quality) * 110;
 }
 
-const RARITY_RANKS = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
-const rarityRank = (r) => Math.max(0, RARITY_RANKS.indexOf(r ?? 'common'));
+/**
+ * Where something sits on the five-step ladder. Parts and crafted gear are
+ * graded by carve quality; consumables still carry a rarity, and the two
+ * ladders are the same length, so one comparison serves both.
+ */
+const gradeRank = (grade) => {
+  const q = QUALITY_ORDER.indexOf(grade);
+  if (q >= 0) return q;
+  return Math.max(0, ['common', 'uncommon', 'rare', 'epic', 'legendary'].indexOf(grade ?? 'common'));
+};
 
 // ---------------------------------------------------------------------------
 // Monsters
@@ -1238,7 +1352,28 @@ export function squadObjective(match, squad) {
   }
   squad.focusTargetId = null;
 
-  // 4. Sweep up nearby loot — but only a pile somebody can actually lift.
+  // 4. Carve what the squad just killed. A carcass outranks a dropped pile
+  // because it is the whole reason the fight happened, and because it has a
+  // clock on it — a body waits, but not forever.
+  const carcass = nearestCarcass(match, squad, members, centroid);
+  if (carcass) {
+    if (squad.carveTargetId !== carcass.id) {
+      squad.carveTargetId = carcass.id;
+      squad.carveSince = match.time;
+    }
+    // The same two patience guards a pile gets: a body the squad cannot reach
+    // must not hold them for the rest of the raid.
+    if (match.time - squad.carveSince > LOOT_TRAVEL_LIMIT) {
+      (squad.ignoredPiles ??= new Set()).add(carcass.id);
+      squad.carveTargetId = null;
+    } else {
+      return { mode: 'loot', pos: { ...carcass.pos }, label: 'Carving', pileId: carcass.id };
+    }
+  } else {
+    squad.carveTargetId = null;
+  }
+
+  // 5. Sweep up a rival squad's dropped kit — but only a pile somebody can lift.
   const pile = nearestTakeablePile(match, squad, members, centroid);
   if (pile) {
     // Two patience guards, because a squad can fail to clear a pile in two
@@ -1273,7 +1408,7 @@ export function squadObjective(match, squad) {
     squad.lootTargetId = null;
   }
 
-  // 5. Follow the plan.
+  // 6. Follow the plan.
   if (plan.chaseEvents) {
     const ev = match.activeEvents.find((v) => v.pos);
     if (ev) return { mode: 'travel', pos: { ...ev.pos }, label: `Event: ${ev.name}` };

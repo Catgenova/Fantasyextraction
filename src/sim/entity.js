@@ -2,7 +2,8 @@
 // and rendering never have to branch on what they are looking at.
 
 import { CLASSES } from '../data/classes.js';
-import { ENEMIES, BOSSES } from '../data/enemies.js';
+import { CREATURES } from '../data/creatures.js';
+import { CARVE_PROFILE } from '../data/parts.js';
 import { emptyMods, addMods, gearMods, treeMods, deriveStats } from './stats.js';
 import { STANCES } from '../data/tactics.js';
 
@@ -98,15 +99,22 @@ export function makeHeroEntity(hero, { team, squadId, isPlayer = false, pos = { 
 // Monsters
 // ---------------------------------------------------------------------------
 
-export function makeEnemyEntity(defId, { pos, tierScale = 1, level = 1, isBoss = false, ownerPoi = null, rng = Math.random }) {
-  const def = isBoss ? BOSSES[defId] : ENEMIES[defId];
-  if (!def) throw new Error(`unknown ${isBoss ? 'boss' : 'enemy'}: ${defId}`);
+/**
+ * Spawn a creature. There is no longer an enemy table and a boss table — there
+ * is one bestiary, and whether something is a solo hunt is a property of the
+ * species rather than of how it was asked for.
+ */
+export function makeEnemyEntity(defId, { pos, tierScale = 1, level = 1, ownerPoi = null, rng = Math.random }) {
+  const def = CREATURES[defId];
+  if (!def) throw new Error(`unknown species: ${defId}`);
+  const solo = def.hunt === 'solo';
 
   const e = {
-    id: freshId(isBoss ? 'b' : 'e'),
-    kind: isBoss ? 'boss' : 'enemy',
+    id: freshId(solo ? 'b' : 'e'),
+    kind: solo ? 'boss' : 'enemy',
     defId,
-    rank: def.rank,
+    rank: solo ? 'boss' : 'pack',
+    behaviour: def.behaviour,
     name: def.name,
     team: 'pve',
     squadId: null,
@@ -122,7 +130,7 @@ export function makeEnemyEntity(defId, { pos, tierScale = 1, level = 1, isBoss =
     // Set once dragged past the leash; cleared only on reaching home again.
     evading: false,
     aggroRange: def.aggroRange ?? 300,
-    leash: isBoss ? 900 : 700,
+    leash: solo ? 900 : 700,
     statuses: [],
     baseMods: emptyMods(),
     auraMods: emptyMods(),
@@ -137,7 +145,10 @@ export function makeEnemyEntity(defId, { pos, tierScale = 1, level = 1, isBoss =
     threat: new Map(),
     lastHitBy: null,
     lastDamageAt: -999,
-    lootTable: def.lootTable,
+    // A corpse is carved, not looted. `carvesLeft` is set the moment it dies.
+    carve: CARVE_PROFILE[solo ? 'large' : 'small'],
+    carvesLeft: 0,
+    carvedBy: null,
     xp: Math.round((def.xp ?? 10) * tierScale),
   };
 
@@ -222,6 +233,11 @@ export const isHostile = (a, b) => a.team !== b.team;
 export const isAlly = (a, b) => a.team === b.team && a.id !== b.id;
 
 /** Everything a corpse leaves behind — bags AND what they were wearing. */
+/**
+ * What a downed hero leaves on the ground. Creatures leave a corpse to carve
+ * instead — this is only ever a rival squad's, which is the whole reason to
+ * take the fight.
+ */
 export function lootableFrom(e) {
   const out = [];
   for (const item of e.inventory ?? []) out.push(item);

@@ -4,8 +4,9 @@ import { makeRng } from '../core/rng.js';
 import { createHero, sanitizeHero, addXp } from '../sim/heroes.js';
 import { defaultSquadTactics } from '../data/tactics.js';
 import { makeConsumable } from '../data/consumables.js';
-import { rollItem, RARITY_ORDER, canEquip, itemScore } from '../data/gear.js';
-import { salvageValue } from '../data/economy.js';
+import { makePart } from '../data/parts.js';
+import { craftItem, canEquip, itemScore } from '../data/gear.js';
+import { QUALITY_ORDER, partValue } from '../data/parts.js';
 import { achievementForBoss, ACHIEVEMENT_BY_ID, ACHIEVEMENTS } from '../data/achievements.js';
 import { STARTER_CLASS_IDS } from '../data/classes.js';
 
@@ -19,13 +20,15 @@ export function newProfile(seed = Date.now() >>> 0) {
     createHero(rng, 'priest'),
   ];
 
+  // Enough carved material to have something to take to the smith, and
+  // nothing that was not cut off something.
   const stash = [
     makeConsumable('minor_potion', 3),
     makeConsumable('bandage', 3),
     makeConsumable('mana_tonic', 2),
-    rollItem(rng, { slot: 'hands', rarity: 'common', ilvl: 1 }),
-    rollItem(rng, { slot: 'legs', rarity: 'common', ilvl: 1 }),
-    rollItem(rng, { slot: 'trinket', rarity: 'common', ilvl: 1 }),
+    makePart({ speciesId: 'threshclaw', speciesName: 'Threshclaw', partType: 'hide', quality: 'ragged', tier: 0 }),
+    makePart({ speciesId: 'threshclaw', speciesName: 'Threshclaw', partType: 'claw', quality: 'ragged', tier: 0 }),
+    makePart({ speciesId: 'plateback', speciesName: 'Plateback', partType: 'plate', quality: 'ragged', tier: 0 }),
   ];
 
   return {
@@ -37,8 +40,6 @@ export function newProfile(seed = Date.now() >>> 0) {
     squadTactics: defaultSquadTactics(),
     stash,
     gold: 0,
-    // Salvage currency. Repair will spend it; nothing does yet.
-    scrap: 0,
     // Boss trophies, by achievement id -> { at, seed }. Each one unlocks a
     // class; the roster hero it granted is created at the same moment.
     achievements: {},
@@ -72,7 +73,6 @@ export function sanitizeProfile(profile) {
   }
   profile.history = profile.history ?? [];
   profile.gold = profile.gold ?? 0;
-  profile.scrap = profile.scrap ?? 0;
   // Drop trophies for achievements that no longer exist rather than carrying
   // an id nothing can explain.
   const trophies = profile.achievements ?? {};
@@ -96,104 +96,30 @@ export function addToStash(profile, item) {
 }
 
 /**
- * Break a stashed item down for Scrap. Gear only — consumables get used, not
- * dismantled — and it is gone afterwards, so callers should confirm first.
- * @returns {number} scrap gained, or 0 if nothing was salvaged
+ * The stash holds two kinds of thing now: carved parts waiting for the smith,
+ * and finished equipment nobody is wearing. Both go through here.
  */
-export function salvageFromStash(profile, itemId) {
-  const idx = profile.stash.findIndex((i) => i.id === itemId);
-  if (idx < 0) return 0;
-  const value = salvageValue(profile.stash[idx]);
-  if (value <= 0) return 0;
-  profile.stash.splice(idx, 1);
-  profile.scrap = (profile.scrap ?? 0) + value;
-  return value;
+export function stashParts(profile) {
+  return profile.stash.filter((i) => i.kind === 'part');
 }
 
-// ---------------------------------------------------------------------------
-// Bulk salvage
-// ---------------------------------------------------------------------------
-// A stash of 120 fills in a handful of farming runs, so clearing it one row at
-// a time is not a real option. Each filter answers a different question the
-// player is actually asking — "everything below this tier", "everything for a
-// class I do not own", "everything worse than what we already wear" — and
-// every one of them is destructive, so the UI confirms before running it.
-
-const rarityAtOrBelow = (limit) => (item) =>
-  RARITY_ORDER.indexOf(item.rarity) <= RARITY_ORDER.indexOf(limit);
-
-/** Heroes who could wear this at all. */
-const wearers = (profile, item) =>
-  profile.roster.filter((h) => canEquip(item, h.classId));
-
-export const SALVAGE_FILTERS = {
-  common: {
-    id: 'common', name: 'Commons', desc: 'Every common piece of gear.',
-    match: rarityAtOrBelow('common'),
-  },
-  uncommon: {
-    id: 'uncommon', name: 'Uncommon and below', desc: 'Commons and uncommons.',
-    match: rarityAtOrBelow('uncommon'),
-  },
-  rare: {
-    id: 'rare', name: 'Rare and below', desc: 'Everything short of epic.',
-    match: rarityAtOrBelow('rare'),
-  },
-  epic: {
-    id: 'epic', name: 'Epic and below', desc: 'Everything but legendaries.',
-    match: rarityAtOrBelow('epic'),
-  },
-  unusable: {
-    id: 'unusable',
-    name: 'Unusable',
-    desc: 'Gear locked to a class nobody on your roster has. Unlocking that class later would make it wearable again.',
-    match: (item, profile) => wearers(profile, item).length === 0,
-  },
-  outclassed: {
-    id: 'outclassed',
-    name: 'Outclassed',
-    desc: 'Gear that every hero who could wear it already beats in that slot. Ignores what is in anyone else\u2019s stash plans — it only compares against what is currently worn.',
-    match: (item, profile) => {
-      const fits = wearers(profile, item);
-      if (!fits.length) return false;   // that is "unusable", not "outclassed"
-      const worth = itemScore(item);
-      return fits.every((h) => {
-        const worn = h.equipped?.[item.slot];
-        return worn && itemScore(worn) >= worth;
-      });
-    },
-  },
-};
-
-/** Stash items a filter would destroy. Gear only — consumables are used, not broken down. */
-export function salvageCandidates(profile, filterId) {
-  const filter = SALVAGE_FILTERS[filterId];
-  if (!filter) return [];
-  return profile.stash.filter((item) =>
-    item.kind === 'gear' && salvageValue(item) > 0 && filter.match(item, profile));
+export function stashGear(profile) {
+  return profile.stash.filter((i) => i.kind === 'gear');
 }
 
-/** What a filter is worth right now, without running it. */
-export function salvagePreview(profile, filterId) {
-  const items = salvageCandidates(profile, filterId);
-  return { count: items.length, scrap: items.reduce((sum, i) => sum + salvageValue(i), 0) };
+/** Parts of one species and type, which is the unit the blacksmith works in. */
+export function partsOf(profile, speciesId, partType) {
+  return stashParts(profile).filter((i) => i.speciesId === speciesId
+    && (!partType || i.partType === partType));
 }
 
-/**
- * Run a bulk salvage. Returns what it actually destroyed, so a caller can
- * report it rather than recomputing.
- */
-export function salvageAll(profile, filterId) {
-  const doomed = new Set(salvageCandidates(profile, filterId).map((i) => i.id));
-  if (!doomed.size) return { count: 0, scrap: 0 };
-  let scrap = 0;
-  profile.stash = profile.stash.filter((item) => {
-    if (!doomed.has(item.id)) return true;
-    scrap += salvageValue(item);
-    return false;
-  });
-  profile.scrap = (profile.scrap ?? 0) + scrap;
-  return { count: doomed.size, scrap };
+/** Remove named parts from the stash. Used by the smith when it consumes them. */
+export function consumeParts(profile, ids) {
+  const doomed = new Set(ids);
+  const taken = profile.stash.filter((i) => doomed.has(i.id));
+  if (taken.length !== doomed.size) return null;
+  profile.stash = profile.stash.filter((i) => !doomed.has(i.id));
+  return taken;
 }
 
 // ---------------------------------------------------------------------------
