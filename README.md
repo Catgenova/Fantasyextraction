@@ -470,6 +470,73 @@ Rival squads field the classes a player of their level plausibly has — the
 unlockable ones only once they are deep enough to have killed the creature that
 grants them. Seeing a Paladin means somebody put a Bastionback down.
 
+## How a hero fights
+
+Deliberation runs five times a second per hero, and until recently each one did
+it entirely alone: pick a target, score the spells, pick a destination, with no
+reference to what the other two decided that same tick. Ten things came out of
+that, and one of them was embarrassing.
+
+**Heroes were drawn a warning they could not see.** Bosses put a circle on the
+ground about a second before an ability lands. `match.telegraphs` was read in
+exactly one place — the renderer. The player watched a red circle appear under
+their squad and watched them stand in it. Heroes now leave, stepping out of the
+nearest edge rather than away from the centre, which matters near the rim of a
+large circle where the two differ badly.
+
+Once they could see a windup, it became an offensive cue too: an enemy mid-cast
+is the one moment in a fight where it is committed, and that is when a stun is
+worth more than it will be a second later.
+
+**A squad now has one shared view of a fight** — rebuilt at most once a tick,
+deliberately not a planner, just the facts a hero cannot see from inside its own
+head. Three things read it:
+
+- **Overkill.** Focus fire made this worse rather than better: it pointed
+  everybody at one target, so three heroes and two arrows in flight all
+  committed to something with forty health while the rest of the pack went
+  unanswered. Damage already on its way now counts, and a target dead in all
+  but name is skipped — unless it is the last enemy standing.
+- **Peeling.** The Knight's own description promises it "peels for the
+  backline, and punishes anyone who walks into melee", and nothing did: the
+  tank held the line while the archer died behind it. A frontliner now takes a
+  melee attacker off a ranged ally within reach.
+- **Surrounding.** Melee heroes walking at `target.pos` all arrive on the same
+  arc — the one facing wherever the squad came from — where they queue behind
+  each other and share a cleave. They now fan out from the side each is already
+  on, so nobody runs the long way round.
+
+**And five smaller things.** Potions are chosen by what they would waste rather
+than by belt order, so a hero missing seventy health stops drinking the Greater
+Draught. Expensive spells want a target worth spending on, so a Fire Mage no
+longer empties its bar into a pack of Skiterlings and meets the Pyroclast on
+fumes. A retreating hero falls back *behind* a healthy frontliner instead of
+simply away from whichever enemy is nearest. Targets stick briefly, because
+deliberation is faster than most attack intervals and a hero oscillating
+between two similar targets can approach both and hit neither. And a kiter
+backs away from the massed threat rather than from the one thing it is
+shooting, far enough to be shooting again and no further.
+
+### What it cost
+
+Both sides run this AI — rival squads are built from the same hero records —
+so everybody got better at once. Measured at seed 300 against the same squads
+as the table further down:
+
+| Raid plan | Before | After |
+|---|---|---|
+| Farm the ring, L5 | 6/3/3, 22.0 parts | **8/3/1, 31.5 parts** |
+| Solo hunt, L5 | 0/2/6, 0.13 kills | 0/1/7, **0.38 kills** |
+| Solo hunt, L14 | 0/5/3, 2.63 kills | 0/3/5, **3.25 kills** |
+| Squad hunter, L10 | 8/0/0, 48.0 parts | 7/0/1, 41.1 parts |
+
+Farming got clearly better and the deep content got *harder*, which reads as
+one story rather than two: heroes kill more — total kills are up across every
+plan — and spend correspondingly longer inside fights they were previously
+losing more slowly. Solo kills are up everywhere while survival at depth is
+down. That sharpens both ends of the curve the game already wanted, so it has
+been left alone rather than tuned back.
+
 ## Tactics are the game
 
 Swapping a hero in from the roster asks who they are replacing rather than
@@ -738,6 +805,7 @@ node tools/test-progression.js
 node tools/test-loot.js
 node tools/test-movement.js
 node tools/test-nav.js
+node tools/test-heroai.js
 node tools/test-bestiary.js
 node tools/test-smith.js
 node tools/test-hunt.js
@@ -766,6 +834,14 @@ a hero's policy *wanted* an item but never whether they had room — and then
 stand on it for the rest of the raid. Nothing crashed; the squad just stopped
 playing. So the test measures behaviour: how long is spent in loot mode, and
 whether that time produces pickups.
+
+`test-heroai.js` covers the ten combat behaviours, each against a real match
+with the situation built by hand — "does a frontliner peel" is not a property
+of a function, it is a property of a knight standing near an archer that is
+being bitten. Removing five of the behaviours fails five checks. The dodge test
+needs two assertions rather than one, because a hero drifts out of a circle's
+centre through ordinary movement; only *clearing the edge* distinguishes
+dodging from wandering.
 
 `test-nav.js` covers the navigation layer against maps built by hand, so the
 right answer is known rather than inferred: a wall with one gap, a goal walled
@@ -891,15 +967,15 @@ with no hunt order set:
 
 | Raid plan | Level | Runs | Clean | Partial | Wiped | Avg parts kept | Solo kills |
 |---|---|---|---|---|---|---|---|
-| Farm the ring | 5 | 12 | 6 | 3 | 3 | 22.0 | 0.17 |
-| Solo hunt | 5 | 8 | 0 | 2 | 6 | 3.0 | 0.13 |
-| Solo hunt | 14 | 8 | 0 | 5 | 3 | 10.4 | 2.63 |
-| Squad hunter | 10 | 8 | 8 | 0 | 0 | 48.0 | 2.13 |
+| Farm the ring | 5 | 12 | 8 | 3 | 1 | 31.5 | 0.42 |
+| Solo hunt | 5 | 8 | 0 | 1 | 7 | 1.5 | 0.38 |
+| Solo hunt | 14 | 8 | 0 | 3 | 5 | 7.0 | 3.25 |
+| Squad hunter | 10 | 8 | 7 | 0 | 1 | 41.1 | 1.88 |
 
 That spread is the intent: farming packs is a reliable income, and the solo
-monsters are a place you earn the right to visit. A level-5 solo hunt wipes six
-times in eight and brings home three parts; the same plan at 14 kills 2.63 of
-them a raid.
+monsters are a place you earn the right to visit. A level-5 solo hunt wipes
+seven times in eight and brings home under two parts; the same plan at 14 kills
+3.25 of them a raid and still wipes five times in eight.
 
 Drawing a fauna per map rather than sprinkling forty species over seventy camps
 moved this a little, and not in the direction it looks. Farming at level 5

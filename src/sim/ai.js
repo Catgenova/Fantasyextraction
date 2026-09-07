@@ -76,6 +76,52 @@ const ORBIT_MIN_GOAL = 150;  // only applies when the hero has somewhere to be
 const DETOUR_GIVE_UP = 3;    // failed detours before giving the idea a rest
 const DETOUR_COOLDOWN = 12;  // seconds of heading straight at the goal instead
 
+// Telegraph avoidance. The lookahead is generous — a hero should start moving
+// when the circle appears, not when it is about to land — and the margin puts
+// them clear of the edge rather than exactly on it.
+// Mana discipline. A spell costing less than this share of the pool is not
+// worth agonising over; above this much mana in reserve, neither is holding
+// anything back.
+const CHEAP_SPELL_SHARE = 0.12;
+const MANA_SPEND_FREELY = 0.75;
+const CROWD_WORTH_IT = 3;      // enemies an area spell needs to justify itself
+
+// Target stickiness. Below this, a hero keeps what it has; above it, a
+// challenger still has to be meaningfully better to take the slot.
+// How recently an ally must have been hit to count as being harried.
+const HARRIED_WINDOW = 2.0;
+// How far a frontliner will go out of its way to take an attacker off someone.
+const PEEL_RANGE = 320;
+// How far apart to fan melee attackers around one target, per extra attacker.
+const MELEE_ARC = 0.85;
+// Retreating: how far to look for somebody to hide behind, and how far behind
+// them to stand.
+const RETREAT_SEEK = 460;
+const RETREAT_BEHIND = 70;
+// Reacting to a windup: how late is still worth acting on, and what a stun or
+// a burst is worth in that window.
+const WINDUP_WINDOW = 1.6;
+const WINDUP_INTERRUPT_BONUS = 26;
+// What counts as stopping something mid-windup.
+const INTERRUPTS = new Set(['stun', 'snare', 'frozen', 'deep_freeze', 'dazed', 'iron_web']);
+const WINDUP_BURST_BONUS = 8;
+// A kiter steps back far enough to be shooting again, and no further.
+const KITE_MAX_STEP = 190;
+
+const TARGET_STICK = 0.8;          // seconds
+// The margin has to be read against the scale `scoreTarget` works on. Distance
+// contributes `-d * 0.01`, so the whole perception range is worth about nine
+// points; the priority bonuses are 40 to 80. Set at 12 — which looked like a
+// small number — this made distance incapable of ever winning a switch, so a
+// hero would ignore something that walked up to it while it plodded toward
+// something eighty units further away. At 0.6 a target has to be roughly sixty
+// units closer to take the slot, and two enemies a few units apart cannot make
+// a hero oscillate between them.
+const TARGET_SWITCH_MARGIN = 0.6;
+
+const DODGE_LOOKAHEAD = 2.2;   // seconds before impact worth reacting to
+const DODGE_MARGIN = 26;       // units of daylight to leave
+
 const AGENT_LOOKAHEAD = 130;  // how far out to consider another body at all
 const AGENT_HORIZON = 1.1;    // seconds of prediction
 const AGENT_AVOID = 0.9;      // how hard to lean out of a predicted collision
@@ -149,6 +195,149 @@ function think(match, e, inCombat) {
   tryPickup(match, e);
 }
 
+/**
+ * Somewhere safer than here.
+ *
+ * In order of preference: behind the healthiest frontliner who is not this
+ * hero, behind the leader, or — with nobody to hide behind — directly away
+ * from the massed threat rather than from whichever single enemy is closest.
+ */
+function retreatTo(match, e, squad, enemies, leader, order) {
+  // The direction the danger is in, weighted by how close each one is: two
+  // enemies flanking should send a hero backwards, not between them.
+  let tx = 0;
+  let ty = 0;
+  for (const t of enemies) {
+    const d = Math.max(60, dist(e.pos, t.pos));
+    tx += (t.pos.x - e.pos.x) / d / d;
+    ty += (t.pos.y - e.pos.y) / d / d;
+  }
+  const threat = Math.hypot(tx, ty) > 1e-6
+    ? { x: tx / Math.hypot(tx, ty), y: ty / Math.hypot(tx, ty) }
+    : { x: 0, y: 0 };
+
+  const board = combatBoard(match, squad);
+  let shield = null;
+  if (board) {
+    for (const m of board.members) {
+      if (m === e || m.stats.attack.kind === 'projectile') continue;
+      if (hpFrac(m) < 0.45) continue;                 // no use hiding behind the dying
+      if (dist(e.pos, m.pos) > RETREAT_SEEK) continue;
+      if (!shield || hpFrac(m) > hpFrac(shield)) shield = m;
+    }
+  }
+  const cover = shield ?? (leader?.alive && leader.id !== e.id ? leader : null);
+
+  if (cover) {
+    // Stand behind them, on the far side from the threat.
+    return {
+      x: cover.pos.x - threat.x * RETREAT_BEHIND,
+      y: cover.pos.y - threat.y * RETREAT_BEHIND,
+    };
+  }
+  const fallback = order?.pos ?? e.pos;
+  const blend = norm(add(scale({ x: -threat.x, y: -threat.y }, 1.4),
+    scale(dirTo(e.pos, fallback), 0.6)));
+  return add(e.pos, scale(blend, 260));
+}
+
+/**
+ * Where to stand to hit this target.
+ *
+ * Walking at `target.pos` puts everyone who wants it on the same arc — the one
+ * facing wherever the squad came from. Three melee heroes then queue up behind
+ * each other, shove each other out of position, and sit inside the same cleave.
+ *
+ * Each attacker gets its own angle around the target instead, spread over the
+ * side it is already on so nobody runs the long way round. Ranged heroes are
+ * left alone: they have no reason to close and every reason not to.
+ */
+function approachSlot(match, e, squad, target, idealRange) {
+  if (e.stats.attack.kind === 'projectile') return { ...target.pos };
+  const board = combatBoard(match, squad);
+  const melee = board
+    ? board.members.filter((m) => m.stats.attack.kind !== 'projectile' && m.target === target.id)
+    : [e];
+  if (melee.length < 2) return { ...target.pos };
+
+  const slot = Math.max(0, melee.findIndex((m) => m.id === e.id));
+  // Fan out from the direction this hero is already approaching from, so the
+  // assignment does not send anybody across the target to reach their place.
+  const from = Math.atan2(e.pos.y - target.pos.y, e.pos.x - target.pos.x);
+  const spread = Math.min(Math.PI * 0.7, (melee.length - 1) * MELEE_ARC);
+  const offset = -spread / 2 + (slot / Math.max(1, melee.length - 1)) * spread;
+  const a = from + offset;
+  const reach = target.radius + e.radius + idealRange * 0.55;
+  return { x: target.pos.x + Math.cos(a) * reach, y: target.pos.y + Math.sin(a) * reach };
+}
+
+// ---------------------------------------------------------------------------
+// The squad's shared view of a fight
+// ---------------------------------------------------------------------------
+//
+// Every hero deliberates alone, five times a second, with no idea what the
+// other two decided that tick. That is fine for most of what they do and
+// hopeless for three things: nobody knows a target is already dead in all but
+// name, nobody notices an ally is being chewed on, and three melee heroes all
+// walk to the same side of the same monster.
+//
+// So the squad keeps one small board, rebuilt at most once per tick and shared
+// by everyone on it. It is deliberately not a planner — no assignments, no
+// negotiation — just the facts a hero cannot see from inside its own head.
+
+/** Rebuild the board if this tick has not built it yet. */
+function combatBoard(match, squad) {
+  if (!squad) return null;
+  if (squad._boardAt === match.time && squad._board) return squad._board;
+
+  const members = squad.memberIds.map((id) => match.byId(id))
+    .filter((m) => m?.alive && !m.extracted);
+
+  // Damage already on its way to each target: what allies are hitting it for,
+  // plus anything in flight. Without this, focus fire actively wastes itself —
+  // three heroes and two arrows all commit to something with forty health.
+  const committed = new Map();
+  const attackers = new Map();
+  for (const m of members) {
+    if (!m.target) continue;
+    attackers.set(m.target, (attackers.get(m.target) ?? 0) + 1);
+    // One swing's worth, as a rough claim on the target.
+    committed.set(m.target, (committed.get(m.target) ?? 0) + expectedHit(m));
+  }
+  for (const p of match.projectiles) {
+    if (!p.targetId || p.team !== squad.team) continue;
+    committed.set(p.targetId, (committed.get(p.targetId) ?? 0) + (p.spec?.base ?? 0));
+  }
+
+  // Who is being hit in melee, and by what. `lastHitBy` is already recorded on
+  // every hero for the after-action report; this is the first thing that reads
+  // it during the fight.
+  const harried = [];
+  for (const m of members) {
+    if (match.time - (m.lastDamageAt ?? -999) > HARRIED_WINDOW) continue;
+    const by = m.lastHitBy ? match.byId(m.lastHitBy) : null;
+    if (!by?.alive || by.team === squad.team) continue;
+    harried.push({ ally: m, threat: by, ranged: m.stats.attack.kind === 'projectile' });
+  }
+
+  const board = { members, committed, attackers, harried };
+  squad._board = board;
+  squad._boardAt = match.time;
+  return board;
+}
+
+/** Roughly what one hero's next swing takes off, ignoring mitigation. */
+function expectedHit(m) {
+  return (m.stats.attack?.damage ?? 0) + m.stats.attackPower * 0.6;
+}
+
+/** Is this target already dead, counting what the squad has committed to it? */
+function alreadyDying(board, t) {
+  if (!board) return false;
+  const claimed = board.committed.get(t.id) ?? 0;
+  return claimed >= t.hp + (t.shield ?? 0);
+}
+
 // ---------------------------------------------------------------------------
 // Targeting
 // ---------------------------------------------------------------------------
@@ -160,10 +349,42 @@ export function pickTarget(match, e, squad, enemies) {
   enemies = enemies.filter((t) => !t.evading && !isUnreachable(e, match, t));
   if (!enemies.length) return null;
 
+  const board = combatBoard(match, squad);
+
+  // Skip anything the squad has already killed but not yet buried. Focus fire
+  // makes this worse rather than better: it points everybody at one target, so
+  // three heroes and two arrows in flight all commit to something with forty
+  // health left and the rest of the pack goes unanswered.
+  //
+  // Only if there is somewhere else to go — the last enemy standing is still
+  // the target however much is already aimed at it.
+  const live = enemies.filter((t) => !alreadyDying(board, t));
+  if (live.length) enemies = live;
+
   // A taunt overrides everything the player configured.
   if (e.tauntedBy && hasStatus(e, 'taunted')) {
     const forced = match.byId(e.tauntedBy);
     if (forced?.alive) return forced;
+  }
+
+  // Peeling. A frontliner whose ranged ally has something in melee on them
+  // goes and takes it. The Knight's own description promises this — "peels for
+  // the backline, and punishes anyone who walks into melee" — and nothing in
+  // the game did it: the tank held the line and the archer died behind it.
+  //
+  // Only melee heroes peel, only for ranged allies, and only within reach:
+  // a frontliner crossing the battlefield to help is a frontliner who has
+  // abandoned the front.
+  if (e.stats.attack.kind !== 'projectile' && board?.harried.length) {
+    let closest = null;
+    let closestD = PEEL_RANGE;
+    for (const h of board.harried) {
+      if (h.ally === e || !h.ranged) continue;
+      if (h.threat.stats.attack.kind === 'projectile') continue;   // not a melee problem
+      const d = dist(e.pos, h.threat.pos);
+      if (d < closestD && !isUnreachable(e, match, h.threat)) { closestD = d; closest = h.threat; }
+    }
+    if (closest) return closest;
   }
 
   // Focus fire: stick to the squad's called target while it is reachable.
@@ -177,21 +398,40 @@ export function pickTarget(match, e, squad, enemies) {
   let best = null;
   let bestScore = -Infinity;
   for (const t of enemies) {
-    const d = dist(e.pos, t.pos);
-    let score = -d * 0.01;
-    switch (priority) {
-      case 'lowest_hp': score += (1 - hpFrac(t)) * 60; break;
-      case 'highest_threat': score += Math.min(60, (t.damageDealt ?? 0) / 60); break;
-      case 'ranged_first': score += t.stats.attack.kind === 'projectile' ? 40 : 0; break;
-      case 'elites_first': score += t.rank === 'boss' ? 80 : t.rank === 'elite' ? 45 : 0; break;
-      case 'players_first': score += t.kind === 'hero' ? 70 : 0; break;
-      default: break;
-    }
-    // Never walk across the map for a marginally better target.
-    if (d > e.stats.attackRange + 420) score -= 40;
+    const score = scoreTarget(e, t, priority);
     if (score > bestScore) { bestScore = score; best = t; }
   }
+
+  // Sticking. Deliberation runs five times a second and many attack intervals
+  // are longer than that, so a hero oscillating between two similarly-scored
+  // targets can walk at both and hit neither. A new target has to be clearly
+  // better, or the old one has to have stopped being valid.
+  const current = e.target ? match.byId(e.target) : null;
+  if (current?.alive && current !== best && enemies.includes(current)) {
+    const held = match.time - (e._targetSince ?? 0);
+    const currentScore = scoreTarget(e, current, priority);
+    if (held < TARGET_STICK || bestScore < currentScore + TARGET_SWITCH_MARGIN) {
+      return current;
+    }
+  }
+  if (best && best.id !== e.target) e._targetSince = match.time;
   return best;
+}
+
+/** The same scoring the loop above does, for one candidate. */
+function scoreTarget(e, t, priority) {
+  const d = dist(e.pos, t.pos);
+  let score = -d * 0.01;
+  switch (priority) {
+    case 'lowest_hp': score += (1 - hpFrac(t)) * 60; break;
+    case 'highest_threat': score += Math.min(60, (t.damageDealt ?? 0) / 60); break;
+    case 'ranged_first': score += t.stats.attack.kind === 'projectile' ? 40 : 0; break;
+    case 'elites_first': score += t.rank === 'boss' ? 80 : t.rank === 'elite' ? 45 : 0; break;
+    case 'players_first': score += t.kind === 'hero' ? 70 : 0; break;
+    default: break;
+  }
+  if (d > e.stats.attackRange + 420) score -= 40;
+  return score;
 }
 
 // ---------------------------------------------------------------------------
@@ -215,6 +455,8 @@ function tryCast(match, e, squad, target, enemies) {
     if (e.mana < spell.manaCost) continue;
     if (policy === 'emergency' && !ctx.emergency) continue;
 
+    if (!worthTheMana(e, spell, ctx)) continue;
+
     const targets = spellTargets(match, e, spell, target, allies, enemies);
     if (!targets || !targets.length) continue;
 
@@ -223,6 +465,38 @@ function tryCast(match, e, squad, target, enemies) {
   }
 
   if (bestSpell) castSpell(match, e, bestSpell, bestTargets, ctx);
+}
+
+/**
+ * Is this spell worth its mana against what is actually in front of us?
+ *
+ * Casting was "the best-scoring thing that is off cooldown and affordable",
+ * which empties a Fire Mage's bar into a pack of Skiterlings and meets the
+ * Pyroclast on fumes. An expensive spell now wants a target worth spending it
+ * on — an elite, a boss, a rival hero, or a crowd — unless the bar is full
+ * enough that holding it back saves nothing.
+ *
+ * Emergencies are exempt: a heal that would save somebody is worth any price,
+ * and that is what `emergency` already means.
+ */
+function worthTheMana(e, spell, ctx) {
+  const cost = spell.manaCost ?? 0;
+  if (cost <= 0 || ctx.emergency) return true;
+
+  // Cheap relative to the pool, or the pool is nearly full: nothing is being
+  // saved by holding it.
+  const share = cost / Math.max(1, e.maxMana);
+  if (share < CHEAP_SPELL_SHARE || ctx.selfMana > MANA_SPEND_FREELY) return true;
+
+  // Healing and defence are judged by need, not by what they are aimed at.
+  const hint = spell.hint ?? {};
+  if (hint.allyHpBelow !== undefined || hint.alliesHpBelow !== undefined
+      || hint.selfHpBelow !== undefined) return true;
+
+  // Otherwise it wants a target worth it, or enough of them at once.
+  if (ctx.targetIsElite) return true;
+  if ((spell.radius ?? 0) > 0 && ctx.enemies.length >= CROWD_WORTH_IT) return true;
+  return false;
 }
 
 function buildContext(match, e, squad, target, enemies, allies) {
@@ -249,7 +523,25 @@ function buildContext(match, e, squad, target, enemies, allies) {
     // "Emergency" is the gate for spells the player set to hold in reserve.
     emergency: hpFrac(e) < 0.4 || avgHp < 0.5 || (lowest && hpFrac(lowest) < 0.35),
     extracting: squad?.order?.mode === 'extract',
+    // Something nearby is winding up. Once heroes could see telegraphs at all
+    // this fell out for free: a circle on the ground is not only a place to
+    // leave, it is the one moment in a fight where the enemy is committed and
+    // a stun or a burst is worth more than it will be a second later.
+    winding: windingUp(match, e, enemies),
   };
+}
+
+/** The enemy currently telegraphing at us, if any is close enough to matter. */
+function windingUp(match, e, enemies) {
+  for (const t of match.telegraphs) {
+    if (t.remaining > WINDUP_WINDOW) continue;
+    const source = match.byId(t.sourceId);
+    if (!source?.alive || source.team === e.team) continue;
+    if (dist(e.pos, source.pos) > PERCEPTION) continue;
+    if (enemies.length && !enemies.includes(source)) continue;
+    return source;
+  }
+  return null;
 }
 
 /** Has this hero already given up on catching that target? */
@@ -287,6 +579,20 @@ function trackChase(match, e, target) {
 /** Translate a spell's `hint` into a desirability score. 0 = do not cast. */
 function scoreHint(hint, ctx, spell, targets) {
   let score = hint.priority ?? 1;
+
+  // An enemy mid-windup is the best moment this fight will offer for anything
+  // that stops it or spends a cooldown. Weighted rather than absolute, so it
+  // tips a close decision instead of overriding a heal.
+  if (ctx.winding && targets.includes(ctx.winding)) {
+    // The vocabulary is `debuff` with a `status`, not a `status` effect — the
+    // first version of this check looked for a type that does not exist in
+    // spells.js, so the interrupt bonus was dead code that scored nothing.
+    if (spell.effects?.some((f) => f.type === 'debuff' && INTERRUPTS.has(f.status))) {
+      score += WINDUP_INTERRUPT_BONUS;
+    } else if ((spell.manaCost ?? 0) > 0 && !hint.allyHpBelow && !hint.selfHpBelow) {
+      score += WINDUP_BURST_BONUS;
+    }
+  }
 
   if (hint.allyHpBelow !== undefined) {
     if (ctx.lowestAllyHp > hint.allyHpBelow) return 0;
@@ -405,6 +711,13 @@ function castSpell(match, e, spell, targets, ctx) {
 // ---------------------------------------------------------------------------
 
 function tryConsumables(match, e, squad, inCombat) {
+  // Gather everything usable, then choose. Walking the belt and stopping at
+  // the first match meant a hero at 35% drank whatever happened to sit in slot
+  // one — often the Greater Healing Draught, with a Minor beside it that would
+  // have done, and nothing left when it mattered.
+  let best = null;
+  let bestWaste = Infinity;
+
   for (const stack of e.consumables) {
     if (!stack || stack.count <= 0) continue;
     const def = CONSUMABLES[stack.defId];
@@ -420,12 +733,41 @@ function tryConsumables(match, e, squad, inCombat) {
     if (h.outOfCombat && !inCombat && hpFrac(e) < (h.selfHpBelow ?? 0.7)) want = true;
     if (!want) continue;
 
-    stack.count -= 1;
-    e.itemCooldowns[def.id] = def.cooldown;
-    resolveEffects(match, e, [e], def.effects);
-    match.pushFloat(e.pos, def.name, '#9fd7ff');
-    break;
+    // How much of it would be thrown away. A restorative that overshoots the
+    // missing amount is waste; one that undershoots is not — it is simply not
+    // the whole answer, and there may be nothing better.
+    const waste = overheal(e, def);
+    if (waste < bestWaste) { bestWaste = waste; best = { stack, def }; }
   }
+
+  if (!best) return;
+  best.stack.count -= 1;
+  e.itemCooldowns[best.def.id] = best.def.cooldown;
+  resolveEffects(match, e, [e], best.def.effects);
+  match.pushFloat(e.pos, best.def.name, '#9fd7ff');
+}
+
+/**
+ * How much of a consumable's restoration would be wasted on this hero now.
+ *
+ * The arithmetic mirrors `resolveEffects` in combat.js — same fields, same
+ * scaling — so a potion's worth is judged by what it will actually restore
+ * rather than by a second guess at it. A consumable that restores nothing
+ * relevant (a buff, a cleanse) wastes nothing and sorts on its own merits.
+ */
+function overheal(e, def) {
+  let waste = 0;
+  for (const fx of def.effects ?? []) {
+    if (fx.type === 'heal') {
+      const amount = (fx.base ?? 0)
+        + e.stats.spellPower * (fx.scaling?.spellPower ?? 0)
+        + e.maxHp * (fx.scaling?.maxHp ?? 0);
+      waste += Math.max(0, amount - (e.maxHp - e.hp));
+    } else if (fx.type === 'mana') {
+      waste += Math.max(0, (fx.base ?? 0) - (e.maxMana - e.mana));
+    }
+  }
+  return waste;
 }
 
 /** Phoenix Ash and friends: a last-gasp check run by the match on death. */
@@ -474,6 +816,54 @@ function paceForSquad(match, e, squad, want) {
   return { ...want, speedMult: (want.speedMult ?? 1) * COHESION.slowPace };
 }
 
+/**
+ * The way out of an area about to be hit, or null when standing still is fine.
+ *
+ * Telegraphs were being drawn for the player and read by nothing else: a boss
+ * put a circle on the ground with a second or so of warning, the renderer drew
+ * it, and the squad stood in it. Every other part of this file was reasoning
+ * about a fight while ignoring the one piece of information the fight was
+ * handing it for free.
+ *
+ * The step is out of the *nearest edge*, not away from the centre — those
+ * differ badly when a hero is near the rim of a large circle, and the second
+ * one walks them across the middle of it.
+ */
+function dodgeTelegraph(match, e) {
+  let worst = null;
+  let worstUrgency = 0;
+  for (const t of match.telegraphs) {
+    // Not our problem: our own side put it there.
+    const source = match.byId(t.sourceId);
+    if (source && source.team === e.team) continue;
+    const d = dist(e.pos, t.pos);
+    if (d > t.radius + e.radius) continue;
+    // Too far out to reach the edge before it lands, or so far off it is not
+    // worth abandoning what we were doing.
+    const need = (t.radius + e.radius + DODGE_MARGIN - d) / Math.max(1, e.stats.moveSpeed);
+    if (t.remaining > DODGE_LOOKAHEAD || need > t.remaining * 1.35) continue;
+    const urgency = 1 / Math.max(0.05, t.remaining);
+    if (urgency > worstUrgency) { worstUrgency = urgency; worst = t; }
+  }
+  if (!worst) return null;
+
+  const away = d0(e.pos, worst.pos);
+  const out = worst.radius + e.radius + DODGE_MARGIN;
+  return {
+    pos: { x: worst.pos.x + away.x * out, y: worst.pos.y + away.y * out },
+    speedMult: 1.2,
+  };
+}
+
+/** Direction from b to a, with a stable answer when they coincide. */
+function d0(a, b) {
+  const dx = a.x - b.x;
+  const dy = a.y - b.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 1e-3) return { x: 1, y: 0 };
+  return { x: dx / len, y: dy / len };
+}
+
 function pickDestination(match, e, squad, target, enemies, stance) {
   const order = squad?.order ?? { mode: 'hold', pos: e.pos };
   const leader = squad ? match.byId(squad.leaderId) : null;
@@ -491,12 +881,21 @@ function pickDestination(match, e, squad, target, enemies, stance) {
   // to the same point.
   if (order.mode === 'extract') return { pos: order.pos, speedMult: 1 };
 
-  // Retreat: below the configured floor, break for the leader / exit.
+  // Getting out of the way beats everything that is not a committed
+  // extraction. Standing in it to finish a cast is never the better trade —
+  // the damage on these is sized to be avoided.
+  const dodge = dodgeTelegraph(match, e);
+  if (dodge) return dodge;
+
+  // Retreat: below the configured floor, get behind somebody.
+  //
+  // This used to blend "away from the nearest enemy" with "toward the leader",
+  // which sends a hurt hero into open ground as often as into cover — the
+  // leader may be past the enemy, and away-from-nearest ignores the other
+  // four. Falling back behind a frontliner is what a retreat is *for*: it puts
+  // a body between the wounded hero and the fight.
   if (hpFrac(e) < (e.tactics.retreatHpPct ?? 0.2) + stance.retreatBias) {
-    const away = enemies.length ? dirTo(nearest(e, enemies).pos, e.pos) : { x: 0, y: 0 };
-    const fallback = leader && leader.alive ? leader.pos : order.pos;
-    const blend = norm(add(scale(away, 1.4), scale(dirTo(e.pos, fallback), 0.6)));
-    return { pos: add(e.pos, scale(blend, 260)), speedMult: 1.15 };
+    return { pos: retreatTo(match, e, squad, enemies, leader, order), speedMult: 1.15 };
   }
 
   // A follower who has fallen behind rejoins before doing anything else. The
@@ -525,10 +924,23 @@ function pickDestination(match, e, squad, target, enemies, stance) {
     const d = dist(e.pos, target.pos);
     const idealRange = Math.max(30, e.stats.attackRange + stance.engageBonus);
 
-    // Kiters back off when anything gets close.
+    // Kiters back off when anything gets close — but backwards into a second
+    // pack is not an escape. Retreat along the direction that puts the most
+    // distance between this hero and *everything* hostile, not just the one
+    // being shot at, and only as far as it takes to get back to range so the
+    // hero is shooting again next tick rather than jogging.
     if (stance.kite && d < idealRange * 0.72) {
-      const away = dirTo(target.pos, e.pos);
-      return { pos: add(e.pos, scale(away, 200)), speedMult: 1.05 };
+      let ax = 0;
+      let ay = 0;
+      for (const t of enemies) {
+        const td = Math.max(50, dist(e.pos, t.pos));
+        ax += (e.pos.x - t.pos.x) / td / td;
+        ay += (e.pos.y - t.pos.y) / td / td;
+      }
+      const len = Math.hypot(ax, ay);
+      const away = len > 1e-6 ? { x: ax / len, y: ay / len } : dirTo(target.pos, e.pos);
+      const back = Math.min(KITE_MAX_STEP, idealRange - d + 40);
+      return { pos: add(e.pos, scale(away, back)), speedMult: 1.05 };
     }
     if (d > idealRange * 0.95) {
       // Followers chase on a short leash from the leader; the leader keeps to
@@ -536,7 +948,7 @@ function pickDestination(match, e, squad, target, enemies, stance) {
       const leashAnchor = isLeader ? order.pos : anchor;
       const leashRange = isLeader ? 900 : COHESION.chaseLeash;
       if (dist(target.pos, leashAnchor) > leashRange) return { pos: { ...leashAnchor } };
-      return { pos: target.pos };
+      return { pos: approachSlot(match, e, squad, target, idealRange) };
     }
     // In range: hold, with a little drift to avoid stacking on allies.
     return null;
