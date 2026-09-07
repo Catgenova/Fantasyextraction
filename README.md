@@ -28,21 +28,79 @@ Then open <http://localhost:8080>. Progress is saved to `localStorage`.
 3. **After-action** — anything an extracted hero carried goes into the stash.
    Anything a dead hero carried *or was wearing* is gone, and drops on the
    field for whoever killed them.
-4. **Salvage** — stash space is finite, so gear you do not want breaks down
+4. **Trophies** — the first time your squad kills a boss you earn its trophy,
+   which unlocks a hero class and recruits someone to play it.
+5. **Salvage** — stash space is finite, so gear you do not want breaks down
    into **Scrap**. What a piece is worth scales with its rarity, from 5 for a
    common to 180 for a legendary, plus 5% per item level. Scrap is the
    currency repairs will be paid in.
 
 ## Classes
 
-| Class | Role | Power attribute | Shape |
-|---|---|---|---|
-| **Knight** | Frontline | Might | Shield |
-| **Archer** | Ranged DPS | Agility | Chevron |
-| **Priest** | Support | Spirit | Disc |
+Three are yours from the first raid. The other eight are earned — see
+**Trophies** below.
 
-Each has a three-branch, four-tier skill tree whose nodes grant passives,
-squad-wide auras, or unlock spells. Four spells can be slotted at a time.
+| Class | Role | Power attribute | Shape | Unlocked by |
+|---|---|---|---|---|
+| **Knight** | Frontline | Might | Shield | — |
+| **Archer** | Ranged DPS | Agility | Chevron | — |
+| **Priest** | Support | Spirit | Disc | — |
+| **Rogue** | Melee burst | Agility | Chevron | The Quiet Knife |
+| **Berserker** | Melee bruiser | Might | Spike | Grendrak the Unbroken |
+| **Necromancer** | Attrition caster | Spirit | Disc | Gravemaw, the Bonefather |
+| **Ice Mage** | Control caster | Spirit | Disc | Hoarfrost, the Still Winter |
+| **Fire Mage** | Burst caster | Spirit | Disc | Emberjaw, the Kiln Wyrm |
+| **Lightning Mage** | Sustained caster | Spirit | Disc | Ashenveil, the Hollow Choir |
+| **Slayer** | Elite hunter | Might | Spike | Malgareth, the Rent Veil |
+| **Paladin** | Frontline support | Might | Shield | The Warden of the Seal |
+
+Each has seven spells and a three-branch, four-tier skill tree whose nodes
+grant passives, squad-wide auras, or unlock the five spells that are not
+starters. Four spells can be slotted at a time.
+
+None of the eight is a straight upgrade on a starter. The Berserker hits
+harder than the Knight and dies faster for it; the Paladin mitigates less but
+heals the squad; the Fire Mage does the most damage in the game and has the
+least health to protect it. Silhouettes are shared by role rather than unique
+per class — eleven shapes would be unreadable at raid zoom — so colour and the
+name label separate classes within a role.
+
+## Trophies
+
+Eight bosses, eight trophies, one hero class each. It is the only way to get a
+class: nothing here is bought, rolled for, or dropped, so a roster is a
+readable record of what its owner has actually killed. The camp lists all
+eight, and a locked row names the boss and the ring it is in, because a player
+who wants a Necromancer needs to know what to go and kill for it.
+
+| Ring | Boss | Unlocks |
+|---|---|---|
+| Outer | The Quiet Knife | Rogue |
+| Mid | Grendrak the Unbroken | Berserker |
+| Mid | Gravemaw, the Bonefather | Necromancer |
+| Mid | Hoarfrost, the Still Winter | Ice Mage |
+| Core | Emberjaw, the Kiln Wyrm | Fire Mage |
+| Core | Ashenveil, the Hollow Choir | Lightning Mage |
+| Core | Malgareth, the Rent Veil | Slayer |
+| Centre | The Warden of the Seal | Paladin |
+
+The tiering doubles as the progression ladder. The outer-ring boss is the one
+a fresh squad can realistically take, and it pays for a fourth class; each
+deeper kill opens something built for the ring after it.
+
+Two rules decide when a trophy is yours:
+
+- **The kill is the achievement, not the extraction.** Bosses are hard enough
+  that dying on the way out with the trophy already earned is a fair trade —
+  you still lose everything you were carrying, which is punishment enough.
+- **Only your own kills count.** Rival squads kill far more bosses than you
+  do: across a dozen farming raids roughly forty die and about one of them is
+  yours. Crediting every boss death to the player would hand over most of the
+  roster for work somebody else did.
+
+Rival squads field the classes a player of their level plausibly has — the
+unlockable ones only once they are deep enough to have killed the boss that
+grants them. Seeing a Paladin means somebody put the Warden down.
 
 ## Tactics are the game
 
@@ -92,10 +150,16 @@ for them — there is no second, hidden set of rules.
 14000×14000 units, three concentric danger rings, twelve landing zones on the
 outer ring, and three extraction points on staggered windows (opening at 3, 7
 and 11 minutes; closing at 26, 28 and 30). Enemy camps stream in around
-whichever squads are nearby. Two boss arenas are fixed; an apex boss wakes at
-the centre at 18 minutes. From 25 minutes the map collapses inward — the final
-safe circle still contains every exit, so it squeezes you toward them rather
-than deleting them.
+whichever squads are nearby. Seven boss arenas are fixed, one per ring band
+from 5200 units out down to 1200; an apex boss wakes at the centre at 18
+minutes. Arenas are placed at least 1500 units apart and well clear of every
+landing zone, so pulling one is never pulling two and nobody is greeted by a
+boss on the drop. From 25 minutes the map collapses inward — the final safe
+circle still contains every exit, so it squeezes you toward them rather than
+deleting them.
+
+A boss only spawns once a squad comes within 1500 units of its arena, so a
+raid you spend in the outer ring never pays for the core's population.
 
 Landing zones are safe ground for the first 90 seconds; nobody gets
 spawn-camped out of a raid.
@@ -129,6 +193,8 @@ node tools/test-navigation.mjs  # needs Playwright; skips if absent
 node tools/test-extraction.js
 node tools/test-layout.mjs      # needs Playwright; skips if absent
 node tools/test-salvage.mjs     # needs Playwright; skips if absent
+node tools/test-achievements.js
+node tools/test-unlocks.mjs     # needs Playwright; skips if absent
 ```
 
 `simulate.js` runs whole raids headless and reports outcomes — the fastest way
@@ -162,6 +228,17 @@ outside one for twenty minutes.
 equipping mid-raid has to rebuild a hero's stat block — gear feeds `baseMods`,
 which is otherwise computed once at spawn.
 
+`test-achievements.js` covers the trophy rules directly rather than inferring
+them from a raid: only your own kill counts, the first kill grants and later
+ones do not, a wipe after the kill keeps the trophy, and a save that predates
+the feature neither bricks nor silently gains classes. It also builds a hero
+of every class and spends its whole tree, because a class that unlocks and
+then cannot be equipped is worse than one that stays locked.
+
+`test-unlocks.mjs` is the browser half: the camp's trophy list, and an
+unlocked class surviving the screens — eighteen tree nodes, its own starting
+spells, gear it can actually wear, added to the squad, deployed.
+
 `test-salvage.mjs` drives stash salvaging against a seeded stash holding one
 piece of every rarity. Salvaging cannot be undone, so most of what it checks
 are the guard rails rather than the arithmetic: the first tap only arms a
@@ -184,22 +261,33 @@ reproduced exactly.
 Measured with `tools/simulate.js`, both sides fully built — level-appropriate
 gear and a spent skill tree — against five rival squads:
 
-| Raid plan | Level | Runs | Clean | Partial | Wiped | Avg items kept |
-|---|---|---|---|---|---|---|
-| Farm the ring | 5 | 12 | 8 | 2 | 2 | 8.8 |
-| Boss hunt | 5 | 8 | 1 | 1 | 6 | 3.6 |
-| Boss hunt | 14 | 8 | 4 | 2 | 2 | 12.1 |
-| Squad hunter | 10 | 8 | 3 | 2 | 3 | 9.4 |
+| Raid plan | Level | Runs | Clean | Partial | Wiped | Avg items kept | Boss kills |
+|---|---|---|---|---|---|---|---|
+| Farm the ring | 5 | 12 | 8 | 3 | 1 | 9.0 | 0.33 |
+| Boss hunt | 5 | 8 | 0 | 2 | 6 | 1.3 | 0.38 |
+| Boss hunt | 14 | 8 | 1 | 2 | 5 | 5.0 | 4.38 |
+| Squad hunter | 10 | 8 | 4 | 0 | 4 | 12.0 | 3.38 |
 
 That spread is the intent: farming is a reliable income, and the core is a
-place you earn the right to visit. Boss hunting at level 5 wipes three quarters
-of the time and turns into the best haul in the game once you are geared for
-it.
+place you earn the right to visit. Boss hunting at level 5 is close to
+hopeless and turns into the best source of trophies in the game once you are
+geared for it.
 
-Known soft spot: actual boss kills are still rare (0.1–0.6 per raid even on the
-boss plan) because squads tend to die to the core trash on the way in. The
-plans differentiate well; the bosses themselves could stand to be more
-reachable.
+The old known soft spot — boss kills were rare, 0.1–0.6 a raid even on the
+boss plan, because squads died to core trash on the way in — is fixed, and by
+the class unlocks rather than by tuning. Seven arenas instead of two put a boss
+within reach of the ring you are actually in, and a boss hunt now walks to the
+deepest arena the squad is *ready* for rather than the deepest arena there is.
+A geared boss hunt kills 4.4 a raid, up from 1.6 at the same seeds.
+
+Adding five bosses and eight classes made the whole game harder, and the
+numbers above are against a squad of the three starters — the classes you are
+meant to be replacing by the time you can reach the core. At matched seeds
+farming went from 10/1/1 to 8/3/1 and level-14 boss hunting from 0/5/3 to
+1/2/5, while items kept on a boss hunt went *up*, 3.4 to 5.0. Heroes also
+travel slower, 66.0 units per second alive to 57.4: four of the eight new
+classes are melee, so squads crowd and jam each other more, and there is more
+on the map worth stopping to fight.
 
 ## Status
 
@@ -209,3 +297,11 @@ which is what makes looting one meaningful — they are wearing real gear.
 
 Scrap accumulates but has nothing to spend it on yet: item repair is the next
 thing to build on it.
+
+The known weak spot is steering, not content. Heroes still occasionally jam —
+two of them from opposing squads wedged in the same rock notch, each at the
+exact separation distance, neither able to leave. The escape machinery now
+widens its detour on every failed attempt, which took the worst observed case
+over ninety raids from 995 seconds pinned to 40, but the real fix is a proper
+character controller rather than steering forces plus collision resolution.
+See the note above `obstaclesNear` in `src/sim/map.js`.

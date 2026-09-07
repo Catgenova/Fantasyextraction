@@ -8,7 +8,8 @@ import { XP_PER_LEVEL, MAX_LEVEL } from '../../data/classes.js';
 import { FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS } from '../../data/tactics.js';
 import { computeStats } from '../../sim/stats.js';
 import { availablePoints } from '../../sim/heroes.js';
-import { heroById, squadHeroes, STASH_LIMIT, salvageFromStash, salvageAllUpTo } from '../../game/profile.js';
+import { heroById, squadHeroes, STASH_LIMIT, salvageFromStash, salvageAllUpTo, achievementProgress } from '../../game/profile.js';
+import { bossForAchievement } from '../../data/achievements.js';
 import { salvageValue, canSalvage, salvageTable } from '../../data/economy.js';
 import { itemScore } from '../../data/gear.js';
 
@@ -37,7 +38,7 @@ export function hubScreen(app) {
 
     root.appendChild(el('div.hub', null, [
       el('div.hub-main', null, [squadPanel(), rosterPanel()]),
-      el('div.col', { style: { minHeight: '0' } }, [squadTacticsPanel(), stashPanel()]),
+      el('div.col', { style: { minHeight: '0' } }, [squadTacticsPanel(), trophyPanel(), stashPanel()]),
     ]));
 
     // ---------------------------------------------------------------- squad
@@ -177,6 +178,36 @@ export function hubScreen(app) {
             }, t.avoidPlayers ? 'Avoid — break off from other squads' : 'Engage when contacted'),
           ]),
         ]),
+      ]);
+    }
+
+    // -------------------------------------------------------------- trophies
+    // The only place the game says out loud which bosses exist and what each
+    // one is worth. A locked row names its boss and where to find it, because
+    // a player who wants a Necromancer needs to know what to go and kill.
+    function trophyPanel() {
+      const rows = achievementProgress(profile);
+      const earned = rows.filter((r) => r.earned).length;
+
+      return el('div.panel', null, [
+        el('div.panel-head', null, [
+          el('h2', null, 'Trophies'),
+          el('span.small.muted', null, `${earned} / ${rows.length} classes unlocked`),
+        ]),
+        el('div.panel-body.col', { style: { gap: '5px' } }, rows.map(({ ach, earned: got }) => {
+          const cls = CLASSES[ach.unlocks];
+          const boss = bossForAchievement(ach);
+          return el('div.trophy' + (got ? '.got' : ''), { style: { '--cls': cls.color } }, [
+            el('div.spread', null, [
+              el('div.nm', null, got ? ach.name : boss?.name ?? ach.bossId),
+              el('span.pill', { style: { color: got ? cls.color : 'var(--dim)' } },
+                got ? cls.name : 'Locked'),
+            ]),
+            el('div.tiny.dim', null, got
+              ? `${cls.name} unlocked · ${cls.role}`
+              : `${ach.blurb} Unlocks the ${cls.name}.`),
+          ]);
+        })),
       ]);
     }
 

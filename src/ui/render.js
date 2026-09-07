@@ -4,6 +4,7 @@
 
 import { WORLD_SIZE, RING_CORE, RING_MID, CENTER, BIOMES, extractIsOpen } from '../sim/map.js';
 import { RARITIES } from '../data/gear.js';
+import { CLASSES } from '../data/classes.js';
 import { hpFrac, manaFrac } from '../sim/entity.js';
 import { canTake } from '../sim/ai.js';
 import { dist } from '../core/vec.js';
@@ -545,10 +546,13 @@ export function createRenderer(canvas, minimapCanvas) {
     } else if (e.rank === 'elite') {
       polygon(e.pos.x, e.pos.y, r, 4, Math.PI / 4);
     } else if (e.kind === 'hero') {
-      // One silhouette per class so roles are readable at a glance:
-      // Knight a shield, Archer a chevron, Priest a disc.
-      if (e.classId === 'knight') roundedShield(e.pos.x, e.pos.y, r);
-      else if (e.classId === 'archer') polygon(e.pos.x, e.pos.y, r * 1.15, 3, -Math.PI / 2);
+      // Silhouette by role, not by class: with eleven classes a unique shape
+      // each would be unreadable at this zoom, so they share four. Colour and
+      // the name label separate classes within a role.
+      const shape = CLASSES[e.classId]?.shape ?? 'disc';
+      if (shape === 'shield') roundedShield(e.pos.x, e.pos.y, r);
+      else if (shape === 'chevron') polygon(e.pos.x, e.pos.y, r * 1.15, 3, -Math.PI / 2);
+      else if (shape === 'spike') star(e.pos.x, e.pos.y, r * 1.2, r * 0.55, 5, -Math.PI / 2);
       else ctx.arc(e.pos.x, e.pos.y, r, 0, Math.PI * 2);
     } else {
       ctx.arc(e.pos.x, e.pos.y, r, 0, Math.PI * 2);
@@ -771,6 +775,17 @@ export function createRenderer(canvas, minimapCanvas) {
     ctx.lineTo(x + r, y + r * 0.15);
     ctx.quadraticCurveTo(x + r * 0.9, y + r, x, y + r * 1.15);
     ctx.quadraticCurveTo(x - r * 0.9, y + r, x - r, y + r * 0.15);
+    ctx.closePath();
+  }
+
+  function star(x, y, outer, inner, points, rotation) {
+    for (let i = 0; i <= points * 2; i++) {
+      const a = rotation + (i / (points * 2)) * Math.PI * 2;
+      const rad = i % 2 === 0 ? outer : inner;
+      const px = x + Math.cos(a) * rad;
+      const py = y + Math.sin(a) * rad;
+      if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    }
     ctx.closePath();
   }
 

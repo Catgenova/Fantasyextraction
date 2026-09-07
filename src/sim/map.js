@@ -116,19 +116,39 @@ export function generateMap(seed) {
   }
 
   // Boss arenas sit at fixed radii but pick an angle that keeps them away from
-  // any landing zone — nobody should be greeted by a boss on the drop.
-  const arenaSpec = [{ id: 'arena_0', bossId: 'gravemaw', radius: 3400, tier: 1 },
-                     { id: 'arena_1', bossId: 'ashenveil', radius: 1000, tier: 2 }];
+  // any landing zone — nobody should be greeted by a boss on the drop — and
+  // away from each other, so pulling one is never pulling two. Each grants a
+  // class on its first kill (see `src/data/achievements.js`), so the radii
+  // double as difficulty signposting: the outer-ring boss is the one a fresh
+  // squad can take, and the core three are the end of a long raid.
+  const arenaSpec = [
+    { id: 'arena_knife', bossId: 'quiet_knife', radius: 5200, tier: 0 },
+    { id: 'arena_grendrak', bossId: 'grendrak', radius: 3900, tier: 1 },
+    { id: 'arena_gravemaw', bossId: 'gravemaw', radius: 3400, tier: 1 },
+    { id: 'arena_hoarfrost', bossId: 'hoarfrost', radius: 3000, tier: 1 },
+    { id: 'arena_emberjaw', bossId: 'emberjaw', radius: 1900, tier: 2 },
+    { id: 'arena_ashenveil', bossId: 'ashenveil', radius: 1500, tier: 2 },
+    { id: 'arena_malgareth', bossId: 'malgareth', radius: 1200, tier: 2 },
+  ];
+  const ARENA_SEPARATION = 1500;
+  const placedArenas = [];
   for (const spec of arenaSpec) {
     let best = null;
-    let bestClearance = -1;
-    for (let attempt = 0; attempt < 48; attempt++) {
+    let bestScore = -Infinity;
+    for (let attempt = 0; attempt < 64; attempt++) {
       const a = rng() * Math.PI * 2;
       const p = { x: CENTER.x + Math.cos(a) * spec.radius, y: CENTER.y + Math.sin(a) * spec.radius };
-      const clearance = Math.min(...map.spawns.map((sp) => dist(p, sp)));
-      if (clearance > bestClearance) { bestClearance = clearance; best = p; }
-      if (clearance > 2600) break;
+      const fromSpawns = Math.min(...map.spawns.map((sp) => dist(p, sp)));
+      // Crowding another arena is the worse failure, so it dominates the score
+      // until the gap is comfortable; after that the spawn distance decides.
+      const fromArenas = placedArenas.length
+        ? Math.min(...placedArenas.map((q) => dist(p, q)))
+        : Infinity;
+      const score = Math.min(fromSpawns, 2600) + Math.min(fromArenas, ARENA_SEPARATION) * 2;
+      if (score > bestScore) { bestScore = score; best = p; }
+      if (fromSpawns > 2600 && fromArenas > ARENA_SEPARATION) break;
     }
+    placedArenas.push(best);
     map.pois.push({ id: spec.id, kind: 'boss', bossId: spec.bossId, radius: 380, x: best.x, y: best.y, tier: spec.tier });
   }
 

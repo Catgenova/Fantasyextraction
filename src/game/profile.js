@@ -6,6 +6,8 @@ import { defaultSquadTactics } from '../data/tactics.js';
 import { makeConsumable } from '../data/consumables.js';
 import { rollItem, RARITY_ORDER } from '../data/gear.js';
 import { salvageValue } from '../data/economy.js';
+import { achievementForBoss, ACHIEVEMENT_BY_ID, ACHIEVEMENTS } from '../data/achievements.js';
+import { STARTER_CLASS_IDS } from '../data/classes.js';
 
 export const STASH_LIMIT = 120;
 
@@ -37,6 +39,9 @@ export function newProfile(seed = Date.now() >>> 0) {
     gold: 0,
     // Salvage currency. Repair will spend it; nothing does yet.
     scrap: 0,
+    // Boss trophies, by achievement id -> { at, seed }. Each one unlocks a
+    // class; the roster hero it granted is created at the same moment.
+    achievements: {},
     history: [],
   };
 }
@@ -68,6 +73,13 @@ export function sanitizeProfile(profile) {
   profile.history = profile.history ?? [];
   profile.gold = profile.gold ?? 0;
   profile.scrap = profile.scrap ?? 0;
+  // Drop trophies for achievements that no longer exist rather than carrying
+  // an id nothing can explain.
+  const trophies = profile.achievements ?? {};
+  profile.achievements = {};
+  for (const [id, record] of Object.entries(trophies)) {
+    if (ACHIEVEMENT_BY_ID[id]) profile.achievements[id] = record;
+  }
   return profile;
 }
 
@@ -114,6 +126,44 @@ export function salvageAllUpTo(profile, maxRarity) {
   return gained;
 }
 
+// ---------------------------------------------------------------------------
+// Trophies and class unlocks
+// ---------------------------------------------------------------------------
+
+export const hasAchievement = (profile, id) => !!profile.achievements?.[id];
+
+/** Class ids this profile may field: the starters plus everything it has earned. */
+export function unlockedClassIds(profile) {
+  const ids = [...STARTER_CLASS_IDS];
+  for (const ach of ACHIEVEMENTS) {
+    if (hasAchievement(profile, ach.id) && !ids.includes(ach.unlocks)) ids.push(ach.unlocks);
+  }
+  return ids;
+}
+
+/** Every achievement with whether this profile has earned it, in fixed order. */
+export function achievementProgress(profile) {
+  return ACHIEVEMENTS.map((ach) => ({ ach, earned: profile.achievements?.[ach.id] ?? null }));
+}
+
+/**
+ * Record a boss kill. The first kill of a boss earns its trophy and recruits a
+ * hero of the class it unlocks — the unlock is worthless without someone to
+ * play it, and making the player then find a recruit would be a second gate on
+ * one achievement. Repeat kills are a no-op.
+ *
+ * @returns {{ach, hero}|null} what was earned, or null if it already was
+ */
+export function recordBossKill(profile, bossId, rng, meta = {}) {
+  const ach = achievementForBoss(bossId);
+  if (!ach || hasAchievement(profile, ach.id)) return null;
+
+  profile.achievements[ach.id] = { at: meta.at ?? Date.now(), seed: meta.seed ?? null };
+  const hero = createHero(rng, ach.unlocks);
+  profile.roster.push(hero);
+  return { ach, hero };
+}
+
 export function removeFromStash(profile, itemId) {
   const idx = profile.stash.findIndex((i) => i.id === itemId);
   if (idx < 0) return null;
@@ -125,7 +175,15 @@ export function removeFromStash(profile, itemId) {
  * stash, and equipment wiped from any hero who did not make it out.
  */
 export function applyMatchResult(profile, result) {
-  const summary = { levelUps: [], gained: [], lost: [] };
+  const summary = { levelUps: [], gained: [], lost: [], unlocked: [] };
+
+  // Trophies first: a boss kill counts even if the squad died on the way out,
+  // so the unlock survives a wipe that costs them everything else.
+  const rng = makeRng((result.seed ^ 0x5bf03635) >>> 0);
+  for (const bossId of result.bossesKilled ?? []) {
+    const earned = recordBossKill(profile, bossId, rng, { seed: result.seed });
+    if (earned) summary.unlocked.push(earned);
+  }
 
   for (const h of result.heroes) {
     const hero = heroById(profile, h.heroId);
@@ -161,6 +219,7 @@ export function applyMatchResult(profile, result) {
     heroKills: result.stats.heroKills,
     gained: summary.gained.length,
     lost: summary.lost.length,
+    unlocked: summary.unlocked.map((u) => u.ach.id),
   });
   profile.history = profile.history.slice(0, 25);
 

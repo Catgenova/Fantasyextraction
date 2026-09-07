@@ -11,6 +11,7 @@ import { ENEMIES, WORLD_EVENTS, MATCH_SECONDS } from '../data/enemies.js';
 import { rollLoot } from '../data/loot.js';
 import { RARITIES } from '../data/gear.js';
 import { treeMods, addMods, emptyMods } from './stats.js';
+import { READY_FOR_BOSS_TIER } from '../data/tactics.js';
 
 export const TICK = 1 / 30;           // fixed sim step
 const CAMP_ACTIVATE = 1700;
@@ -64,6 +65,9 @@ export class Match {
     this._gridTime = -1;
 
     this.stats = { kills: 0, bossKills: 0, heroKills: 0, looted: 0 };
+    // Which bosses the *player's* squad put down, by definition id. Rival
+    // squads kill bosses too, and their trophies are not yours.
+    this.bossesKilled = [];
 
     this.#setupSquads();
     this.#setupCamps();
@@ -513,8 +517,14 @@ export class Match {
       if (killer?.kind === 'hero') killer.stats_run.kills++;
     } else {
       this.stats.kills++;
-      if (target.kind === 'boss') { this.stats.bossKills++; this.log(`${target.name} has fallen!`, 'boss'); }
       const killerSquad = killer ? this.squads.get(killer.squadId) : null;
+      if (target.kind === 'boss') {
+        this.stats.bossKills++;
+        this.log(`${target.name} has fallen!`, 'boss');
+        if (killerSquad && killerSquad === this.playerSquad && !this.bossesKilled.includes(target.defId)) {
+          this.bossesKilled.push(target.defId);
+        }
+      }
       if (killerSquad) this.#awardXp(killerSquad, target.xp);
       if (killer?.kind === 'hero') killer.stats_run.kills++;
 
@@ -718,9 +728,21 @@ export class Match {
     return bd < 2200 ? best : null;
   }
 
-  /** A wander target biased toward deeper rings for aggressive plans. */
-  pickRoamGoal(from, zoneBias) {
+  /**
+   * A wander target biased toward deeper rings for aggressive plans.
+   *
+   * A boss hunt goes for the deepest arena the squad is ready for rather than
+   * the deepest arena there is. With one boss per ring that distinction barely
+   * mattered; with seven it decides the raid, and a level-5 squad sent to the
+   * core to hunt three bosses at once wiped in eight runs out of eight with
+   * nothing to show. `level` is the squad's, so the ladder in
+   * `READY_FOR_BOSS_TIER` is the same one that decides which classes a rival
+   * of that level may field.
+   */
+  pickRoamGoal(from, zoneBias, level = 1) {
     const wantTier = clamp(zoneBias, 0, 2);
+    let readyFor = 0;
+    while (readyFor < 2 && level >= READY_FOR_BOSS_TIER[readyFor + 1]) readyFor++;
     const candidates = this.map.pois.filter((p) => p.kind === 'camp' || p.kind === 'boss');
     let best = null;
     let bestScore = -Infinity;
@@ -728,7 +750,23 @@ export class Match {
       const d = dist(from, p);
       if (d < 260) continue;
       const tierMatch = -Math.abs((p.tier ?? 0) - wantTier) * 700;
-      const bossBonus = p.kind === 'boss' && zoneBias >= 2 ? 900 : 0;
+      let bossBonus = 0;
+      if (p.kind === 'boss') {
+        if (zoneBias >= 2) {
+          // Out of their depth is not a small penalty: it is the difference
+          // between a haul and a wipe, so it outweighs the bonus entirely.
+          const overReach = Math.max(0, (p.tier ?? 0) - readyFor);
+          bossBonus = 900 - overReach * 1600;
+        } else {
+          // Everyone else steers clear, so that meeting a boss is a decision
+          // rather than an accident of where the roam goal landed. Worth only
+          // about one wipe in twelve farming runs on its own — the plan is
+          // already biased to the outer ring — but it never measured worse,
+          // and with seven arenas on the map the accident is common enough to
+          // be worth ruling out.
+          bossBonus = -1200;
+        }
+      }
       const score = tierMatch + bossBonus - d * 0.55 + this.rng() * 500;
       if (score > bestScore) { bestScore = score; best = p; }
     }
@@ -784,6 +822,7 @@ export class Match {
       outcome: extractedCount > 0 ? (extractedCount === heroes.length ? 'clean' : 'partial') : 'wiped',
       heroes,
       stats: { ...this.stats },
+      bossesKilled: [...this.bossesKilled],
       timedOut: this.time >= MATCH_SECONDS,
     };
   }

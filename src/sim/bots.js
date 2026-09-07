@@ -3,11 +3,13 @@
 // one really does mean taking gear a "player" was wearing.
 
 import { makeRng, pick, randInt, chance, shuffle } from '../core/rng.js';
-import { CLASS_IDS } from '../data/classes.js';
+import { STARTER_CLASS_IDS } from '../data/classes.js';
+import { ACHIEVEMENTS } from '../data/achievements.js';
+import { BOSSES } from '../data/enemies.js';
 import { createHero, sanitizeHero, autoAllocate, availableSpells } from './heroes.js';
 import { rollItem, SLOTS, RARITY_ORDER, canEquip } from '../data/gear.js';
 import { makeConsumable, CONSUMABLE_LIST } from '../data/consumables.js';
-import { defaultSquadTactics, EXTRACT_PLANS, FORMATIONS, STANCES, TARGET_PRIORITIES } from '../data/tactics.js';
+import { defaultSquadTactics, EXTRACT_PLANS, FORMATIONS, STANCES, TARGET_PRIORITIES, READY_FOR_BOSS_TIER } from '../data/tactics.js';
 import { SPELL_SLOTS } from '../data/spells.js';
 
 const SQUAD_NAMES = [
@@ -32,7 +34,7 @@ export function generateBotSquads(seed, count, playerLevel) {
     const delta = bandRoll < 0.25 ? -2 : bandRoll < 0.75 ? 0 : 2;
     const level = Math.max(1, playerLevel + delta + randInt(rng, -1, 1));
 
-    const classes = shuffle(rng, CLASS_IDS);
+    const classes = shuffle(rng, classPoolFor(level));
     const heroes = classes.slice(0, 3).map((classId) => buildBotHero(rng, classId, level, delta));
 
     squads.push({
@@ -52,6 +54,19 @@ export function generateBotSquads(seed, count, playerLevel) {
     });
   }
   return squads;
+}
+
+// Rivals stand in for other players, so they field the same classes a player
+// of that level plausibly has: the unlockable ones only once they are deep
+// enough to have killed the boss that grants them. Seeing a Paladin means
+// somebody put the Warden down, which is the point.
+function classPoolFor(level) {
+  const pool = [...STARTER_CLASS_IDS];
+  for (const ach of ACHIEVEMENTS) {
+    const tier = BOSSES[ach.bossId]?.tier ?? 2;
+    if (level >= READY_FOR_BOSS_TIER[tier]) pool.push(ach.unlocks);
+  }
+  return pool;
 }
 
 function weightedPlan(rng, powerDelta) {

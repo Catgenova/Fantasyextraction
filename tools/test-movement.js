@@ -31,16 +31,25 @@ const FAR = 60;           // only judge heroes that have somewhere to be
 // Ceilings sit well clear of current numbers so ordinary jostling does not
 // trip them, while a return of any of the three failures above would.
 //
-// The distance floor is the weakest of the three and has been lowered twice
-// for reasons that were not bugs. It started as a proxy for "not stuck", but
-// squads now travel as a group behind a leader, so each hero covers less
-// ground on purpose — and an earlier draft's inflated ~91k came from heroes
-// being detoured back out of extraction zones, which is wandering, not
-// progress. The two checks above measure stuckness directly and carry the
-// weight; this one only catches a squad that has stopped travelling at all.
+// The third check is the weakest and was twice lowered for reasons that were
+// not bugs. It was a floor on total ground covered per hero, which is not a
+// movement measurement at all: it falls whenever heroes die sooner. So it now
+// measures the rate heroes move at while alive, which is what it was always a
+// proxy for and is indifferent to how long anyone survives.
+//
+// That rate is not constant across content changes either. Adding eight
+// classes and five boss arenas took it from 66.0 units/s to 57.4: four of the
+// eight new classes are melee, so squads crowd the same spot and jam each
+// other more often, and seven arenas put more on the map to stand and fight.
+// Both are the content doing what it was added to do.
+//
+// Do not mistake this for a sensitive detector of bad steering. Deleting
+// obstacle avoidance outright barely moves it — it stays a coarse floor on
+// whether squads travel at all, which is all it ever was. The two checks
+// above measure stuckness directly and carry the weight.
 const MAX_STUCK_SHARE = 0.12;
 const MAX_STUCK_RUN = 400;
-const MIN_DISTANCE = 48000;
+const MIN_SPEED = 48; // units covered per second alive, averaged over every hero
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -52,7 +61,6 @@ let stuckSeconds = 0;
 let liveSeconds = 0;
 let worstRun = 0;
 let totalDistance = 0;
-let heroCount = 0;
 
 for (let i = 0; i < RUNS; i++) {
   const seed = 900 + i;
@@ -110,18 +118,18 @@ for (let i = 0; i < RUNS; i++) {
     }
   }
 
-  for (const [, d] of travelled) { totalDistance += d; heroCount++; }
+  for (const [, d] of travelled) totalDistance += d;
 }
 
 const share = stuckSeconds / Math.max(1, liveSeconds);
-const perHero = Math.round(totalDistance / Math.max(1, heroCount));
+const speed = totalDistance / Math.max(1, liveSeconds);
 
 check(`heroes rarely fail to make progress (${(share * 100).toFixed(1)}%)`,
   share <= MAX_STUCK_SHARE, `limit ${MAX_STUCK_SHARE * 100}%`);
 check(`nobody is pinned for a whole raid (worst ${worstRun.toFixed(0)}s)`,
   worstRun <= MAX_STUCK_RUN, `limit ${MAX_STUCK_RUN}s`);
-check(`heroes cover ground (${perHero} units each)`,
-  perHero >= MIN_DISTANCE, `floor ${MIN_DISTANCE}`);
+check(`heroes keep moving while they are alive (${speed.toFixed(1)} units/s)`,
+  speed >= MIN_SPEED, `floor ${MIN_SPEED}`);
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll movement checks passed');
 process.exit(failures ? 1 : 0);

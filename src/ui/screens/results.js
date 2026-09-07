@@ -3,6 +3,7 @@
 import { el, fmtTime } from '../dom.js';
 import { itemRow } from '../items.js';
 import { CLASSES } from '../../data/classes.js';
+import { bossForAchievement } from '../../data/achievements.js';
 
 const VERDICTS = {
   clean: { title: 'Clean Extraction', blurb: 'The whole squad walked out with the haul.' },
@@ -23,6 +24,30 @@ export function resultsScreen(app, result, summary) {
       stat('Bosses felled', String(result.stats.bossKills)),
       stat('Heroes slain', String(result.stats.heroKills)),
     ]),
+
+    // A class unlock is the rarest thing a raid can produce, so it goes above
+    // the squad cards rather than in with the loot.
+    summary?.unlocked?.length
+      ? el('div.unlocks', null, summary.unlocked.map(({ ach, hero }) => {
+        const cls = CLASSES[ach.unlocks];
+        const boss = bossForAchievement(ach);
+        return el('div.unlock', { style: { '--cls': cls.color } }, [
+          el('div.tiny', { style: { color: 'var(--accent)', textTransform: 'uppercase', letterSpacing: '.14em' } },
+            'Trophy earned'),
+          el('h3', null, ach.name),
+          el('p.small.muted', null, ach.flavour),
+          el('div.unlock-grant', null, [
+            el('span', null, [
+              el('b', { style: { color: cls.color } }, cls.name),
+              ' unlocked — ',
+              el('b', null, hero.name),
+              ' has joined your roster.',
+            ]),
+          ]),
+          el('div.tiny.dim', null, `${boss?.name ?? ach.bossId} · ${cls.role}`),
+        ]);
+      }))
+      : null,
 
     el('div.divider'),
 

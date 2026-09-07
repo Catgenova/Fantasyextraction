@@ -1,0 +1,227 @@
+#!/usr/bin/env node
+// Boss trophies and the class unlocks they grant.
+//
+// The unlock rules are easy to state and easy to get subtly wrong, so this
+// asserts each one directly rather than inferring it from a raid: only the
+// player's own kill counts, the first kill grants and later ones do not, and a
+// squad that dies on the way out still keeps the trophy. It also drives a real
+// raid to prove the sim reports `bossesKilled` at all — the profile logic is
+// worthless if nothing ever populates it.
+//
+//   node tools/test-achievements.js
+
+import { Match, TICK } from '../src/sim/match.js';
+import { generateBotSquads } from '../src/sim/bots.js';
+import {
+  newProfile, sanitizeProfile, applyMatchResult, unlockedClassIds,
+  achievementProgress, recordBossKill, hasAchievement,
+} from '../src/game/profile.js';
+import { ACHIEVEMENTS, achievementForBoss } from '../src/data/achievements.js';
+import { BOSSES } from '../src/data/enemies.js';
+import { CLASSES, CLASS_IDS, STARTER_CLASS_IDS } from '../src/data/classes.js';
+import { TREES, unlockedSpells } from '../src/data/skilltrees.js';
+import { spellsForClass, SPELL_SLOTS } from '../src/data/spells.js';
+import { computeStats } from '../src/sim/stats.js';
+import { createHero, autoAllocate, availableSpells } from '../src/sim/heroes.js';
+import { startingLoadout, canEquip, SLOTS } from '../src/data/gear.js';
+import { makeRng } from '../src/core/rng.js';
+import { defaultSquadTactics } from '../src/data/tactics.js';
+import { squadHeroes } from '../src/game/profile.js';
+
+let failures = 0;
+const check = (name, ok, detail = '') => {
+  if (!ok) failures++;
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
+};
+
+const result = (over = {}) => ({
+  seed: 1234, duration: 900, outcome: 'clean', heroes: [],
+  stats: { kills: 10, bossKills: 1, heroKills: 0 }, bossesKilled: [], ...over,
+});
+
+console.log('=== the mapping ===');
+
+check('every boss grants exactly one class',
+  Object.keys(BOSSES).every((id) => achievementForBoss(id)),
+  `${ACHIEVEMENTS.length} achievements for ${Object.keys(BOSSES).length} bosses`);
+
+const unlockable = CLASS_IDS.filter((id) => !STARTER_CLASS_IDS.includes(id));
+const granted = ACHIEVEMENTS.map((a) => a.unlocks);
+check('every non-starter class is behind exactly one boss',
+  unlockable.every((id) => granted.filter((g) => g === id).length === 1),
+  unlockable.join(', '));
+check('no achievement grants a class you already have',
+  ACHIEVEMENTS.every((a) => !STARTER_CLASS_IDS.includes(a.unlocks)));
+
+console.log('\n=== earning them ===');
+
+{
+  const p = newProfile(1);
+  check('a fresh profile has the three starters and nothing else',
+    unlockedClassIds(p).join(',') === STARTER_CLASS_IDS.join(','), unlockedClassIds(p).join(','));
+  check('and no trophies', achievementProgress(p).every((r) => !r.earned));
+
+  const sum = applyMatchResult(p, result({ bossesKilled: ['gravemaw'] }));
+  check('killing a boss earns its trophy', hasAchievement(p, 'gravemaw'));
+  check('and unlocks its class', unlockedClassIds(p).includes('necromancer'));
+  check('and recruits a hero to play it',
+    p.roster.length === 4 && p.roster[3].classId === 'necromancer',
+    p.roster.map((h) => h.classId).join(','));
+  check('the report names what was earned',
+    sum.unlocked.length === 1 && sum.unlocked[0].ach.id === 'gravemaw');
+
+  // The whole point of a one-off unlock: farming the same boss must not pay again.
+  const again = applyMatchResult(p, result({ bossesKilled: ['gravemaw'] }));
+  check('killing it again grants nothing',
+    again.unlocked.length === 0 && p.roster.length === 4, `roster ${p.roster.length}`);
+}
+
+{
+  // Bosses are hard enough that dying on the way out is common. The kill is
+  // the achievement, so the trophy has to survive the wipe that follows it.
+  const p = newProfile(2);
+  applyMatchResult(p, result({ outcome: 'wiped', bossesKilled: ['the_warden'] }));
+  check('a wipe after the kill still keeps the trophy',
+    hasAchievement(p, 'the_warden') && unlockedClassIds(p).includes('paladin'));
+}
+
+{
+  const p = newProfile(3);
+  applyMatchResult(p, result({ bossesKilled: [] }));
+  check('a raid that killed no boss unlocks nothing',
+    p.roster.length === 3 && achievementProgress(p).every((r) => !r.earned));
+}
+
+{
+  const p = newProfile(4);
+  applyMatchResult(p, result({ bossesKilled: ['quiet_knife', 'grendrak', 'hoarfrost'] }));
+  check('three kills in one raid unlock three classes',
+    p.roster.length === 6, p.roster.map((h) => h.classId).join(','));
+  check('history records the unlocks', p.history[0].unlocked.length === 3);
+}
+
+{
+  // Saves predate this feature and must not brick or silently gain classes.
+  const p = newProfile(5);
+  delete p.achievements;
+  sanitizeProfile(p);
+  check('a save with no trophies at all sanitises to none',
+    Object.keys(p.achievements).length === 0 && unlockedClassIds(p).length === 3);
+
+  p.achievements = { gravemaw: { at: 1 }, a_boss_that_was_cut: { at: 2 } };
+  sanitizeProfile(p);
+  check('a trophy for a boss that no longer exists is dropped',
+    Object.keys(p.achievements).join(',') === 'gravemaw');
+}
+
+console.log('\n=== the unlocked classes are actually playable ===');
+
+{
+  const rng = makeRng(77);
+  let broken = 0;
+  const detail = [];
+  for (const classId of CLASS_IDS) {
+    const cls = CLASSES[classId];
+    const hero = createHero(rng, classId);
+    const stats = computeStats(hero);
+    // A hero whose kit it cannot wear, or whose tree cannot be spent, is a
+    // dead class however good the data file looks.
+    const wearable = startingLoadout(rng, classId).every((i) => canEquip(i, classId));
+    const slotsCovered = SLOTS.every((slot) =>
+      hero.equipped[slot] !== undefined);
+    const maxed = { ...hero, level: 20, alloc: {} };
+    autoAllocate(rng, maxed, 'random');
+    const spells = availableSpells(maxed);
+    const ok = stats.maxHp > 0 && stats.attackPower > 0 && wearable && slotsCovered
+      && cls.startingSpells.length >= 2 && spells.length > cls.startingSpells.length
+      && TREES[classId].nodes.length === 18
+      && spellsForClass(classId).length >= SPELL_SLOTS;
+    if (!ok) { broken++; detail.push(classId); }
+  }
+  check(`all ${CLASS_IDS.length} classes build a usable hero`, broken === 0, detail.join(','));
+
+  // Every spell in a class's pool must be reachable from its own tree.
+  let unreachable = [];
+  for (const classId of CLASS_IDS) {
+    const all = new Set(spellsForClass(classId).map((s) => s.id));
+    const full = {};
+    for (const n of TREES[classId].nodes) full[n.id] = n.maxRank;
+    const reachable = new Set(unlockedSpells(classId, full, CLASSES[classId].startingSpells));
+    for (const id of all) if (!reachable.has(id)) unreachable.push(`${classId}:${id}`);
+  }
+  check('every spell is reachable from its own skill tree', unreachable.length === 0,
+    unreachable.join(','));
+}
+
+console.log('\n=== a real raid reports its boss kills ===');
+
+{
+  // Only the player's kills count. Running raids until a boss dies also proves
+  // the arenas are reachable at all — seven arenas nobody walks to would pass
+  // every check above and still be broken.
+  let sawKill = false;
+  let sawAnyBossDie = false;
+  const killed = new Set();
+  for (let seed = 500; seed < 512 && !sawKill; seed++) {
+    const profile = newProfile(seed);
+    for (const h of profile.roster) h.level = 12;
+    const heroes = squadHeroes(profile);
+    const match = new Match({
+      seed,
+      playerSquad: {
+        id: 'player', name: 'You', isPlayer: true, heroes,
+        tactics: { ...defaultSquadTactics(), leaderId: heroes[0].id, plan: 'boss' },
+      },
+      botSquads: generateBotSquads(seed, 5, 12),
+    });
+    let ticks = 0;
+    while (match.phase !== 'ended' && ticks < 1800 / TICK) { match.update(TICK); ticks++; }
+    if (match.stats.bossKills > 0) sawAnyBossDie = true;
+    if (match.result.bossesKilled.length) {
+      sawKill = true;
+      match.result.bossesKilled.forEach((b) => killed.add(b));
+    }
+  }
+  check('a boss died in a raid', sawAnyBossDie);
+  check('the player squad killed one and the result says which', sawKill, [...killed].join(','));
+  check('every reported kill is a real boss',
+    [...killed].every((id) => BOSSES[id]), [...killed].join(','));
+
+  if (sawKill) {
+    const p = newProfile(9);
+    applyMatchResult(p, result({ bossesKilled: [...killed] }));
+    check('and the profile turns it into a class', p.roster.length === 3 + killed.size,
+      p.roster.map((h) => h.classId).join(','));
+  }
+}
+
+{
+  // Rival squads kill far more bosses than the player does — on a farming run
+  // roughly forty die across a dozen raids and about one of them is yours. So
+  // crediting every boss death to the player is not a small error: it hands
+  // over most of the roster for work somebody else did.
+  let credited = 0;
+  let died = 0;
+  for (let seed = 600; seed < 606; seed++) {
+    const profile = newProfile(seed);
+    for (const h of profile.roster) h.level = 12;
+    const heroes = squadHeroes(profile);
+    const match = new Match({
+      seed,
+      playerSquad: {
+        id: 'player', name: 'You', isPlayer: true, heroes,
+        tactics: { ...defaultSquadTactics(), leaderId: heroes[0].id, plan: 'farm' },
+      },
+      botSquads: generateBotSquads(seed, 5, 12),
+    });
+    let ticks = 0;
+    while (match.phase !== 'ended' && ticks < 1800 / TICK) { match.update(TICK); ticks++; }
+    died += match.stats.bossKills;
+    credited += match.result.bossesKilled.length;
+  }
+  check('rival squads kill bosses the player never touches', died > credited,
+    `${died} died, ${credited} credited to the player`);
+}
+
+console.log(failures ? `\n${failures} check(s) failed` : '\nAll checks passed');
+process.exit(failures ? 1 : 0);

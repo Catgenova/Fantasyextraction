@@ -38,13 +38,16 @@ const check = (name, ok, detail = '') => {
 // --- Unit level: the predicate the whole thing hinges on -------------------
 {
   const rng = makeRng(1);
+  // The pack holds copies of one item and is offered another exactly like it,
+  // so "cannot take it" is a statement about the swap rule rather than about
+  // which base types happened to roll — rolling distinct commons made this
+  // fixture quietly depend on the size of the base-item pool.
+  const common = rollItem(rng, { baseId: 'gloves', rarity: 'common', ilvl: 1 });
   const hero = {
     tactics: { lootPolicy: 'greedy' },
-    inventory: Array.from({ length: BACKPACK_SLOTS },
-      () => rollItem(rng, { rarity: 'common', ilvl: 1 })),
+    inventory: Array.from({ length: BACKPACK_SLOTS }, () => ({ ...common })),
   };
-  const common = rollItem(rng, { rarity: 'common', ilvl: 1 });
-  const legendary = rollItem(rng, { rarity: 'legendary', ilvl: 20 });
+  const legendary = rollItem(rng, { baseId: 'gloves', rarity: 'legendary', ilvl: 20 });
 
   check('a full pack still *wants* a common', wantsItem(hero, common));
   check('but cannot take it', !canTake(hero, common));

@@ -36,6 +36,12 @@ const STUCK_SAMPLE = 0.4;    // seconds between progress checks
 const MIN_PROGRESS = 8;      // metres closer to the goal per sample, or it is not progress
 const STUCK_TRIGGER = 1.2;   // seconds of no progress before forcing a way out
 const DETOUR_DISTANCE = 300; // how far to the side a detour waypoint is placed
+// Each failed detour reaches further out. A hero pinned in a notch between two
+// rocks by another hero standing on the only way out is not helped by being
+// sent 300 units sideways again — it walks back into the same pocket. Widening
+// the escape is what eventually clears it.
+const DETOUR_WIDEN = 0.8;    // extra detour distance per consecutive failure
+const DETOUR_MAX_WIDEN = 3;  // cap, so a detour never becomes a march
 const DETOUR_TIME = 5;       // give up on a detour after this long
 const ORBIT_WINDOW = 6;      // seconds over which to check for real displacement
 const ORBIT_DISTANCE = 90;   // net ground covered in that window, or it is a loop
@@ -857,12 +863,16 @@ function detourAround(match, e, desired) {
 
     // If the last detour timed out, that side was wrong — try the other.
     const side = e._detourFailed ? -preferredSide(match, e, dir) : preferredSide(match, e, dir);
+    const reach = DETOUR_DISTANCE
+      * (1 + Math.min(DETOUR_MAX_WIDEN, (e._detourFails ?? 0) * DETOUR_WIDEN));
     e._detour = {
       // Mostly sideways, with a little forward bias so the detour still makes
       // progress rather than simply retreating.
-      x: e.pos.x - dir.y * side * DETOUR_DISTANCE + dir.x * 70,
-      y: e.pos.y + dir.x * side * DETOUR_DISTANCE + dir.y * 70,
-      until: match.time + DETOUR_TIME,
+      x: e.pos.x - dir.y * side * reach + dir.x * 70,
+      y: e.pos.y + dir.x * side * reach + dir.y * 70,
+      // A longer detour needs longer to walk, or it expires before arriving
+      // and is scored a failure for being far rather than for being wrong.
+      until: match.time + DETOUR_TIME * (reach / DETOUR_DISTANCE),
     };
     e._stuckTime = 0;
     e._orbitAt = undefined;
@@ -870,6 +880,17 @@ function detourAround(match, e, desired) {
   }
 
   return desired;
+}
+
+/** Average level of a squad's living members — how deep they can safely go. */
+function squadLevel(match, squad) {
+  let sum = 0;
+  let n = 0;
+  for (const id of squad.memberIds) {
+    const m = match.byId(id);
+    if (m?.alive) { sum += m.level ?? 1; n++; }
+  }
+  return n ? sum / n : 1;
 }
 
 function nearest(e, list) {
@@ -1233,7 +1254,7 @@ export function squadObjective(match, squad) {
 
   const goal = squad.roamGoal;
   if (!goal || dist(centroid, goal) < 220) {
-    squad.roamGoal = match.pickRoamGoal(centroid, plan.zoneBias);
+    squad.roamGoal = match.pickRoamGoal(centroid, plan.zoneBias, squadLevel(match, squad));
   }
   return { mode: 'travel', pos: squad.roamGoal ?? centroid, label: planLabel(plan) };
 }

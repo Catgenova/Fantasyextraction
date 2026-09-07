@@ -54,6 +54,18 @@ export const EXTRACT_PLANS = {
   loot_goal: { id: 'loot_goal', name: 'On full bags', desc: 'Leave once the squad inventory is full.', triggerAt: 1500, onFull: true },
 };
 
+/**
+ * The level at which a squad is ready for each boss tier. It gates two things
+ * that have to agree: which arena a boss hunt walks to, and which unlockable
+ * classes a rival squad may field (a class is earned from a boss of that
+ * tier, so a rival deep enough to have killed it is deep enough to field it).
+ *
+ * Without the first of those, "boss hunt" sent a level-5 squad past the outer
+ * boss it could actually kill and into the core, where eight runs out of eight
+ * wiped with nothing to show. Indexed by boss tier.
+ */
+export const READY_FOR_BOSS_TIER = [4, 8, 12];
+
 export const BACKPACK_SLOTS = 8;
 
 /**
@@ -114,6 +126,14 @@ export function defaultHeroTactics(classId) {
     knight: { stance: 'aggressive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.18, potionHpPct: 0.45 },
     archer: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.35, potionHpPct: 0.5 },
     priest: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.4, potionHpPct: 0.55 },
+    rogue: { stance: 'aggressive', priority: 'lowest_hp', lootPolicy: 'greedy', retreatHpPct: 0.4, potionHpPct: 0.5 },
+    berserker: { stance: 'aggressive', priority: 'closest', lootPolicy: 'greedy', retreatHpPct: 0.2, potionHpPct: 0.4 },
+    slayer: { stance: 'aggressive', priority: 'highest_threat', lootPolicy: 'valuable', retreatHpPct: 0.25, potionHpPct: 0.45 },
+    paladin: { stance: 'defensive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.2, potionHpPct: 0.5 },
+    necromancer: { stance: 'balanced', priority: 'highest_threat', lootPolicy: 'valuable', retreatHpPct: 0.35, potionHpPct: 0.5 },
+    ice_mage: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.38, potionHpPct: 0.55 },
+    fire_mage: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.45, potionHpPct: 0.6 },
+    lightning_mage: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.4, potionHpPct: 0.55 },
   }[classId];
   return { ...byClass, focusFire: true, spellPolicy: {} };
 }

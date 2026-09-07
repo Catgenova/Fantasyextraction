@@ -12,6 +12,14 @@ const NAMES = {
   knight: ['Ser Alden', 'Ser Brannoc', 'Dame Ysolde', 'Ser Kestrel', 'Dame Ravenna', 'Ser Corvin'],
   archer: ['Wren', 'Fenn', 'Sable', 'Ilka', 'Tarran', 'Nyx'],
   priest: ['Sister Ovid', 'Brother Casimir', 'Mother Vaile', 'Brother Elian', 'Sister Anwen', 'Father Roth'],
+  rogue: ['Quill', 'Marrow', 'Vesper', 'Sixpence', 'Thistle', 'Grey Jenn'],
+  berserker: ['Hakon', 'Brynja', 'Ulf Redhand', 'Sigrid', 'Torvald', 'Gudrun'],
+  slayer: ['Vargen', 'Alraune', 'Kord the Late', 'Miral', 'Bastion Vey', 'Ottoline'],
+  paladin: ['Ser Aurelian', 'Dame Sofira', 'Ser Halloran', 'Dame Perrine', 'Ser Ambrose', 'Dame Livia'],
+  necromancer: ['Ashfell', 'Mirek', 'Cavill Ordo', 'Nessa Gaunt', 'Doctor Wier', 'Yara Slow'],
+  ice_mage: ['Isolde Frey', 'Kaneth', 'Silvia Nim', 'Halvard', 'Orenna', 'Petrel'],
+  fire_mage: ['Cinder Vex', 'Maro Kell', 'Zaine', 'Ember Okonkwo', 'Halix', 'Roseau'],
+  lightning_mage: ['Volt Ashby', 'Ianthe', 'Sparrow Kade', 'Delphine', 'Auric', 'Mirren Fyfe'],
 };
 
 let seq = 0;

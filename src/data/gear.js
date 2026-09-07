@@ -31,26 +31,43 @@ export const RARITY_ORDER = ['common', 'uncommon', 'rare', 'epic', 'legendary'];
 // `implicit` is the guaranteed stat block scaled by item level; affixes roll on
 // top of it. `classes: null` means anyone can equip it.
 
+// Classes that wear the same weight of armour share its base types, so loot
+// out of one raid stays useful to more than one hero on the bench.
+const PLATE = ['knight', 'paladin', 'slayer', 'berserker'];
+const LEATHER = ['archer', 'rogue'];
+const CLOTH = ['priest', 'necromancer', 'ice_mage', 'fire_mage', 'lightning_mage'];
+// Armour is shared across the cloth classes, but weapons are not: the Priest
+// heals off its staff's implicit `healPower`, and putting the damage casters'
+// rune staff in the same pool meant half its rolls came back with no healing
+// on them at all. Attack casters get their own weapon and off-hand.
+const ARCANE = ['necromancer', 'ice_mage', 'fire_mage', 'lightning_mage'];
+
 export const BASES = [
   // --- Weapons -------------------------------------------------------------
-  { id: 'sword', name: 'Longsword', slot: 'weapon', classes: ['knight'], implicit: { weaponDamage: 9, might: 2 } },
-  { id: 'mace', name: 'War Mace', slot: 'weapon', classes: ['knight'], implicit: { weaponDamage: 11, attackInterval: 0.15 } },
+  { id: 'sword', name: 'Longsword', slot: 'weapon', classes: ['knight', 'paladin'], implicit: { weaponDamage: 9, might: 2 } },
+  { id: 'mace', name: 'War Mace', slot: 'weapon', classes: ['knight', 'paladin'], implicit: { weaponDamage: 11, attackInterval: 0.15 } },
   { id: 'bow', name: 'Recurve Bow', slot: 'weapon', classes: ['archer'], implicit: { weaponDamage: 8, agility: 2 } },
   { id: 'staff', name: 'Oaken Staff', slot: 'weapon', classes: ['priest'], implicit: { weaponDamage: 5, spirit: 3, healPower: 0.04 } },
+  { id: 'dagger', name: 'Fang Dagger', slot: 'weapon', classes: ['rogue'], implicit: { weaponDamage: 6, agility: 3, attackInterval: -0.1 } },
+  { id: 'greataxe', name: 'Greataxe', slot: 'weapon', classes: ['berserker'], implicit: { weaponDamage: 14, might: 2, attackInterval: 0.2 } },
+  { id: 'greatsword', name: 'Greatsword', slot: 'weapon', classes: ['slayer'], implicit: { weaponDamage: 13, might: 3, armorPen: 30 } },
+  { id: 'runestaff', name: 'Rune Staff', slot: 'weapon', classes: ARCANE, implicit: { weaponDamage: 7, spirit: 3, critChance: 0.02 } },
 
   // --- Off-hands -----------------------------------------------------------
-  { id: 'kite_shield', name: 'Kite Shield', slot: 'offhand', classes: ['knight'], implicit: { armor: 34, blockChance: 0.08 } },
+  { id: 'kite_shield', name: 'Kite Shield', slot: 'offhand', classes: ['knight', 'paladin'], implicit: { armor: 34, blockChance: 0.08 } },
   { id: 'quiver', name: 'Quiver', slot: 'offhand', classes: ['archer'], implicit: { critChance: 0.03, attackSpeedPct: 0.05 } },
   { id: 'tome', name: 'Prayer Tome', slot: 'offhand', classes: ['priest'], implicit: { spirit: 3, manaRegen: 0.8 } },
+  { id: 'parrying_dagger', name: 'Parrying Dagger', slot: 'offhand', classes: ['rogue', 'slayer', 'berserker'], implicit: { dodge: 0.03, critChance: 0.02 } },
+  { id: 'focus', name: 'Arcane Focus', slot: 'offhand', classes: ARCANE, implicit: { spirit: 2, cooldownPct: 0.04 } },
 
   // --- Armour (shared, but weight class gates who wants it) ----------------
-  { id: 'plate_helm', name: 'Plate Helm', slot: 'head', classes: ['knight'], implicit: { armor: 26, vitality: 3 } },
-  { id: 'hood', name: 'Ranger Hood', slot: 'head', classes: ['archer'], implicit: { armor: 12, agility: 3 } },
-  { id: 'circlet', name: 'Silver Circlet', slot: 'head', classes: ['priest'], implicit: { resist: 18, spirit: 3 } },
+  { id: 'plate_helm', name: 'Plate Helm', slot: 'head', classes: PLATE, implicit: { armor: 26, vitality: 3 } },
+  { id: 'hood', name: 'Ranger Hood', slot: 'head', classes: LEATHER, implicit: { armor: 12, agility: 3 } },
+  { id: 'circlet', name: 'Silver Circlet', slot: 'head', classes: CLOTH, implicit: { resist: 18, spirit: 3 } },
 
-  { id: 'plate_chest', name: 'Plate Cuirass', slot: 'chest', classes: ['knight'], implicit: { armor: 44, vitality: 5 } },
-  { id: 'leather_chest', name: 'Leather Jerkin', slot: 'chest', classes: ['archer'], implicit: { armor: 22, agility: 4 } },
-  { id: 'robe', name: 'Woven Robe', slot: 'chest', classes: ['priest'], implicit: { resist: 28, spirit: 4 } },
+  { id: 'plate_chest', name: 'Plate Cuirass', slot: 'chest', classes: PLATE, implicit: { armor: 44, vitality: 5 } },
+  { id: 'leather_chest', name: 'Leather Jerkin', slot: 'chest', classes: LEATHER, implicit: { armor: 22, agility: 4 } },
+  { id: 'robe', name: 'Woven Robe', slot: 'chest', classes: CLOTH, implicit: { resist: 28, spirit: 4 } },
 
   { id: 'gauntlets', name: 'Gauntlets', slot: 'hands', classes: null, implicit: { armor: 14, might: 2 } },
   { id: 'gloves', name: 'Supple Gloves', slot: 'hands', classes: null, implicit: { armor: 8, attackSpeedPct: 0.04 } },
@@ -202,6 +219,14 @@ export function startingLoadout(rng, classId) {
     knight: ['sword', 'kite_shield', 'plate_helm', 'plate_chest'],
     archer: ['bow', 'quiver', 'hood', 'leather_chest'],
     priest: ['staff', 'tome', 'circlet', 'robe'],
+    rogue: ['dagger', 'parrying_dagger', 'hood', 'leather_chest'],
+    berserker: ['greataxe', 'parrying_dagger', 'plate_helm', 'plate_chest'],
+    slayer: ['greatsword', 'parrying_dagger', 'plate_helm', 'plate_chest'],
+    paladin: ['mace', 'kite_shield', 'plate_helm', 'plate_chest'],
+    necromancer: ['runestaff', 'focus', 'circlet', 'robe'],
+    ice_mage: ['runestaff', 'focus', 'circlet', 'robe'],
+    fire_mage: ['runestaff', 'focus', 'circlet', 'robe'],
+    lightning_mage: ['runestaff', 'focus', 'circlet', 'robe'],
   }[classId];
   return wanted.map((baseId) => rollItem(rng, { baseId, rarity: 'common', ilvl: 1 }));
 }
