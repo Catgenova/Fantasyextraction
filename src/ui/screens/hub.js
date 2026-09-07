@@ -8,7 +8,10 @@ import { XP_PER_LEVEL, MAX_LEVEL } from '../../data/classes.js';
 import { FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, LOOT_FLOORS } from '../../data/tactics.js';
 import { computeStats } from '../../sim/stats.js';
 import { availablePoints } from '../../sim/heroes.js';
-import { squadHeroes, STASH_LIMIT, salvageFromStash, salvageAllUpTo, achievementProgress } from '../../game/profile.js';
+import {
+  squadHeroes, STASH_LIMIT, salvageFromStash, achievementProgress,
+  SALVAGE_FILTERS, salvagePreview, salvageAll,
+} from '../../game/profile.js';
 import { bossForAchievement } from '../../data/achievements.js';
 import { salvageValue, canSalvage, salvageTable } from '../../data/economy.js';
 import { itemScore, SLOTS, packCapacity } from '../../data/gear.js';
@@ -266,9 +269,12 @@ export function hubScreen(app) {
         if (b.kind === 'consumable' && a.kind !== 'consumable') return -1;
         return itemScore(b) - itemScore(a);
       });
-      const commons = profile.stash.filter((i) => i.kind === 'gear' && i.rarity === 'common');
-      const commonScrap = commons.reduce((sum, i) => sum + salvageValue(i), 0);
-      const bulkArmed = armed === 'bulk:common';
+      // One row per way of asking "clear this out". Only the ones that would
+      // actually destroy something are shown, so the row shrinks as the stash
+      // gets cleaner rather than offering a wall of dead buttons.
+      const bulk = Object.values(SALVAGE_FILTERS)
+        .map((filter) => ({ filter, ...salvagePreview(profile, filter.id) }))
+        .filter((entry) => entry.count > 0);
 
       return el('div.panel.grow.scroll', { style: { minHeight: '0' } }, [
         el('div.panel-head', null, [
@@ -285,12 +291,23 @@ export function hubScreen(app) {
           ]),
         ]),
         el('div.panel-body.col', { style: { gap: '6px' } }, [
-          commons.length
-            ? el('button.sm' + (bulkArmed ? '.danger.armed' : ''), {
-              onclick: () => salvage('bulk:common', () => salvageAllUpTo(profile, 'common')),
-            }, bulkArmed
-              ? `Break down ${commons.length} commons for ${commonScrap} scrap?`
-              : `Salvage all commons (${commons.length}) — ${commonScrap} scrap`)
+          bulk.length
+            ? el('div.salvage-all', null, [
+              el('div.tiny.dim', null, 'Salvage all'),
+              el('div.row', { style: { gap: '4px', flexWrap: 'wrap' } },
+                bulk.map(({ filter, count, scrap: worth }) => {
+                  const key = `bulk:${filter.id}`;
+                  const isArmed = armed === key;
+                  return el('button.sm' + (isArmed ? '.danger.armed' : ''), {
+                    title: isArmed
+                      ? 'Tap again — these are gone for good'
+                      : `${filter.desc} ${count} item${count === 1 ? '' : 's'} for ${worth} scrap.`,
+                    onclick: () => salvage(key, () => salvageAll(profile, filter.id)),
+                  }, isArmed
+                    ? `${count} for ${worth}?`
+                    : `${filter.name} (${count})`);
+                })),
+            ])
             : null,
           ...(sorted.length
             ? sorted.map((item) => {

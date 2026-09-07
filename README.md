@@ -35,6 +35,24 @@ Then open <http://localhost:8080>. Progress is saved to `localStorage`.
    common to 180 for a legendary, plus 5% per item level. Scrap is the
    currency repairs will be paid in.
 
+A stash of 120 fills in a handful of farming runs, so clearing it one row at a
+time is not a real option. The stash offers a sweep for each way a player
+actually thinks about the problem — everything at or below a rarity, or one of
+two judgements about the roster:
+
+| Sweep | Takes |
+|---|---|
+| Commons / Uncommon / Rare / Epic and below | Everything at or below that tier |
+| **Unusable** | Gear locked to a class nobody on your roster has |
+| **Outclassed** | Gear every hero who could wear it already beats in that slot |
+
+No sweep will ever take a legendary — losing one to a mis-tap is exactly the
+mistake a bulk button should not be able to make — and each still asks before
+it runs. A sweep that would take nothing is not shown at all, so the row
+shrinks as the stash gets cleaner instead of offering dead buttons. An empty
+slot counts as beatable, so a hero missing a helm never makes helms
+"outclassed".
+
 ## Classes
 
 Three are yours from the first raid. The other eight are earned — see
@@ -313,7 +331,9 @@ piece of every rarity. Salvaging cannot be undone, so most of what it checks
 are the guard rails rather than the arithmetic: the first tap only arms a
 button, an armed button that is never confirmed keeps the item, consumables
 are not offered at all, and the balance moves by exactly the number the row
-promised.
+promised. The bulk filters are asserted in Node before the browser starts,
+because "unusable" and "outclassed" are judgements about the whole roster and
+a count on a button cannot say whether the right items were counted.
 
 `test-layout.mjs` serves the game and checks it at eleven viewport sizes, from
 a small phone up to a desktop. The game runs a fixed-height shell on desktop

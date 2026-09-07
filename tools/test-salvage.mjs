@@ -53,6 +53,87 @@ const check = (name, ok, detail = '') => {
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${detail ? '  — ' + detail : ''}`);
 };
 
+// --- The filters themselves ------------------------------------------------
+// Asserted in Node rather than read off the buttons: "unusable" and
+// "outclassed" are judgements about the whole roster, and a count in the UI
+// cannot say whether the right items were counted.
+{
+  const { newProfile, SALVAGE_FILTERS, salvageCandidates, salvagePreview, salvageAll } =
+    await import('../src/game/profile.js');
+  const { rollItem, SLOTS, canEquip, RARITY_ORDER } = await import('../src/data/gear.js');
+  const { makeRng } = await import('../src/core/rng.js');
+  const { makeConsumable } = await import('../src/data/consumables.js');
+
+  const rng = makeRng(4242);
+  const profile = newProfile(4242);
+  const ids = (list) => list.map((i) => i.id).sort().join(',');
+
+  // No filter may ever offer to destroy a legendary in bulk. Losing one to a
+  // mis-tap is exactly the mistake a sweep should not be able to make.
+  profile.stash = RARITY_ORDER.map((rarity) => rollItem(rng, { baseId: 'gloves', rarity, ilvl: 5 }));
+  const legendary = profile.stash.at(-1);
+  check('no bulk sweep can take a legendary',
+    Object.keys(SALVAGE_FILTERS).every((id) =>
+      !salvageCandidates(profile, id).some((i) => i.id === legendary.id)),
+    Object.keys(SALVAGE_FILTERS).join(', '));
+
+  // Rarity tiers nest: each one takes everything the tier below it does.
+  const tiers = ['common', 'uncommon', 'rare', 'epic'];
+  check('rarity sweeps nest inside each other',
+    tiers.every((tier, i) => {
+      if (i === 0) return true;
+      const wider = new Set(salvageCandidates(profile, tier).map((x) => x.id));
+      return salvageCandidates(profile, tiers[i - 1]).every((x) => wider.has(x.id));
+    }),
+    tiers.map((t) => `${t} ${salvagePreview(profile, t).count}`).join(', '));
+
+  // Unusable: gear no hero on the roster can wear.
+  profile.stash = [
+    rollItem(rng, { baseId: 'greataxe', rarity: 'epic', ilvl: 9 }),   // berserker only
+    rollItem(rng, { baseId: 'runestaff', rarity: 'epic', ilvl: 9 }),  // arcane casters only
+    rollItem(rng, { baseId: 'sword', rarity: 'epic', ilvl: 9 }),      // the knight can use this
+    rollItem(rng, { baseId: 'gloves', rarity: 'epic', ilvl: 9 }),     // anyone
+  ];
+  const unusable = salvageCandidates(profile, 'unusable');
+  check('unusable takes only what nobody can wear',
+    ids(unusable) === ids(profile.stash.slice(0, 2)),
+    `${unusable.length} of 4: ${unusable.map((i) => i.name).join(', ')}`);
+  check('and it is judged against the whole roster, not the squad',
+    unusable.every((i) => !profile.roster.some((h) => canEquip(i, h.classId))));
+
+  // Outclassed: every hero who could wear it already has better in that slot.
+  for (const hero of profile.roster) {
+    for (const slot of SLOTS) {
+      const best = rollItem(rng, { slot, classId: hero.classId, rarity: 'legendary', ilvl: 20 });
+      if (canEquip(best, hero.classId)) hero.equipped[slot] = best;
+    }
+  }
+  const junk = rollItem(rng, { baseId: 'gloves', rarity: 'common', ilvl: 1 });
+  const prize = rollItem(rng, { baseId: 'gloves', rarity: 'legendary', ilvl: 40 });
+  profile.stash = [junk, prize];
+  check('outclassed takes gear the roster already beats',
+    ids(salvageCandidates(profile, 'outclassed')) === junk.id, junk.name);
+  check('and spares anything better than what is worn',
+    !salvageCandidates(profile, 'outclassed').some((i) => i.id === prize.id));
+
+  profile.roster[0].equipped.hands = null;
+  check('an empty slot means nothing for it is outclassed',
+    salvagePreview(profile, 'outclassed').count === 0);
+
+  // Running one returns what it destroyed, and consumables are never touched.
+  profile.roster[0].equipped.hands = rollItem(rng, { baseId: 'gloves', rarity: 'legendary', ilvl: 20 });
+  profile.stash = [junk, prize, makeConsumable('minor_potion', 2)];
+  const before = profile.scrap ?? 0;
+  const ran = salvageAll(profile, 'outclassed');
+  check('a sweep reports what it took', ran.count === 1 && ran.scrap > 0, JSON.stringify(ran));
+  check('the scrap balance moves by exactly that', (profile.scrap ?? 0) - before === ran.scrap);
+  check('and the consumable is still there',
+    profile.stash.length === 2 && profile.stash.some((i) => i.kind === 'consumable'),
+    profile.stash.map((i) => i.kind).join(','));
+  check('a sweep with nothing to take is a no-op',
+    JSON.stringify(salvageAll(profile, 'common')) === '{"count":0,"scrap":0}');
+}
+
 const browser = await playwright.chromium.launch();
 const { devices } = playwright;
 
@@ -134,35 +215,59 @@ for (const [label, opts] of [
     (await rows().count()) === parked.rows && (await scrap()) === parked.scrap,
     `${parked.rows} rows / ${parked.scrap} scrap`);
 
-  // --- Bulk commons --------------------------------------------------------
-  // Rarer gear is worth keeping, so the sweep only ever takes commons.
+  // --- Bulk sweeps ---------------------------------------------------------
   await seedStash(page);
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
 
-  const bulk = stash.locator('.panel-body > button').first();
-  check(`${label}: a bulk sweep is offered`, (await bulk.count()) === 1);
-  const bulkText = await bulk.innerText();
-  const [, count, worth] = bulkText.match(/\((\d+)\)\s*—\s*(\d+)/) ?? [];
-  check(`${label}: it names the count and the payout`, Number(count) === 1 && Number(worth) > 0,
-    bulkText);
+  const sweeps = stash.locator('.salvage-all button');
+  const sweep = (name) => sweeps.filter({ hasText: new RegExp(`^${name} \\(`) }).first();
 
-  await bulk.click();
+  // One row per way of asking "clear this out", and only the ones that would
+  // actually take something: with one item of each rarity there is no
+  // Outclassed pile, and the roster's own classes make the rest usable.
+  check(`${label}: several sweeps are offered`, (await sweeps.count()) >= 4,
+    (await sweeps.allInnerTexts()).join(' | '));
+  check(`${label}: each names what it would take`,
+    (await sweeps.allInnerTexts()).every((t) => /\(\d+\)$/.test(t)),
+    (await sweeps.allInnerTexts()).join(' | '));
+  check(`${label}: a wider sweep takes more than a narrower one`,
+    Number((await sweep('Rare and below').innerText()).match(/\((\d+)\)/)[1])
+    > Number((await sweep('Commons').innerText()).match(/\((\d+)\)/)[1]),
+    `${await sweep('Commons').innerText()} vs ${await sweep('Rare and below').innerText()}`);
+
+  // Take the middle option: commons alone would not prove the filter is read.
+  const target = sweep('Rare and below');
+  const targetCount = Number((await target.innerText()).match(/\((\d+)\)/)[1]);
+  const rowsBefore = await rows().count();
+
+  await target.click();
   await page.waitForTimeout(250);
-  check(`${label}: the sweep asks first`, /Break down/.test(await bulk.innerText()));
-  await bulk.click();
+  check(`${label}: the sweep asks first`, (await rows().count()) === rowsBefore,
+    `${rowsBefore} -> ${await rows().count()}`);
+  const armedText = await stash.locator('.salvage-all button.armed').innerText();
+  check(`${label}: and shows the price of confirming`, /\d+ for \d+\?/.test(armedText), armedText);
+  const promisedScrap = Number(armedText.match(/for (\d+)/)[1]);
+
+  await stash.locator('.salvage-all button.armed').click();
   await page.waitForTimeout(300);
-  check(`${label}: the sweep clears the commons`, (await rows().count()) === 5,
-    String(await rows().count()));
-  check(`${label}: and pays for them`, (await scrap()) === Number(worth),
-    `${await scrap()} vs ${worth}`);
-  check(`${label}: with nothing left to sweep, the button is gone`,
-    (await stash.locator('.panel-body > button').count()) === 0);
+  check(`${label}: it takes exactly what it said`, (await rows().count()) === rowsBefore - targetCount,
+    `${rowsBefore} -> ${await rows().count()}, promised ${targetCount}`);
+  check(`${label}: and pays what it said`, (await scrap()) === promisedScrap,
+    `${await scrap()} vs ${promisedScrap}`);
+  // What is left has to be the epic, the legendary and the consumable — and
+  // the only sweep still offering anything at or below epic is the epic.
+  check(`${label}: nothing above the chosen tier was taken`,
+    Number((await sweep('Epic and below').innerText()).match(/\((\d+)\)/)[1]) === 1,
+    (await sweeps.allInnerTexts()).join(' | '));
+  check(`${label}: sweeps that would now take nothing are gone`,
+    (await sweeps.filter({ hasText: /^Commons/ }).count()) === 0,
+    (await sweeps.allInnerTexts()).join(' | '));
 
   // --- It survives a reload -----------------------------------------------
   await page.reload({ waitUntil: 'networkidle' });
   await page.waitForTimeout(400);
-  check(`${label}: scrap is saved`, (await scrap()) === Number(worth),
+  check(`${label}: scrap is saved`, (await scrap()) === promisedScrap,
     `${await scrap()} after reload`);
 
   // A full stash is taller than the fold — the menu scrolls as a document —

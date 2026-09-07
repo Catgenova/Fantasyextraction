@@ -4,7 +4,7 @@ import { makeRng } from '../core/rng.js';
 import { createHero, sanitizeHero, addXp } from '../sim/heroes.js';
 import { defaultSquadTactics } from '../data/tactics.js';
 import { makeConsumable } from '../data/consumables.js';
-import { rollItem, RARITY_ORDER } from '../data/gear.js';
+import { rollItem, RARITY_ORDER, canEquip, itemScore } from '../data/gear.js';
 import { salvageValue } from '../data/economy.js';
 import { achievementForBoss, ACHIEVEMENT_BY_ID, ACHIEVEMENTS } from '../data/achievements.js';
 import { STARTER_CLASS_IDS } from '../data/classes.js';
@@ -110,20 +110,90 @@ export function salvageFromStash(profile, itemId) {
   return value;
 }
 
-/** Break down everything in the stash at or below a rarity. Returns the total. */
-export function salvageAllUpTo(profile, maxRarity) {
-  const limit = RARITY_ORDER.indexOf(maxRarity);
-  if (limit < 0) return 0;
-  let gained = 0;
-  for (let i = profile.stash.length - 1; i >= 0; i--) {
-    const item = profile.stash[i];
-    if (item.kind !== 'gear') continue;
-    if (RARITY_ORDER.indexOf(item.rarity) > limit) continue;
-    gained += salvageValue(item);
-    profile.stash.splice(i, 1);
-  }
-  profile.scrap = (profile.scrap ?? 0) + gained;
-  return gained;
+// ---------------------------------------------------------------------------
+// Bulk salvage
+// ---------------------------------------------------------------------------
+// A stash of 120 fills in a handful of farming runs, so clearing it one row at
+// a time is not a real option. Each filter answers a different question the
+// player is actually asking — "everything below this tier", "everything for a
+// class I do not own", "everything worse than what we already wear" — and
+// every one of them is destructive, so the UI confirms before running it.
+
+const rarityAtOrBelow = (limit) => (item) =>
+  RARITY_ORDER.indexOf(item.rarity) <= RARITY_ORDER.indexOf(limit);
+
+/** Heroes who could wear this at all. */
+const wearers = (profile, item) =>
+  profile.roster.filter((h) => canEquip(item, h.classId));
+
+export const SALVAGE_FILTERS = {
+  common: {
+    id: 'common', name: 'Commons', desc: 'Every common piece of gear.',
+    match: rarityAtOrBelow('common'),
+  },
+  uncommon: {
+    id: 'uncommon', name: 'Uncommon and below', desc: 'Commons and uncommons.',
+    match: rarityAtOrBelow('uncommon'),
+  },
+  rare: {
+    id: 'rare', name: 'Rare and below', desc: 'Everything short of epic.',
+    match: rarityAtOrBelow('rare'),
+  },
+  epic: {
+    id: 'epic', name: 'Epic and below', desc: 'Everything but legendaries.',
+    match: rarityAtOrBelow('epic'),
+  },
+  unusable: {
+    id: 'unusable',
+    name: 'Unusable',
+    desc: 'Gear locked to a class nobody on your roster has. Unlocking that class later would make it wearable again.',
+    match: (item, profile) => wearers(profile, item).length === 0,
+  },
+  outclassed: {
+    id: 'outclassed',
+    name: 'Outclassed',
+    desc: 'Gear that every hero who could wear it already beats in that slot. Ignores what is in anyone else\u2019s stash plans — it only compares against what is currently worn.',
+    match: (item, profile) => {
+      const fits = wearers(profile, item);
+      if (!fits.length) return false;   // that is "unusable", not "outclassed"
+      const worth = itemScore(item);
+      return fits.every((h) => {
+        const worn = h.equipped?.[item.slot];
+        return worn && itemScore(worn) >= worth;
+      });
+    },
+  },
+};
+
+/** Stash items a filter would destroy. Gear only — consumables are used, not broken down. */
+export function salvageCandidates(profile, filterId) {
+  const filter = SALVAGE_FILTERS[filterId];
+  if (!filter) return [];
+  return profile.stash.filter((item) =>
+    item.kind === 'gear' && salvageValue(item) > 0 && filter.match(item, profile));
+}
+
+/** What a filter is worth right now, without running it. */
+export function salvagePreview(profile, filterId) {
+  const items = salvageCandidates(profile, filterId);
+  return { count: items.length, scrap: items.reduce((sum, i) => sum + salvageValue(i), 0) };
+}
+
+/**
+ * Run a bulk salvage. Returns what it actually destroyed, so a caller can
+ * report it rather than recomputing.
+ */
+export function salvageAll(profile, filterId) {
+  const doomed = new Set(salvageCandidates(profile, filterId).map((i) => i.id));
+  if (!doomed.size) return { count: 0, scrap: 0 };
+  let scrap = 0;
+  profile.stash = profile.stash.filter((item) => {
+    if (!doomed.has(item.id)) return true;
+    scrap += salvageValue(item);
+    return false;
+  });
+  profile.scrap = (profile.scrap ?? 0) + scrap;
+  return { count: doomed.size, scrap };
 }
 
 // ---------------------------------------------------------------------------
