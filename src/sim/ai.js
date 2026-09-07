@@ -1908,10 +1908,12 @@ export function squadObjective(match, squad) {
     if (found) {
       return { mode: 'travel', pos: { x: found.x, y: found.y }, label: `Hunting ${quarryLabel(quarry)}` };
     }
-    // Nothing on this map satisfies it any more. Camps respawn, so a pack
-    // hunt never runs out; this is a solo hunt whose creature is dead. Say so
-    // once and fall through to the plan rather than leaving a squad steered
-    // by an order that can no longer mean anything.
+    // Nothing on this map satisfies it any more: a solo hunt whose creature is
+    // dead, or a pack hunt whose every camp has been cleared. That second case
+    // is new — camps used to respawn, so a pack hunt could not run out, and
+    // now a species is a finite thing that can be hunted out of a raid. Say so
+    // once and fall through to the plan rather than leaving a squad steered by
+    // an order that can no longer mean anything.
     if (!squad.huntSpent) {
       squad.huntSpent = true;
       match.log(`Nothing left to hunt: ${quarryLabel(quarry)}.`, 'info');

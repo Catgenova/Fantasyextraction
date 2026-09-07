@@ -12,6 +12,7 @@ import { Match } from '../src/sim/match.js';
 import { newProfile, sanitizeProfile, squadHeroes } from '../src/game/profile.js';
 import { generateBotSquads } from '../src/sim/bots.js';
 import { pickTarget, updateHero } from '../src/sim/ai.js';
+import { makeEnemyEntity } from '../src/sim/entity.js';
 import { CONSUMABLES, makeConsumable } from '../src/data/consumables.js';
 import { SPELLS } from '../src/data/spells.js';
 import { dist } from '../src/core/vec.js';
@@ -50,21 +51,31 @@ const ranged = (m) => heroes(m).find((h) => h.stats.attack.kind === 'projectile'
  * Relying on `hostilesNear` to find them does not work: a squad sixty ticks
  * into a raid is standing in its landing zone with nothing nearby, so the
  * fixture has to place its own. Returns them in the order requested.
+ *
+ * It used to borrow whatever the map had already streamed in and teleport it.
+ * That made every check below quietly depend on which species this seed's
+ * landing zone happened to be near — and when the generator started allocating
+ * animals by country, seed 4242 landed near Bogtusk instead of Bonepicker and
+ * four of these checks changed their minds without a line of AI code moving.
+ * Name the animal instead: what a hero does about a Bonepicker is the thing
+ * being asserted, and it should not depend on the map at all.
  */
-function plantAll(match, near, offsets) {
-  const pool = match.entities.filter((e) => e.team === 'pve');
+const FIXTURE_SPECIES = 'bonepicker';
+
+function plantAll(match, near, offsets, speciesId = FIXTURE_SPECIES) {
   const out = [];
-  for (let i = 0; i < offsets.length; i++) {
-    const foe = pool[i];
-    if (!foe) break;
-    foe.alive = true;
-    foe.hp = foe.maxHp;
-    foe.evading = false;
-    foe.extracted = false;
-    foe.pos = { x: near.x + offsets[i].x, y: near.y + offsets[i].y };
+  for (const off of offsets) {
+    const foe = makeEnemyEntity(speciesId, {
+      pos: { x: near.x + off.x, y: near.y + off.y }, tierScale: 1, rng: match.rng,
+    });
     foe.homePos = { ...foe.pos };
+    match.addEntity(foe);
     out.push(foe);
   }
+  // The broadphase is stamped per tick and these tests do not advance the
+  // clock, so without this the squad cannot see what has just been put in
+  // front of it.
+  match._gridTime = -1;
   return out;
 }
 const planted = (match, near, offset = { x: 40, y: 0 }) => plantAll(match, near, [offset])[0];
@@ -115,7 +126,7 @@ console.log('\n=== 2. frontliners peel for the backline ===');
   } else {
     // Something in melee on the archer, and something else nearer the knight.
     const biter = planted(match, shooter.pos, { x: 30, y: 0 });
-    const other = match.entities.find((e) => e.team === 'pve' && e.alive && e !== biter);
+    const other = plantAll(match, biter.pos, [{ x: 60, y: 0 }])[0];
     if (other) { other.pos = { x: tank.pos.x + 60, y: tank.pos.y }; other.evading = false; }
     shooter.lastHitBy = biter.id;
     shooter.lastDamageAt = match.time;
@@ -378,22 +389,54 @@ console.log('\n=== 10. kiters retreat from the crowd, not the target ===');
   const hero = ranged(match) ?? heroes(match)[0];
   hero.tactics.stance = 'evasive';
   hero.hp = hero.maxHp;
-  const foes = match.entities.filter((e) => e.team === 'pve' && e.alive).slice(0, 2);
-  if (foes.length < 2) {
-    console.log('SKIP  need two enemies to have a crowd');
-  } else {
-    // One in front, one behind: backing straight away from the front one runs
-    // into the other, which is the whole point of the change.
-    foes[0].pos = { x: hero.pos.x + 40, y: hero.pos.y };
-    foes[1].pos = { x: hero.pos.x - 90, y: hero.pos.y };
-    for (const f of foes) { f.evading = false; f.homePos = { ...f.pos }; }
-    hero.target = foes[0].id;
-    const before = Math.min(...foes.map((f) => dist(hero.pos, f.pos)));
-    for (let i = 0; i < 45; i++) updateHero(match, hero, TICK);
-    const after = Math.min(...foes.map((f) => dist(hero.pos, f.pos)));
-    check('a kiter opens the gap on the nearest threat, whichever it is',
-      after > before, `${before.toFixed(0)} -> ${after.toFixed(0)} units`);
+  // One in front, one behind: backing straight away from the front one runs
+  // into the other, which is the whole point of the change. Planted rather
+  // than borrowed off the map for the same reason as everything above — this
+  // is a claim about kiting, not about what lives near this landing zone.
+  const foes = plantAll(match, hero.pos, [{ x: 40, y: 0 }, { x: -90, y: 0 }]);
+  for (const f of foes) { f.evading = false; }
+  hero.target = foes[0].id;
+  const before = Math.min(...foes.map((f) => dist(hero.pos, f.pos)));
+  for (let i = 0; i < 45; i++) updateHero(match, hero, TICK);
+  const after = Math.min(...foes.map((f) => dist(hero.pos, f.pos)));
+  check('a kiter opens the gap on the nearest threat, whichever it is',
+    after > before, `${before.toFixed(0)} -> ${after.toFixed(0)} units`);
+}
+
+// ------------------------------------------------------- 11. death saves --
+console.log('\n=== 11. a revive does not take the sim with it ===');
+{
+  // Phoenix Ash clears every status on the hero it brings back. If the thing
+  // that killed them was a damage-over-time, that clearing happens inside the
+  // loop walking those statuses, and the next pass reads a slot that is no
+  // longer there. It crashed the whole match rather than any one entity, and
+  // it stayed hidden for as long as squads rarely lived long enough to be
+  // carrying a revive when a dot finished them.
+  const match = raid();
+  const hero = heroes(match)[0];
+  // The dot needs a hostile source: damage from your own side does not land,
+  // so a status sourced at the hero themselves ticks harmlessly forever and
+  // the check passes without ever reaching the code it is about.
+  const biter = planted(match, hero, { x: 300, y: 0 });
+  hero.consumables = [makeConsumable('phoenix_ash', 1)];
+  hero.hp = 1;
+  // Two of them, so the list has something left to walk after the first tick
+  // kills its owner.
+  for (let i = 0; i < 2; i++) {
+    hero.statuses.push({
+      status: 'bleed', type: 'debuff', remaining: 9, tick: 0.1, tickTimer: 0,
+      damage: { base: 500, school: 'physical' }, sourceId: biter.id,
+    });
   }
+  let threw = null;
+  try {
+    for (let i = 0; i < 10 && match.phase === 'running'; i++) match.update(TICK);
+  } catch (err) { threw = err; }
+  check('a dot that kills a hero holding Phoenix Ash does not throw',
+    threw === null, threw ? threw.message : 'survived the tick');
+  check('and the ash was spent bringing them back',
+    hero.consumables[0].count === 0 && hero.statuses.length === 0,
+    `${hero.consumables[0].count} left, ${hero.statuses.length} statuses`);
 }
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll hero AI checks passed');

@@ -22,8 +22,11 @@ export const WORLD_EVENTS = [
   },
   {
     id: 'blood_moon', name: 'Blood Moon', at: 600, window: 300, kind: 'surge',
-    blurb: 'Spawn rates surge across the map and enemies hit harder.',
-    modifiers: { spawnRateMult: 2.0, enemyDamageMult: 1.2 },
+    // It used to claim doubled spawn rates as well, and carried a
+    // `spawnRateMult` for it that nothing in the sim ever read. Nothing on the
+    // map respawns now, so there is no rate for it to double either way.
+    blurb: 'Everything on the map hits harder for five minutes.',
+    modifiers: { enemyDamageMult: 1.2 },
   },
   {
     id: 'ritual', name: 'Cultist Ritual', at: 780, window: 300, kind: 'capture',

@@ -18,7 +18,17 @@ import { poiMatchesQuarry, sanitizeQuarry, quarryLabel } from '../data/hunts.js'
 export const TICK = 1 / 30;           // fixed sim step
 const CAMP_ACTIVATE = 1700;
 const CAMP_DEACTIVATE = 2800;
-const CAMP_RESPAWN = 100;
+// How close a squad gets before a solo ground's animal stirs.
+//
+// This was 1500, from when the grounds were placed at a random angle and were
+// nowhere near anything. They are now placed next to a pack species the animal
+// eats, so 1500 meant that clearing a camp woke whatever hunts it — a squad
+// under a mid-ring hunt order met a Tyrannoclast on the way and half of them
+// died to it. The apex should wake when you come for it, not when you fight
+// its dinner fourteen hundred units away. ARENA_CAMP_CLEAR is 1500 and a squad
+// in a camp fight strays about 250 from it, so 1100 leaves the wake to
+// deliberate approach.
+const BOSS_WAKE = 1100;
 const COLLAPSE_START = 1500;
 const COLLAPSE_END = MATCH_SECONDS;
 const COLLAPSE_MAX_R = WORLD_SIZE * 0.75;
@@ -70,7 +80,6 @@ export class Match {
     this.firedEvents = new Set();
     this.collapseActive = false;
     this.collapseRadius = COLLAPSE_MAX_R;
-    this.spawnRateMult = 1;
     this.enemyDamageMult = 1;
 
     this._grid = new Map();
@@ -217,8 +226,10 @@ export class Match {
     for (const poi of this.map.pois) {
       if (poi.kind === 'camp') {
         poi.active = false;
-        poi.respawnAt = 0;
+        poi.cleared = false;
         poi.spawnedIds = [];
+        poi.roster = null;    // rolled at first sight, then it is what it is
+        poi.left = null;      // how many of it are still alive
       } else if (poi.kind === 'boss') {
         poi.spawned = false;
       }
@@ -446,24 +457,34 @@ export class Match {
       const nearest = Math.min(...squadCentres.map((c) => dist(c, poi)));
 
       if (poi.kind === 'camp') {
-        if (!poi.active && nearest < CAMP_ACTIVATE && this.time >= poi.respawnAt
+        if (!poi.active && !poi.cleared && nearest < CAMP_ACTIVATE
             && this.entities.length < ENTITY_BUDGET) {
           this.#populateCamp(poi);
           this.#noticePoi(poi);
         } else if (poi.active && nearest > CAMP_DEACTIVATE) {
-          // Despawn untouched camps so the sim stays cheap on a huge map.
+          // Stream out camps nobody is near so the sim stays cheap on a huge
+          // map — and remember what is left of them. Streaming a camp out and
+          // back in is not the same thing as it recovering: a squad that killed
+          // four of six and walked away used to find six again when they came
+          // back, which was a respawn wearing a draw distance for a hat.
           const survivors = poi.spawnedIds.map((id) => this.byId(id)).filter((e) => e?.alive);
           if (survivors.every((e) => this.time - e.lastDamageAt > 12)) {
             for (const e of survivors) this.#removeEntity(e);
+            poi.left = survivors.length;
             poi.active = false;
             poi.spawnedIds = [];
-            poi.respawnAt = this.time;
+            if (!poi.left) poi.cleared = true;
           }
         } else if (poi.active) {
           const alive = poi.spawnedIds.some((id) => this.byId(id)?.alive);
-          if (!alive) { poi.active = false; poi.spawnedIds = []; poi.respawnAt = this.time + CAMP_RESPAWN; }
+          if (!alive) {
+            poi.active = false;
+            poi.spawnedIds = [];
+            poi.left = 0;
+            poi.cleared = true;
+          }
         }
-      } else if (poi.kind === 'boss' && !poi.spawned && nearest < 1500) {
+      } else if (poi.kind === 'boss' && !poi.spawned && nearest < BOSS_WAKE) {
         const boss = makeEnemyEntity(poi.bossId, {
           pos: { x: poi.x, y: poi.y }, tierScale: 1, ownerPoi: poi.id, rng: this.rng,
         });
@@ -488,14 +509,25 @@ export class Match {
     // Skiterlings and three Thornbacks are not the same fight — sizing on the
     // raw number put nineteen bodies on a starter squad and wiped it inside a
     // minute. The budget makes a small pack of anything a comparable ask.
-    const [lo, hi] = species.packSize;
-    const dps = species.damage / species.attackInterval;
-    const budget = PACK_BUDGET[poi.tier] ?? PACK_BUDGET[0];
-    const wanted = Math.round((poi.packKind === 'large' ? budget * 2.1 : budget) / dps);
-    const cap = poi.packKind === 'large' ? Math.round(hi * 1.9) : hi;
-    const count = Math.max(2, Math.min(cap, wanted));
-    const tierScale = (1 + poi.tier * 0.3) * (1 + this.time / MATCH_SECONDS * 0.35);
+    if (!poi.roster) {
+      const [, hi] = species.packSize;
+      const dps = species.damage / species.attackInterval;
+      const budget = PACK_BUDGET[poi.tier] ?? PACK_BUDGET[0];
+      const wanted = Math.round((poi.packKind === 'large' ? budget * 2.1 : budget) / dps);
+      const cap = poi.packKind === 'large' ? Math.round(hi * 1.9) : hi;
+      // Rolled once, on the first squad to come within sight of it, and then
+      // fixed. The size and the scaling are both properties of the camp rather
+      // than of the moment it happens to be looked at: rolling them per
+      // streaming pass meant walking away and back rerolled the fight, and
+      // since the scale ramps with the clock, walking away and back made it
+      // harder.
+      poi.roster = Math.max(2, Math.min(cap, wanted));
+      poi.tierScale = (1 + poi.tier * 0.3) * (1 + this.time / MATCH_SECONDS * 0.35);
+    }
+    const count = poi.left ?? poi.roster;
+    const tierScale = poi.tierScale;
 
+    poi.left = count;
     poi.active = true;
     poi.spawnedIds = [];
     for (let i = 0; i < count; i++) {
@@ -582,7 +614,15 @@ export class Match {
     let bestD = Infinity;
     for (const poi of this.map.pois) {
       if (!poiMatchesQuarry(poi, quarry)) continue;
-      // A ground whose creature is already dead is not a hunt any more.
+      // A ground whose creature is already dead is not a hunt any more, and
+      // neither is a camp that has been cleared. The second half of that used
+      // to be untrue — camps came back, so an emptied one was a hunt again in
+      // a hundred seconds — and leaving it out once camps stopped respawning
+      // sent squads to stand in empty clearings for the rest of the raid. It
+      // cost them two thirds of their haul: 429 carves across eight seeds
+      // unordered against 126 ordered, when an order is supposed to be worth
+      // taking.
+      if (poi.cleared) continue;
       if (poi.bossEntityId && !this.byId(poi.bossEntityId)?.alive) continue;
       const d = dist(from, poi);
       if (d < bestD) { bestD = d; best = poi; }
@@ -834,7 +874,7 @@ export class Match {
     for (let i = this.activeEvents.length - 1; i >= 0; i--) {
       const ev = this.activeEvents[i];
       if (ev.endsAt && this.time > ev.endsAt) {
-        if (ev.modifiers) { this.spawnRateMult = 1; this.enemyDamageMult = 1; }
+        if (ev.modifiers) { this.enemyDamageMult = 1; }
         this.activeEvents.splice(i, 1);
       }
     }
@@ -872,7 +912,6 @@ export class Match {
     if (def.kind === 'collapse') { this.log(def.name + ': ' + def.blurb, 'bad'); return; }
 
     if (def.kind === 'surge') {
-      this.spawnRateMult = def.modifiers.spawnRateMult;
       this.enemyDamageMult = def.modifiers.enemyDamageMult;
       this.activeEvents.push(ev);
       this.log(`${def.name}: ${def.blurb}`, 'event');

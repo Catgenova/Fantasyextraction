@@ -562,10 +562,19 @@ export const SMALL_CREATURES = {
  * are named here because they are what the species *is*, and the monster brain
  * catches up with them in the AI batch. A species is not defined by what the
  * engine happens to implement this week.
+ *
+ * `prey` is the diet, most-preferred family first, and it is what decides
+ * where the map puts the animal: a solo is placed near a pack species it
+ * eats, not at a random angle on its ring. A ring draws its fauna weighted
+ * toward the diets of the apexes that live in it, so the country a Skyrender
+ * hunts over usually holds something for it to hunt. When nothing on its
+ * list made the draw the animal settles for the nearest pack of anything —
+ * an apex does not go hungry over a preference.
  */
 export const LARGE_CREATURES = {
   bastionback: {
     id: 'bastionback', name: 'Bastionback', family: 'carapace', tier: 0, hunt: 'solo',
+    prey: ['delver', 'venomite', 'carapace'],
     behaviour: 'retaliate', color: '#7f7a68',
     blurb: 'The hunt everyone takes first. It will not chase you and it will not '
       + 'kill you quickly. It will simply refuse to die until you have learned '
@@ -585,6 +594,7 @@ export const LARGE_CREATURES = {
   },
   tyrannoclast: {
     id: 'tyrannoclast', name: 'Tyrannoclast', family: 'tyrant', tier: 1, hunt: 'solo',
+    prey: ['raptorial', 'carapace', 'mireborn'],
     behaviour: 'charger', color: '#9d5540',
     blurb: 'Roars first, which is the only warning you get and the only one you need. '
       + 'Then it picks a straight line through the squad and takes it.',
@@ -605,6 +615,7 @@ export const LARGE_CREATURES = {
   },
   glaciermaw: {
     id: 'glaciermaw', name: 'Glaciermaw', family: 'wyrm', tier: 1, hunt: 'solo',
+    prey: ['mireborn', 'carapace', 'delver'],
     behaviour: 'breath', color: '#7fc6dd',
     blurb: 'Does not need to be fast. Everything in front of it stops being fast instead.',
     hp: 8000, armor: 150, resist: 220, damage: 130, attackInterval: 2.2, range: 78,
@@ -623,6 +634,7 @@ export const LARGE_CREATURES = {
   },
   deepdelver: {
     id: 'deepdelver', name: 'Deepdelver', family: 'delver', tier: 1, hunt: 'solo',
+    prey: ['delver', 'venomite', 'carrionkin'],
     behaviour: 'burrower', color: '#8a7355',
     blurb: 'Spends half the fight underneath the fight. The half it is present for '
       + 'is spent directly beneath whoever was least ready.',
@@ -643,6 +655,7 @@ export const LARGE_CREATURES = {
   },
   mirethane: {
     id: 'mirethane', name: 'Mirethane', family: 'mireborn', tier: 1, hunt: 'solo',
+    prey: ['mireborn', 'venomite', 'wyverling'],
     behaviour: 'grapple', color: '#5b7a5f',
     blurb: 'Takes one hero out of the fight and dares the other two to be quick about it.',
     hp: 9200, armor: 210, resist: 140, damage: 135, attackInterval: 2.0, range: 80,
@@ -663,6 +676,7 @@ export const LARGE_CREATURES = {
   },
   skyrender: {
     id: 'skyrender', name: 'Skyrender', family: 'wyvern', tier: 2, hunt: 'solo',
+    prey: ['wyverling', 'raptorial', 'carapace'],
     behaviour: 'divebomb', color: '#6e86c4',
     blurb: 'Leaves the ground for whole stretches of the fight, which is worse. '
       + 'It comes back down on somebody specific.',
@@ -682,6 +696,7 @@ export const LARGE_CREATURES = {
   },
   pyroclast: {
     id: 'pyroclast', name: 'Pyroclast', family: 'wyrm', tier: 2, hunt: 'solo',
+    prey: ['carapace', 'delver', 'raptorial'],
     behaviour: 'breath', color: '#e0713c',
     blurb: 'Makes most of the arena unusable and then waits in what is left.',
     hp: 12000, armor: 190, resist: 200, damage: 175, attackInterval: 2.1, range: 86,
@@ -702,6 +717,7 @@ export const LARGE_CREATURES = {
   },
   venomcoil: {
     id: 'venomcoil', name: 'Venomcoil', family: 'wyrm', tier: 2, hunt: 'solo',
+    prey: ['venomite', 'mireborn', 'delver'],
     behaviour: 'constrict', color: '#8bab4a',
     blurb: 'Wraps around whoever is closest and does not hurry. Everything it '
       + 'has already put in you is doing the work.',
@@ -724,6 +740,7 @@ export const LARGE_CREATURES = {
   },
   stormcrest: {
     id: 'stormcrest', name: 'Stormcrest', family: 'wyvern', tier: 2, hunt: 'solo',
+    prey: ['wyverling', 'carrionkin', 'delver'],
     behaviour: 'spitter', color: '#b79ae8',
     blurb: 'Never closes and never stops. Killing it is a question of whether you '
       + 'can cross open ground faster than it can leave.',
@@ -746,6 +763,7 @@ export const LARGE_CREATURES = {
   },
   nightfell: {
     id: 'nightfell', name: 'Nightfell', family: 'elder', tier: 2, hunt: 'solo',
+    prey: ['raptorial', 'wyverling', 'carapace', 'venomite', 'delver', 'mireborn', 'carrionkin'],
     apex: true, color: '#c6a2f0',
     behaviour: 'roar',
     blurb: 'The only one of them that appears to be choosing. It does everything '

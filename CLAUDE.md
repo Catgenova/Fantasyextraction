@@ -24,8 +24,9 @@ Both suites, and they are slow — several minutes each. Run them in the
 background rather than blocking on them.
 
 ```bash
-for t in test-bestiary test-smith test-hunt test-achievements \
-         test-progression test-movement test-loot test-extraction; do
+for t in test-bestiary test-smith test-hunt test-achievements test-progression \
+         test-movement test-loot test-extraction test-nav test-heroai \
+         test-ecology; do
   node tools/$t.js
 done
 

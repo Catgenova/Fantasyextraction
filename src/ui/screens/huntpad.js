@@ -108,7 +108,9 @@ export function createHuntPad(match) {
 
     root.appendChild(el('p.tiny.muted', { style: { marginTop: '7px' } },
       'A hunt holds after the pack is cleared — the squad moves to the next one. '
-      + 'They still fight whatever walks into them on the way.'));
+      + 'They still fight whatever walks into them on the way. Nothing on the map '
+      + 'comes back, so a species can be hunted out; when the last of it is gone '
+      + 'the squad says so and returns to the plan.'));
   }
 
   function show() { root.hidden = false; render(); }

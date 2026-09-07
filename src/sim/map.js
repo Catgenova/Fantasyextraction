@@ -1,7 +1,7 @@
 // Procedural raid map. One big square world divided into three concentric
 // danger rings; the deeper you go the better the spawns and the loot.
 
-import { makeRng, rand, randInt, chance, pick, shuffle } from '../core/rng.js';
+import { makeRng, rand, randInt, chance, pick, shuffle, randomInCircle } from '../core/rng.js';
 import { dist, clamp } from '../core/vec.js';
 import { CREATURES } from '../data/creatures.js';
 
@@ -14,16 +14,131 @@ const PACK_SPECIES = Object.values(CREATURES).filter((c) => c.hunt === 'small');
 const FAUNA_PER_RING = 5;
 const CAMPS_PER_SPECIES = 4;
 
-// The raid map is deliberately huge: crossing it corner to corner takes most
-// of the 30-minute timer on foot, so where you land and where you extract are
-// real decisions rather than formalities.
-export const WORLD_SIZE = 14000;
+// The raid map is deliberately huge: crossing it corner to corner takes a
+// third of the 30-minute timer on foot before you have fought anything, so
+// where you land and where you extract are real decisions rather than
+// formalities.
+//
+// It grew from 14000 when the camps were spread out. Nothing about the old
+// size was wrong for the number of camps on it; it was wrong for eighty camps
+// that have to keep 1200 units apart, which needs about a third more room. See
+// CAMP_SEPARATION.
+export const WORLD_SIZE = 16000;
 export const CENTER = { x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 };
 
-// Danger rings, measured from the centre. The spawn ring sits at ~5880, well
-// outside RING_MID, so a fresh squad is never dropped next to core spawns.
-export const RING_CORE = 2600; // tier 2
-export const RING_MID = 4600;  // tier 1, outside that is tier 0
+// Danger rings, measured from the centre, at the same fractions of the world
+// they have always been. The spawn ring sits at 0.42 of the world — 6720, well
+// outside RING_MID — so a fresh squad is never dropped next to core spawns.
+export const RING_CORE = Math.round(WORLD_SIZE * 0.185); // tier 2
+export const RING_MID = Math.round(WORLD_SIZE * 0.33);   // tier 1, outside that is tier 0
+
+// --- Where the animals go ---------------------------------------------------
+
+// No two camps sit closer than this.
+//
+// The old generator threw camps down uniformly and let them land where they
+// fell. Measured over forty maps the nearest other camp averaged 794 units
+// away, two in three were within 900, and the closest pair on one map was 41
+// units apart — two packs occupying the same clearing. What that felt like
+// was the complaint: half of all gaps between fights ran under ten seconds,
+// and a fifth of the time a squad was in contact it was in contact with two
+// camps at once.
+//
+// With the floor in, short gaps are down to a quarter of all gaps and two
+// camps at once to one per cent, and most of the short gaps left are the same
+// species — which is the point. Inside Sicklejaw country you meet Sicklejaws;
+// between countries you walk.
+//
+// 1200 rather than more because the floor is paid for in room: eighty camps
+// holding this far apart is already most of what a 16000 world will take
+// without the placement starting to fail, and every hundred units on top of it
+// is another slice of the world. See WORLD_SIZE.
+const CAMP_SEPARATION = 1200;
+
+// How many camps a map holds, and how many of a species share one range.
+//
+// The count is not free to raise: camps no longer respawn, so this is the
+// whole of a raid's pack content, split between six squads. It is not free to
+// lower either, for the same reason.
+const CAMP_COUNT = 88;
+const RANGE_CAMPS = 5;
+
+// A range wants to be the smallest disk that comfortably holds its camps at
+// CAMP_SEPARATION. Dart-throwing stalls well short of a packed disk, so a
+// range that is full spills into the species' other ranges and then grows,
+// rather than dropping the camp — see `placeCamp`. Widening this instead was
+// tried and is the wrong trade: 0.62 to 0.95 buys 1.3 camps a map and costs
+// twenty-five points of clustering (80% to 55%), because the binding
+// constraint is the density of the whole country, not of one range in it.
+const rangeRadius = (n) => CAMP_SEPARATION * 0.62 * Math.sqrt(n);
+
+// Daylight between one species' range and the next. Soft: ranges are scored
+// against it, not rejected, so a crowded ring gives ground gracefully instead
+// of failing to place anything.
+const RANGE_GAP = 900;
+
+// The share of each ring that its solo grounds take out of circulation:
+// everything within ARENA_CAMP_CLEAR of a ground is ground no camp can use.
+// Measured by sampling maps, and re-measured by tools/test-ecology.js so that
+// moving a ground or changing the clearance fails a check rather than quietly
+// over-promising camps.
+//
+// The core is the striking one. Four grounds, each keeping fifteen hundred
+// units of room, inside a disk of radius 2960 leaves an eighth of it — which
+// is why the core holds one pack species and not five. Splitting that eighth
+// between two species gave both of them two camps and then pruned one off the
+// hunt list for having one.
+const RING_TAKEN = { 0: 0.03, 1: 0.39, 2: 0.87 };
+
+const MAP_MARGIN = 420;
+// Fractions of the world, like the ring radii and the grounds themselves.
+// Left as the absolute numbers they were tuned at, these two swallowed the
+// whole score on a smaller map — four core grounds trying to hold 2140 apart
+// inside a core of radius 2960 have no freedom left to spend on anything else,
+// and the innermost one sat 300 units from a camp because separation had
+// already decided where it was going.
+const ARENA_SEPARATION = WORLD_SIZE * 0.107;
+const ARENA_SPAWN_CLEAR = WORLD_SIZE * 0.1855;
+// Near its prey, not on top of it. This has to clear two different things: a
+// pack's aggro range, which tops out at 420, and BOSS_WAKE in `match.js`, so
+// that clearing a camp does not wake the animal that hunts the camp. At 1100
+// it cleared the first and not the second, and squads under a mid-ring hunt
+// order were meeting a Tyrannoclast three minutes in because the order routed
+// them past its ground. Half of them died there.
+//
+// It is paid for in camps — every ground's exclusion disk is ground the ring
+// cannot use, and 1100 to 1500 costs five camps a map while 1800 costs ten —
+// which is why BOSS_WAKE came down to meet this rather than this going up to
+// meet BOSS_WAKE.
+//
+// It is a hard constraint on the camps rather than on the grounds, because the
+// grounds are the side with no room to manoeuvre: a ground has an angle and a
+// ninth of its radius to play with, a camp has a whole country. Placed the
+// other way round the innermost ground ended up 300 units from a pack.
+const ARENA_CAMP_CLEAR = 1500;
+// What a ground will trade for being nearer its prey, against the three
+// clearances above. At even weight it paid thousands of units to close on a
+// camp and two thirds of all grounds ended up inside ARENA_CAMP_CLEAR of one;
+// at a half it still crosses the ring to find the right country but will not
+// buy the last fifteen hundred units with a pack in its lap.
+const PREY_PULL = 0.5;
+
+// The solo grounds, at fixed fractions of the world radius. The radii are
+// difficulty signposting — each ground grants a class on its first kill (see
+// `src/data/achievements.js`), so the outer-ring animal is the one a fresh
+// squad can take and the core three are the end of a long raid — and they are
+// fractions so that resizing the world moves the whole ladder together.
+const ARENA_SPEC = [
+  { id: 'ground_bastionback', bossId: 'bastionback', at: 0.371, tier: 0 },
+  { id: 'ground_tyrannoclast', bossId: 'tyrannoclast', at: 0.279, tier: 1 },
+  { id: 'ground_deepdelver', bossId: 'deepdelver', at: 0.243, tier: 1 },
+  { id: 'ground_glaciermaw', bossId: 'glaciermaw', at: 0.214, tier: 1 },
+  { id: 'ground_mirethane', bossId: 'mirethane', at: 0.186, tier: 1 },
+  { id: 'ground_pyroclast', bossId: 'pyroclast', at: 0.136, tier: 2 },
+  { id: 'ground_stormcrest', bossId: 'stormcrest', at: 0.114, tier: 2 },
+  { id: 'ground_venomcoil', bossId: 'venomcoil', at: 0.093, tier: 2 },
+  { id: 'ground_skyrender', bossId: 'skyrender', at: 0.071, tier: 2 },
+];
 
 export const SPAWN_COUNT = 12;
 export const EXTRACT_COUNT = 3;
@@ -64,7 +179,9 @@ export function generateMap(seed) {
   };
 
   // --- Regions: a coarse Voronoi-ish grid used only for ground colour. ------
-  const regionCount = 110;
+  // Scaled with the world so biomes stay about the size they were rather than
+  // stretching to half a map each.
+  const regionCount = 150;
   for (let i = 0; i < regionCount; i++) {
     const p = { x: rand(rng, 200, WORLD_SIZE - 200), y: rand(rng, 200, WORLD_SIZE - 200) };
     const t = tierAt(p);
@@ -113,19 +230,20 @@ export function generateMap(seed) {
   }
 
   // --- Points of interest --------------------------------------------------
-  // Camps seed persistent enemy groups; the solo grounds hold one large
-  // creature each.
-  const campCount = 72;
-  const campSites = [];
-  for (let i = 0; i < campCount; i++) {
-    let p = null;
-    for (let attempt = 0; attempt < 40; attempt++) {
-      const c = { x: rand(rng, 400, WORLD_SIZE - 400), y: rand(rng, 400, WORLD_SIZE - 400) };
-      if (clearOfSpawnsAndExits(map, c, 480)) { p = c; break; }
-    }
-    if (!p) continue;
-    campSites.push({ ...p, tier: tierAt(p) });
-  }
+  // Camps hold pack species; the solo grounds hold one large creature each.
+
+  // Camps per ring, in proportion to the ring's area, so the country is no
+  // denser in the core than out at the edge. The old generator got this for
+  // free by scattering camps uniformly and reading the tier off where they
+  // landed; placing them ring by ring means saying it out loud.
+  const ringArea = {
+    2: Math.PI * RING_CORE ** 2,
+    1: Math.PI * (RING_MID ** 2 - RING_CORE ** 2),
+    0: WORLD_SIZE ** 2 - Math.PI * RING_MID ** 2,
+  };
+  const totalArea = ringArea[0] + ringArea[1] + ringArea[2];
+  const ringCamps = {};
+  for (const t of [0, 1, 2]) ringCamps[t] = Math.round(CAMP_COUNT * ringArea[t] / totalArea);
 
   // A raid has a fauna rather than the whole bestiary. Each ring draws a few
   // of the species that live in it, and every camp in that ring is one of
@@ -135,91 +253,105 @@ export function generateMap(seed) {
   // seventy camps gave a species three camps if it was lucky and none of the
   // larger packs at all, so "hunt a large pack of Sicklejaw" named something
   // that did not exist on the map — an order the squad could search for until
-  // the timer ran out. Drawing five species a ring gives each of them about
-  // five camps, enough to guarantee both pack sizes and enough to still be
-  // hunting one an hour into a raid.
+  // the timer ran out. Dividing the ring's camps by CAMPS_PER_SPECIES keeps a
+  // species' deal well clear of the two camps it needs for both pack sizes,
+  // rather than leaving it to luck: a flat number does not, and an earlier
+  // version that insisted on three species a ring put the bug straight back.
+  //
+  // The deal is not the guarantee, though. A crowded ring can take a camp back
+  // off a species after it is dealt, so what actually holds the invariant is
+  // downstream: `dealPackSizes` gives both sizes to anything with two camps,
+  // and anything left under two is dropped from this list below.
   //
   // It also makes maps differ from each other, which forty-species-everywhere
   // never did: what lives here is a fact about this raid, and worth knowing.
+  const bossesInRing = { 0: [], 1: [], 2: [] };
+  for (const spec of ARENA_SPEC) bossesInRing[spec.tier].push(CREATURES[spec.bossId]);
   const fauna = {};
   for (const tier of [0, 1, 2]) {
     const pool = PACK_SPECIES.filter((c) => c.tier === tier);
-    // Scale the draw to the ring rather than using a flat five, and never draw
-    // more species than the ring has camps to give them. The core is the
-    // smallest ring — about eight camps to the outer ring's forty — so a flat
-    // five there is one or two camps each, and a species with one camp has
-    // only one pack size, which makes half its hunts unanswerable.
-    //
-    // Dividing by CAMPS_PER_SPECIES is what guarantees the invariant rather
-    // than merely making it likely: every species drawn is dealt at least four
-    // camps, so both pack sizes always exist. A floor under this — an earlier
-    // version insisted on three species a ring — puts the bug straight back,
-    // and did: one map in forty had a species down to a single camp.
-    const inRing = campSites.filter((c) => c.tier === tier).length;
-    const want = clamp(Math.floor(inRing / CAMPS_PER_SPECIES), 1, FAUNA_PER_RING);
-    const draw = shuffle(rng, pool.slice()).slice(0, Math.min(want, pool.length));
-    fauna[tier] = draw.length ? draw : PACK_SPECIES.slice(0, 1);
+    // How many species the ring can seat, not how many camps it was dealt.
+    // A ring gets its camps in proportion to its area, but a ring most of
+    // which is inside a solo ground's clearance cannot put them down, so
+    // dividing the raw deal between species promised four camps each and
+    // delivered two.
+    const seats = ringCamps[tier] * (1 - RING_TAKEN[tier]);
+    const want = clamp(Math.floor(seats / CAMPS_PER_SPECIES), 1, FAUNA_PER_RING);
+    fauna[tier] = drawFauna(rng, pool, Math.min(want, pool.length), bossesInRing[tier]);
   }
   map.fauna = Object.fromEntries(Object.entries(fauna).map(([t, list]) => [t, list.map((c) => c.id)]));
 
-  let campSeq = 0;
-  for (const [tier, list] of Object.entries(fauna)) {
-    const sites = shuffle(rng, campSites.filter((c) => c.tier === Number(tier)));
-    sites.forEach((site, i) => {
-      const species = list[i % list.length];
-      // Deal the pack sizes within each species rather than rolling them.
-      // A roll at roughly a third leaves a species with three camps holding
-      // no large pack about a third of the time; dealing means the first camp
-      // of a species is always small, the second always large, and every
-      // species on the map can be hunted both ways.
-      const nth = Math.floor(i / list.length);
-      map.pois.push({
-        id: `camp_${campSeq++}`, kind: 'camp', x: site.x, y: site.y,
-        tier: site.tier, radius: 220, cleared: false,
-        speciesId: species.id,
-        packKind: nth % 3 === 1 ? 'large' : 'small',
-      });
+  planRanges(map, rng, fauna, ringCamps);
+
+  // Solo hunting grounds keep their fixed radius from the centre. The angle is
+  // ecology: each apex names a diet in `src/data/creatures.js`, picks the
+  // best-liked pack species its ring actually drew, and sits on that species'
+  // country. They are placed before the camps because the ground is the one
+  // with no room to manoeuvre — see `fillRanges`.
+  const placedArenas = [];
+  const claimedPrey = new Set();
+  for (const spec of ARENA_SPEC) {
+    const def = CREATURES[spec.bossId];
+    const radius = WORLD_SIZE * spec.at;
+    const preyId = choosePrey(def, map.ranges, spec.tier, radius, claimedPrey);
+    if (preyId) claimedPrey.add(preyId);
+    const preyRanges = map.ranges.filter((r) => r.speciesId === preyId);
+
+    // Score rather than reject. Four things compete for the angle — clear of
+    // the landing zones, clear of the other grounds, clear of anyone's
+    // country, close to the prey's — and on a crowded ring something has to
+    // give. Penalising a shortfall in proportion to how short it is picks the
+    // least bad angle; the old first-past-the-post version kept whatever the
+    // last attempt happened to be whenever nothing satisfied it.
+    let best = null;
+    let bestScore = -Infinity;
+    // Angle and a little radius. Pinned to one exact circle the search is
+    // one-dimensional, and the innermost ground threads a circle seven
+    // thousand units around through the most crowded ring on the map. A ninth
+    // either way keeps the ladder's order intact and gives the scorer
+    // somewhere to go.
+    for (let attempt = 0; attempt < 160; attempt++) {
+      const a = rng() * Math.PI * 2;
+      const r = radius * (1 + rand(rng, -0.11, 0.11));
+      const p = { x: CENTER.x + Math.cos(a) * r, y: CENTER.y + Math.sin(a) * r };
+      const fromSpawns = Math.min(...map.spawns.map((sp) => dist(p, sp)));
+      const fromArenas = placedArenas.length ? Math.min(...placedArenas.map((q) => dist(p, q))) : Infinity;
+      // Distance to the country's centre, not to its edge. Measured to the
+      // edge this pushed every ground a full range-radius clear of the herd it
+      // came for — a Tyrannoclast ended up 4700 units from its prey, which is
+      // not "near" by any reading. It does not need that much room: the real
+      // clearance is enforced on the camps, by `placeCamp`, so measuring to
+      // the centre leaves the ground sitting on the edge of the country rather
+      // than a range's width outside it.
+      const fromRanges = map.ranges.length
+        ? Math.min(...map.ranges.map((c) => dist(p, c))) : Infinity;
+      const toPrey = preyRanges.length ? Math.min(...preyRanges.map((c) => dist(p, c))) : 0;
+      const score = -12 * short(fromSpawns, ARENA_SPAWN_CLEAR)
+        - 12 * short(fromArenas, ARENA_SEPARATION)
+        - 12 * short(fromRanges, ARENA_CAMP_CLEAR)
+        - PREY_PULL * toPrey;
+      if (score > bestScore) { bestScore = score; best = p; }
+    }
+    placedArenas.push(best);
+    map.pois.push({
+      id: spec.id, kind: 'boss', bossId: spec.bossId, radius: 380,
+      x: best.x, y: best.y, tier: spec.tier, preyId,
     });
   }
 
-  // Solo hunting grounds sit at fixed radii but pick an angle that keeps them
-  // away from
-  // any landing zone — nobody should be greeted by a boss on the drop — and
-  // away from each other, so pulling one is never pulling two. Each grants a
-  // class on its first kill (see `src/data/achievements.js`), so the radii
-  // double as difficulty signposting: the outer-ring boss is the one a fresh
-  // squad can take, and the core three are the end of a long raid.
-  const arenaSpec = [
-    { id: 'ground_bastionback', bossId: 'bastionback', radius: 5200, tier: 0 },
-    { id: 'ground_tyrannoclast', bossId: 'tyrannoclast', radius: 3900, tier: 1 },
-    { id: 'ground_deepdelver', bossId: 'deepdelver', radius: 3400, tier: 1 },
-    { id: 'ground_glaciermaw', bossId: 'glaciermaw', radius: 3000, tier: 1 },
-    { id: 'ground_mirethane', bossId: 'mirethane', radius: 2600, tier: 1 },
-    { id: 'ground_pyroclast', bossId: 'pyroclast', radius: 1900, tier: 2 },
-    { id: 'ground_stormcrest', bossId: 'stormcrest', radius: 1600, tier: 2 },
-    { id: 'ground_venomcoil', bossId: 'venomcoil', radius: 1300, tier: 2 },
-    { id: 'ground_skyrender', bossId: 'skyrender', radius: 1000, tier: 2 },
-  ];
-  const ARENA_SEPARATION = 1500;
-  const placedArenas = [];
-  for (const spec of arenaSpec) {
-    let best = null;
-    let bestScore = -Infinity;
-    for (let attempt = 0; attempt < 64; attempt++) {
-      const a = rng() * Math.PI * 2;
-      const p = { x: CENTER.x + Math.cos(a) * spec.radius, y: CENTER.y + Math.sin(a) * spec.radius };
-      const fromSpawns = Math.min(...map.spawns.map((sp) => dist(p, sp)));
-      // Crowding another arena is the worse failure, so it dominates the score
-      // until the gap is comfortable; after that the spawn distance decides.
-      const fromArenas = placedArenas.length
-        ? Math.min(...placedArenas.map((q) => dist(p, q)))
-        : Infinity;
-      const score = Math.min(fromSpawns, 2600) + Math.min(fromArenas, ARENA_SEPARATION) * 2;
-      if (score > bestScore) { bestScore = score; best = p; }
-      if (fromSpawns > 2600 && fromArenas > ARENA_SEPARATION) break;
-    }
-    placedArenas.push(best);
-    map.pois.push({ id: spec.id, kind: 'boss', bossId: spec.bossId, radius: 380, x: best.x, y: best.y, tier: spec.tier });
+  const camps = fillRanges(map, rng);
+  for (const c of camps) map.pois.push(c);
+
+  // Advertise only what the map can deliver. A species is dealt at least four
+  // camps, but a crowded ring can take one or two of them back, and a species
+  // left with a single camp has a single pack size — so a hunt naming its
+  // other one would send the squad looking for something that is not here,
+  // which is the exact failure the fauna draw exists to prevent. The camp
+  // stays on the map as an outlier den; it is just not offered as a hunt.
+  const dealt = new Map();
+  for (const c of camps) dealt.set(c.speciesId, (dealt.get(c.speciesId) ?? 0) + 1);
+  for (const tier of Object.keys(map.fauna)) {
+    map.fauna[tier] = map.fauna[tier].filter((id) => (dealt.get(id) ?? 0) >= 2);
   }
 
   // The apex boss wakes at the exact centre when its event fires.
@@ -254,6 +386,304 @@ export function generateMap(seed) {
 
   map.grid = buildObstacleGrid(map);
   return map;
+}
+
+// --- Placing the fauna ------------------------------------------------------
+
+const short = (value, want) => Math.max(0, want - value);
+
+/**
+ * Draw a ring's fauna, weighted toward what its apexes eat.
+ *
+ * A ring holds two to five of the dozen-odd species that live at its depth, so
+ * an unweighted draw leaves a core Stormcrest with nothing on its diet about
+ * half the time — and a predator placed next to prey it does not eat is not
+ * ecology, it is a coincidence. Weighting by the diets of the animals that
+ * hunt over the ring makes the food chain hold on most maps without making
+ * every map the same: a family no apex here eats still has a weight of one and
+ * still gets drawn.
+ *
+ * A family's weight is spent once it is drawn. One species of delver feeds
+ * every delver-eater on the ring, and draining the weight keeps the rest of
+ * the draw varied instead of filling a ring with four kinds of the same
+ * animal.
+ */
+function drawFauna(rng, pool, want, bosses) {
+  const appetite = new Map();
+  for (const boss of bosses) {
+    (boss.prey ?? []).forEach((family, i) => {
+      appetite.set(family, (appetite.get(family) ?? 0) + Math.max(1, 4 - i));
+    });
+  }
+  // Draw a family, then a species from it. Weighting the species directly
+  // hands the bias straight back to whichever family happens to have the most
+  // members: the core's three venomites outvoted its one wyverling six to one,
+  // so the ring an apex wyvern hunts over drew what an apex wyvern does not
+  // eat. Families are what a diet names, so families are what gets weighted.
+  const families = new Map();
+  for (const c of pool) {
+    if (!families.has(c.family)) families.set(c.family, []);
+    families.get(c.family).push(c);
+  }
+  const out = [];
+  while (out.length < want && families.size) {
+    const keys = [...families.keys()];
+    const weights = keys.map((k) => 1 + (appetite.get(k) ?? 0));
+    let roll = rng() * weights.reduce((a, b) => a + b, 0);
+    let i = 0;
+    while (i < keys.length - 1 && (roll -= weights[i]) > 0) i++;
+    const family = families.get(keys[i]);
+    out.push(family[Math.floor(rng() * family.length)]);
+    // One species of delver feeds every delver-eater on the ring, so a family
+    // is spent once it is drawn. That keeps the rest of the draw varied
+    // instead of filling a ring with four kinds of the same animal.
+    families.delete(keys[i]);
+  }
+  return out.length ? out : pool.slice(0, 1);
+}
+
+/** A point drawn uniformly by area from a ring, or null if it fell off the map. */
+function sampleInRing(rng, tier) {
+  const [lo, hi] = tier === 2 ? [MAP_MARGIN, RING_CORE]
+    : tier === 1 ? [RING_CORE, RING_MID]
+      : [RING_MID, WORLD_SIZE * 0.72];
+  // Uniform in area, not in radius, or the outer ring piles everything it has
+  // against its inner edge. Beyond RING_MID the ring is a square with a hole
+  // in it rather than an annulus, so the corners are reached by sampling out
+  // to the diagonal and dropping what lands outside the world.
+  const r = Math.sqrt(rand(rng, lo * lo, hi * hi));
+  const a = rng() * Math.PI * 2;
+  const p = { x: CENTER.x + Math.cos(a) * r, y: CENTER.y + Math.sin(a) * r };
+  if (p.x < MAP_MARGIN || p.y < MAP_MARGIN
+      || p.x > WORLD_SIZE - MAP_MARGIN || p.y > WORLD_SIZE - MAP_MARGIN) return null;
+  return p;
+}
+
+/**
+ * Somewhere in `tier` with room for a range of `n` camps.
+ *
+ * Everything here is scored rather than rejected, and the best of a hundred
+ * and sixty samples wins. Hard rejection was tried and it loses whole ranges:
+ * a constraint that nothing on a crowded ring can satisfy returns nothing at
+ * all, and four camps go with it.
+ *
+ * Three pulls, in descending strength. Keep the range's disk on the map — a
+ * centre a thousand units from the edge spends most of its camps' attempts
+ * throwing darts into the sea, which is where the outer ring was losing three
+ * camps a map. Keep RANGE_GAP from another species' range. And sit next to
+ * this species' other ranges, because a species holds one country made of
+ * several ranges rather than several unrelated patches: without that pull the
+ * nearest camp to a camp was its own species 69% of the time, with it, 84%.
+ */
+function placeRangeCentre(map, rng, tier, n, own) {
+  const radius = rangeRadius(n);
+  let best = null;
+  let bestScore = -Infinity;
+  for (let attempt = 0; attempt < 160; attempt++) {
+    const p = sampleInRing(rng, tier);
+    if (!p) continue;
+    if (!clearOfSpawnsAndExits(map, p, radius)) continue;
+    const wall = Math.min(p.x, p.y, WORLD_SIZE - p.x, WORLD_SIZE - p.y) - MAP_MARGIN;
+    let gap = Infinity;
+    for (const o of map.ranges) {
+      if (own.includes(o)) continue;
+      gap = Math.min(gap, dist(p, o) - o.radius - radius);
+    }
+    let mine = Infinity;
+    for (const o of own) mine = Math.min(mine, dist(p, o));
+    const score = Math.min(gap, RANGE_GAP)
+      - 3 * short(wall, radius * 0.7)
+      - (own.length ? 0.35 * mine + 2 * short(mine, radius * 1.6) : 0);
+    if (score > bestScore) { bestScore = score; best = { ...p, radius }; }
+  }
+  return best;
+}
+
+/**
+ * A camp site inside `range`, CAMP_SEPARATION clear of every camp so far.
+ *
+ * Two ways out when the range is full. Spill into the species' other ranges
+ * first — a country is contiguous, so a camp that will not fit in one part of
+ * it belongs in another part of it rather than nowhere. Only then grow the
+ * search outward.
+ *
+ * Giving up costs the species a camp, and a species that ends up under four
+ * camps loses one of its two pack sizes, which loses the player a hunt they
+ * were told on the drop that they could take. Left to give up, the outer ring
+ * came up seven camps short of its budget every map and two species a batch
+ * fell under the four.
+ */
+function placeCamp(map, rng, camps, arenas, range, own, tier) {
+  const order = [range, ...own.filter((o) => o !== range)];
+  for (let round = 0; round < 6; round++) {
+    for (const r of order) {
+      const reach = r.radius * (1 + round * 0.25);
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const off = randomInCircle(rng, reach);
+        const p = { x: r.x + off.x, y: r.y + off.y };
+        if (p.x < MAP_MARGIN || p.y < MAP_MARGIN
+            || p.x > WORLD_SIZE - MAP_MARGIN || p.y > WORLD_SIZE - MAP_MARGIN) continue;
+        // A camp outside its own ring would be holding a species from another
+        // ring's fauna, which is exactly what `Match#fauna` promises the
+        // player it is not.
+        if (tierAt(p) !== tier) continue;
+        if (!clearOfSpawnsAndExits(map, p, 520)) continue;
+        let clear = true;
+        for (const c of camps) if (dist(p, c) < CAMP_SEPARATION) { clear = false; break; }
+        if (clear) for (const a of arenas) if (dist(p, a) < ARENA_CAMP_CLEAR) { clear = false; break; }
+        if (clear) return { p, range: r };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Deal each ring's camps to its fauna and choose the country each species
+ * holds. Camps go down later, in `fillRanges`.
+ *
+ * A species holds ranges rather than a scatter. The old generator dealt camps
+ * round-robin over sites thrown down anywhere, which put a species' five camps
+ * an average of 3600 units from their own centre — across a third of the map,
+ * interleaved with every other species. Country did not mean anything: you
+ * could not be in Sicklejaw country, only near a Sicklejaw camp. Now the
+ * nearest camp to a camp is its own species four times in five.
+ *
+ * Ranges are capped at RANGE_CAMPS so a species dealt eleven camps holds two
+ * or three of them rather than one enormous one. That is both truer — an
+ * animal occupies several ranges, not one giant territory — and tighter,
+ * because the disk that holds five camps is half the radius of the disk that
+ * holds twenty.
+ *
+ * Rings are planned tightest-first. The core is a tenth of the map's area and
+ * has four solo grounds in it as well, so it chooses its ground before the
+ * outer ring, which has room to spare, starts taking any.
+ */
+function planRanges(map, rng, fauna, ringCamps) {
+  map.ranges = [];
+  for (const tier of [2, 1, 0]) {
+    const list = fauna[tier];
+    const budget = ringCamps[tier];
+    for (let si = 0; si < list.length; si++) {
+      const species = list[si];
+      // Round-robin, so nobody is left short of the camps that guarantee a
+      // species both pack sizes.
+      const mine = Math.floor(budget / list.length) + (si < budget % list.length ? 1 : 0);
+      // Split into even ranges rather than filling each to RANGE_CAMPS and
+      // leaving the remainder its own. Eleven camps is three ranges of four,
+      // four and three, not five, five and a lone den.
+      const groups = Math.max(1, Math.ceil(mine / RANGE_CAMPS));
+      const own = [];
+      for (let g = 0; g < groups; g++) {
+        const n = Math.floor(mine / groups) + (g < mine % groups ? 1 : 0);
+        const centre = placeRangeCentre(map, rng, tier, n, own);
+        if (!centre) continue;
+        const range = {
+          id: `range_${map.ranges.length}`, speciesId: species.id, tier,
+          x: centre.x, y: centre.y, radius: centre.radius, want: n, camps: 0,
+        };
+        map.ranges.push(range);
+        own.push(range);
+      }
+    }
+  }
+}
+
+/**
+ * Put the camps down inside the country planned above.
+ *
+ * This runs after the solo grounds are placed, and that order is the whole
+ * point of splitting the two apart. A ground sits on a fixed radius from the
+ * centre and has only an angle to give; a camp can go anywhere in its species'
+ * country and has a spill and a growing search to find it. Camps placed first,
+ * the innermost ground was left threading a circle through country that was
+ * already full and ended up three hundred units from a pack. Grounds first,
+ * the constraint lands on the side of the map that can afford it.
+ */
+function fillRanges(map, rng) {
+  const camps = [];
+  const arenas = map.pois.filter((p) => p.kind === 'boss');
+  let campSeq = 0;
+  for (const tier of [2, 1, 0]) {
+    for (const range of map.ranges) {
+      if (range.tier !== tier) continue;
+      const own = map.ranges.filter((r) => r.speciesId === range.speciesId && r.tier === tier);
+      for (let k = 0; k < range.want; k++) {
+        const site = placeCamp(map, rng, camps, arenas, range, own, tier);
+        if (!site) continue;
+        camps.push({
+          id: `camp_${campSeq++}`, kind: 'camp', x: site.p.x, y: site.p.y,
+          tier, radius: 220, cleared: false,
+          speciesId: range.speciesId, rangeId: site.range.id,
+          packKind: 'small',   // dealt below, once the map knows what it has
+        });
+        site.range.camps++;
+      }
+    }
+  }
+  map.ranges = map.ranges.filter((r) => r.camps > 0);
+  dealPackSizes(camps);
+  return camps;
+}
+
+/**
+ * Give every species on the map both a small pack and a large one.
+ *
+ * Deal the sizes rather than rolling them: a roll at roughly a third leaves a
+ * species with three camps holding no large pack about a third of the time,
+ * and "hunt a large pack of Sicklejaw" is then an order the squad can search
+ * for until the timer runs out.
+ *
+ * Dealing has to happen after placement, not during it. Dealt as the camps go
+ * down, a species that loses its second camp to a crowded ring loses its large
+ * pack with it — which is how one species a map ended up with a single pack
+ * size again, quietly, while the rule that was supposed to prevent it was
+ * still right there in the code.
+ */
+function dealPackSizes(camps) {
+  const bySpecies = new Map();
+  for (const c of camps) {
+    if (!bySpecies.has(c.speciesId)) bySpecies.set(c.speciesId, []);
+    bySpecies.get(c.speciesId).push(c);
+  }
+  for (const list of bySpecies.values()) {
+    // Second camp large, then every third, so a species with two camps has one
+    // of each and a species with nine has three large.
+    list.forEach((c, i) => { c.packKind = i % 3 === 1 ? 'large' : 'small'; });
+  }
+}
+
+/**
+ * Which species this apex is here for.
+ *
+ * Diet order decides, then whether another apex on this ring has already
+ * claimed the species — two predators over one herd is perfectly good ecology,
+ * but spreading them puts more of the map's animals next to something that
+ * hunts them. Ties break on which prey the ground can actually get close to:
+ * a solo keeps its fixed radius from the centre, so a species whose ranges sit
+ * at that radius is one it can share ground with, and a species pressed
+ * against the far edge of the ring is not.
+ */
+function choosePrey(def, ranges, tier, radius, claimed) {
+  const here = ranges.filter((c) => c.tier === tier);
+  const pool = here.length ? here : ranges;
+  const species = [...new Set(pool.map((c) => c.speciesId))];
+  if (!species.length) return null;
+  const rank = (id) => {
+    const i = (def.prey ?? []).indexOf(CREATURES[id]?.family);
+    return i < 0 ? 99 : i;
+  };
+  const reach = (id) => {
+    let best = Infinity;
+    for (const c of pool) {
+      if (c.speciesId !== id) continue;
+      best = Math.min(best, Math.abs(dist(c, CENTER) - radius));
+    }
+    return best;
+  };
+  return species.sort((a, b) => rank(a) - rank(b)
+    || (claimed.has(a) ? 1 : 0) - (claimed.has(b) ? 1 : 0)
+    || reach(a) - reach(b))[0];
 }
 
 function clearOfSpawnsAndExits(map, p, pad) {

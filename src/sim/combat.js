@@ -206,6 +206,13 @@ export function tickStatuses(match, e, dt) {
   if (!e.statuses.length) return;
   let dirty = false;
   for (let i = e.statuses.length - 1; i >= 0; i--) {
+    // Re-check the slot rather than trusting the index this loop started with.
+    // A dot tick below can kill, and dying can empty this list underneath us:
+    // Phoenix Ash clears every status when it revives its owner. Walking
+    // backwards is not enough on its own — the list does not shrink by one, it
+    // goes to nothing, and the next pass read `undefined.remaining` and took
+    // the whole sim down with it.
+    if (i >= e.statuses.length) continue;
     const st = e.statuses[i];
     st.remaining -= dt;
 

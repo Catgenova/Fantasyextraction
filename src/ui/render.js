@@ -11,7 +11,13 @@ import { hpFrac, manaFrac } from '../sim/entity.js';
 import { canTake } from '../sim/ai.js';
 import { dist } from '../core/vec.js';
 
-const BG_SCALE = 10;                  // world units per baked background pixel
+// World units per baked background pixel, derived so the bake stays the same
+// number of pixels whatever size the world is. Fixed at 10 it grew with the
+// map: at 20000 units that is a four-megapixel canvas and a nearest-region
+// pass four times as long, for ground colour that is blurred before anyone
+// sees it.
+const BG_PIXELS = 1400;
+const BG_SCALE = WORLD_SIZE / BG_PIXELS;
 const MIN_ZOOM = 0.28;
 const MAX_ZOOM = 2.2;
 

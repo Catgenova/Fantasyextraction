@@ -148,21 +148,84 @@ same measurement went to eight raids in twelve and 353% more of the quarry.
 ## The fauna
 
 A raid has a fauna rather than the whole bestiary. Each ring draws a few of the
-species that live in it, and every camp in that ring is one of them — nine to
-fourteen species a map, four to eleven camps each.
+species that live in it, and every camp in that ring is one of them — about
+nine species a map, two to eleven camps each.
 
 This is what makes a hunt order answerable at all. Spreading forty species over
-seventy camps gave a species three camps if it was lucky and often no large
-pack whatsoever, so a third of the list named something that did not exist. The
-draw is sized by how many camps a ring actually has (`FAUNA_PER_RING` and
-`CAMPS_PER_SPECIES` in `src/sim/map.js`) rather than being a flat number, which
-is what guarantees the invariant instead of merely making it likely: an earlier
-version insisted on at least three species per ring and one map in forty still
-had a species down to a single camp. Across a hundred maps there is now no
-species with fewer than four camps and no hunt that cannot be answered.
+eighty camps gave a species three camps if it was lucky and often no large pack
+whatsoever, so a third of the list named something that did not exist. The draw
+is sized by how many camps a ring can actually seat (`FAUNA_PER_RING` and
+`CAMPS_PER_SPECIES` in `src/sim/map.js`) rather than being a flat number.
+
+Seated, not dealt. A ring gets camps in proportion to its area, but the core is
+a tenth of the map and has four solo grounds standing in it, each keeping 1500
+units of room — 87% of that ring is inside somebody's clearance. Dividing the
+raw deal between species there promised two species four camps each and
+delivered two each. The budget is discounted by `RING_TAKEN` before it decides
+how many species to draw, which is why the core holds one pack species and the
+outer ring holds five.
+
+Whatever is left over after that, the map does not advertise. A species that
+ends up with one camp has one pack size, so it is dropped from the hunt list
+and its camp stays as an outlier den. Across a hundred maps every hunt offered
+resolves to somewhere the squad can walk.
 
 It also makes maps differ from each other, which forty-species-everywhere never
 did. What lives here is a fact about this raid, and worth knowing.
+
+## Where the animals are
+
+Species hold country. A species' camps are placed in ranges of up to five, and
+its ranges are pulled beside each other, so being somewhere on the map means
+being in something's territory rather than between two unrelated camps. The
+nearest camp to a camp is the same species 81% of the time; chance would be
+about 11%, and the old scatter measured 16%.
+
+No two camps are closer than 1200 units. Before that floor existed the nearest
+other camp averaged 794 units away, two in three were within 900, and the
+closest pair on one map was 41 units apart — two packs in the same clearing.
+Half of all gaps between fights ran under ten seconds, and a fifth of the time
+a squad was in contact it was in contact with two camps at once. It is now 24%
+and 1%, and most of the short gaps that remain are the same species, which is
+the point: inside Sicklejaw country you meet Sicklejaws, and between countries
+you walk.
+
+The floor is what the world size is for. 80 camps holding 1200 units apart need
+about a third more room than 14000×14000 had, which is why the map grew to
+16000.
+
+The nine solo grounds are placed by their prey. Each apex names a diet in
+`src/data/creatures.js` — families, best-liked first — and a ring draws its
+fauna weighted toward the diets of the animals that hunt over it, so the
+country a Skyrender hunts is usually holding something a Skyrender eats. Three
+grounds in four are placed by a species on their own diet; picking blind would
+manage half that. The exception is the core, which seats one pack species and
+has four apexes over it, so at best one of those four gets its first choice.
+
+Near, not on top of: a ground keeps 1500 units from every camp. That number has
+to clear two different things — a pack's aggro range, which tops out at 420,
+and `BOSS_WAKE`, or clearing a camp wakes the animal that hunts the camp. At
+1100 it cleared the first and not the second, and squads sent to hunt a mid-ring
+pack were meeting a Tyrannoclast three minutes into the raid because the order
+routed them past its ground. Half of them died there. Widening the clearance
+costs camps — 1100 to 1500 costs five a map, and 1800 costs ten — so
+`BOSS_WAKE` came down to 1100 to meet it rather than the clearance going up.
+
+## Nothing respawns
+
+A camp that has been cleared stays cleared. Camps still stream in and out with
+the squads near them, but a camp streamed out remembers how many of it were
+left, so walking away and coming back is not a way to refill one. The map is a
+finite thing that six squads are drawing down.
+
+That is a real balance shift and it is worth being plain about it: a raid used
+to end in a wipe six times in ten and now ends clean six times in eight, with
+the haul roughly doubled. Almost none of that is the missing respawns — it is
+the chain pulls. Being caught by two camps at once was what killed squads, and
+spacing the camps removed it. Raising the pack threat budget by half does not
+put the difficulty back; measured over eight raids it changes the outcome mix
+not at all, which is why `PACK_BUDGET` was left alone rather than tuned to hide
+the shift.
 
 ## Carving
 
@@ -684,20 +747,22 @@ not hold.
 
 ## The map
 
-14000×14000 units, three concentric danger rings, twelve landing zones on the
+16000×16000 units, three concentric danger rings, twelve landing zones on the
 outer ring, and three extraction points on staggered windows (opening at 3, 7
 and 11 minutes; closing at 26, 28 and 30). Enemy camps stream in around
 whichever squads are nearby, each one a named species in a pack of a known
-size.
+size, and none of them comes back once it is cleared.
 
-Nine solo hunting grounds are fixed, at radii from 5200 units out down to 1000,
-and Nightfell wakes at the exact centre at 18 minutes. The radii double as
-difficulty signposting: Bastionback at 5200 is the one a fresh squad can take,
-and Skyrender at 1000 is the end of a long raid. Grounds are placed at least
-1500 units apart and well clear of every landing zone, so pulling one is never
-pulling two and nobody is greeted by a large creature on the drop. From 25
-minutes the map collapses inward — the final safe circle still contains every
-exit, so it squeezes you toward them rather than deleting them.
+Nine solo hunting grounds are fixed, at radii from 5940 units out down to 1140,
+and Nightfell wakes at the exact centre at 18 minutes. Every radius is a
+fraction of the world size, so resizing the map moves the whole ladder
+together. They double as difficulty signposting: Bastionback at 5940 is the one
+a fresh squad can take, and Skyrender at 1140 is the end of a long raid.
+Grounds are placed clear of the landing zones and of each other, so nobody is
+greeted by a large creature on the drop and pulling one is never pulling two —
+and near the prey they eat, which is what decides the angle. From 25 minutes
+the map collapses inward — the final safe circle still contains every exit, so
+it squeezes you toward them rather than deleting them.
 
 A large creature only spawns once a squad comes within 1500 units of its
 ground, so a raid you spend in the outer ring never pays for the core's
@@ -904,6 +969,24 @@ one spot. It measures ground actually covered, because the hardest case looks
 fine to any simpler check: a hero wedged in a corner is running at full speed
 and going nowhere.
 
+`test-ecology.js` covers how the map allocates its animals and what happens
+once they are dead. None of it is a property of a function — it is a property
+of a generated world — so every check is measured over sixty maps rather than
+asserted about one. Two of its numbers were chosen the hard way. The clustering
+threshold is 0.78, not something safely low, because a loose bound passes on
+ranges alone and stops guarding the pull that puts a species' ranges beside
+each other: measured over five independent batches the statistic reads 80.0 to
+81.1% with the pull and 71.4 to 74.4% without, two bands a point wide that do
+not touch. And the finality check counts *deaths* per camp, not spawns — a camp
+streamed out with survivors and streamed back in builds fresh entities for the
+ones that were left, so counting ids called every camp on the map a respawner
+for doing exactly what it is supposed to do.
+
+It also re-measures `RING_TAKEN`, the share of each ring that its solo grounds
+take out of circulation, because those are measured numbers baked into a
+constant: move a ground or change the clearance without updating them and the
+core silently over-promises camps to species that cannot be seated.
+
 `test-extraction.js` guards the priority order that makes "extract now" mean
 it. That order is fragile — putting retreat, regrouping or chasing ahead of it
 takes a squad from 77 seconds to reach a door to 306, or leaves them milling
@@ -944,9 +1027,12 @@ file exists. Everything structural about the first version of this system
 passed — orders resolved, sites matched, the journal recorded — while the
 feature delivered almost nothing, so the file ends by running whole raids with
 and without an order at matched seeds and comparing what came home. It also
-asserts the map invariant the whole system rests on across a hundred maps: no
-species with fewer than four camps, and no hunt on the list that has nowhere to
-go.
+asserts the map invariant the whole system rests on across a hundred maps:
+every hunt the map offers resolves to somewhere the squad can walk. Since a
+species only falls below two camps on about one map in a hundred, that check
+would pass whether or not the filter behind it exists, so the file injects the
+bug too — advertise a species off a single camp and the list stops being
+answerable.
 
 `test-huntpad.mjs` is the browser half: the camp's picker offers exactly what
 the journal remembers and grows as the squad meets things, a pack species
