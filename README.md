@@ -111,7 +111,8 @@ drift. The leader slows to a crawl while anyone is trailing and turns back
 outright if they fall a long way behind.
 
 Your input during a raid is deliberately narrow: navigation, an extract order,
-the speed control, and your squad's packs. Everything else was decided in camp.
+the speed control, your squad's packs, and the standing loot orders. Everything
+else was decided in camp.
 
 **Navigate** gives eight compass headings plus the core, the nearest boss
 arena, and the nearest extraction. A heading is open-ended — the squad marches
@@ -124,6 +125,13 @@ and move looted potions onto a hero's belt so they will actually drink them.
 Discarding destroys outright rather than dropping — a hero standing over the
 pile would only pick it straight back up — so it takes two taps to confirm. The
 clock keeps running while it is open, so the panel carries its own pause.
+
+The same panel carries the squad's **loot orders**: a minimum rarity and a
+toggle for consumables. Both are live — the squad obeys the new order on its
+next pickup, not the next raid — because what is worth stopping for changes
+once bags are filling and the walk to an exit is what is left. The floor sits
+on top of each hero's own loot policy and the stricter of the two wins, so an
+order can tighten a greedy hero but never loosens a picky one.
 
 **Extract now** is a committed run. The squad walks through whatever is in the
 way and takes the hits rather than stopping to fight, swinging at anything in
@@ -144,6 +152,39 @@ hunter), extraction plan, leader, and whether to engage rival squads.
 
 Those settings are read directly by `src/sim/ai.js`, which is the interpreter
 for them — there is no second, hidden set of rules.
+
+## Carrying it out
+
+An extraction game is decided by how much you can carry, so pack size is a
+piece of gear rather than a constant. The **pouch** slot is worth nothing in a
+fight and everything on the way home:
+
+| Pouch | Pack slots |
+|---|---|
+| None | 2 |
+| Common | 4 |
+| Uncommon | 8 |
+| Rare | 12 |
+| Epic | 16 |
+| Legendary | 20 |
+
+Every hero starts in a common pouch. A legendary one is five times the haul,
+which makes it the single most valuable drop in the game and the most painful
+thing to die wearing — the sim bears that out, with a level-14 boss hunt
+bringing home 5.0 items on the old fixed pack and 9.0 on a rare pouch.
+
+Because a pouch has no stat block, the AI's item scoring counts its capacity
+directly; otherwise the best item in the game would score zero and squads would
+walk straight past it. Swapping down into a smaller pouch than the pack is
+holding is refused rather than silently binning the overflow.
+
+Consumables are carried separately, on a three-slot **belt**, and that is the
+only place the tactics AI will drink from. So a potion picked up off the floor
+goes to the belt first and falls back to the pack only when the belt is full.
+Belt stacks are capped per consumable: treating a matching stack as infinite
+room made every potion on the map look takeable and pushed squads from 3.2% of
+the raid in loot mode to 6.9%, all of it spent detouring for potions they could
+not hold.
 
 ## The map
 
@@ -195,6 +236,7 @@ node tools/test-layout.mjs      # needs Playwright; skips if absent
 node tools/test-salvage.mjs     # needs Playwright; skips if absent
 node tools/test-achievements.js
 node tools/test-unlocks.mjs     # needs Playwright; skips if absent
+node tools/test-pouches.js
 ```
 
 `simulate.js` runs whole raids headless and reports outcomes — the fastest way
@@ -223,6 +265,13 @@ and going nowhere.
 it. That order is fragile — putting retreat, regrouping or chasing ahead of it
 takes a squad from 77 seconds to reach a door to 306, or leaves them milling
 outside one for twenty minutes.
+
+`test-pouches.js` covers pack capacity, the squad loot filter and where a
+found potion ends up. Most of it is edges: no pouch at all, swapping down into
+a smaller one with a full pack, a handover that has to ask the *receiver's*
+pouch, and the belt-then-pack fallback chain. It also proves the mid-raid loot
+orders are a live reference — tightening the floor stops the squad on the next
+pickup — and that doing so does not write back into what you set in camp.
 
 `test-bags.mjs` drives the in-raid pack panel against a live match, because
 equipping mid-raid has to rebuild a hero's stat block — gear feeds `baseMods`,
@@ -263,10 +312,10 @@ gear and a spent skill tree — against five rival squads:
 
 | Raid plan | Level | Runs | Clean | Partial | Wiped | Avg items kept | Boss kills |
 |---|---|---|---|---|---|---|---|
-| Farm the ring | 5 | 12 | 8 | 3 | 1 | 9.0 | 0.33 |
-| Boss hunt | 5 | 8 | 0 | 2 | 6 | 1.3 | 0.38 |
-| Boss hunt | 14 | 8 | 1 | 2 | 5 | 5.0 | 4.38 |
-| Squad hunter | 10 | 8 | 4 | 0 | 4 | 12.0 | 3.38 |
+| Farm the ring | 5 | 12 | 7 | 4 | 1 | 7.9 | 0.75 |
+| Boss hunt | 5 | 8 | 0 | 4 | 4 | 1.6 | 0.13 |
+| Boss hunt | 14 | 8 | 1 | 3 | 4 | 9.0 | 4.63 |
+| Squad hunter | 10 | 8 | 4 | 2 | 2 | 15.0 | 3.00 |
 
 That spread is the intent: farming is a reliable income, and the core is a
 place you earn the right to visit. Boss hunting at level 5 is close to
@@ -283,11 +332,15 @@ A geared boss hunt kills 4.4 a raid, up from 1.6 at the same seeds.
 Adding five bosses and eight classes made the whole game harder, and the
 numbers above are against a squad of the three starters — the classes you are
 meant to be replacing by the time you can reach the core. At matched seeds
-farming went from 10/1/1 to 8/3/1 and level-14 boss hunting from 0/5/3 to
-1/2/5, while items kept on a boss hunt went *up*, 3.4 to 5.0. Heroes also
-travel slower, 66.0 units per second alive to 57.4: four of the eight new
-classes are melee, so squads crowd and jam each other more, and there is more
-on the map worth stopping to fight.
+farming went from 10/1/1 to 7/4/1 and level-14 boss hunting from 0/5/3 to
+1/3/4. Heroes also travel slower, 66.0 units per second alive to 57.4: four of
+the eight new classes are melee, so squads crowd and jam each other more, and
+there is more on the map worth stopping to fight.
+
+Items kept now tracks the pouch rather than a fixed pack, which is the point of
+the slot: the level-5 squad on a common pouch brings home 7.9, the level-10
+squad on an uncommon one 15.0, and the level-14 boss hunt on a rare one 9.0
+against the 5.0 it managed on the old fixed pack of eight.
 
 ## Status
 

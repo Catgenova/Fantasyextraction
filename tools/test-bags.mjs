@@ -96,7 +96,35 @@ for (const [label, opts] of [
   await page.waitForTimeout(300);
   check(`${label}: opening the pack closes the map key`, !(await page.locator('.legend').isVisible()));
   check(`${label}: pack panel opens`, await page.locator('.bags').isVisible());
-  check(`${label}: worn slots are listed`, (await page.locator('.bags .item').count()) >= 7);
+  check(`${label}: worn slots are listed`, (await page.locator('.bags .item').count()) >= 8);
+
+  // --- Standing loot orders ----------------------------------------------
+  // These are a live reference to the squad's tactics, so a change made here
+  // has to take effect on the next pickup rather than on the next raid.
+  const orders = page.locator('.loot-orders');
+  check(`${label}: the panel carries the squad's loot orders`, await orders.isVisible());
+  check(`${label}: with a rarity floor and a potion toggle`,
+    (await orders.locator('button').count()) === 6,
+    `${await orders.locator('button').count()} buttons`);
+  check(`${label}: it starts on Any`,
+    (await orders.locator('button.primary').filter({ hasText: 'Any' }).count()) === 1);
+
+  await orders.getByRole('button', { name: 'Rare', exact: true }).click();
+  await page.waitForTimeout(250);
+  check(`${label}: picking a floor selects it`,
+    (await orders.locator('button.primary').filter({ hasText: 'Rare' }).count()) === 1
+    && (await orders.locator('button.primary').filter({ hasText: 'Any' }).count()) === 0);
+  const potions = orders.getByRole('button', { name: 'Potions' });
+  check(`${label}: potions start switched on`,
+    (await potions.getAttribute('class')).includes('primary'));
+  await potions.click();
+  await page.waitForTimeout(250);
+  check(`${label}: the toggle turns them off`,
+    !(await potions.getAttribute('class')).includes('primary'));
+  await potions.click();
+  await page.waitForTimeout(250);
+  await orders.getByRole('button', { name: 'Any', exact: true }).click();
+  await page.waitForTimeout(250);
 
   // Run until somebody has loot to manipulate.
   await page.getByRole('button', { name: '1×' }).click();
@@ -105,7 +133,7 @@ for (const [label, opts] of [
   for (let i = 0; i < 40 && !found; i++) {
     await page.waitForTimeout(1000);
     for (const tab of await page.locator('.bags-tabs button').all()) {
-      const m = ((await tab.textContent()) ?? '').match(/(\d+)\/8/);
+      const m = ((await tab.textContent()) ?? '').match(/(\d+)\/(\d+)/);
       if (m && Number(m[1]) > 0) { await tab.click(); await page.waitForTimeout(250); found = true; break; }
     }
   }
@@ -119,7 +147,7 @@ for (const [label, opts] of [
 
     const packCount = async () => {
       const t = (await page.locator('.bags-tabs button.primary').textContent()) ?? '';
-      return Number((t.match(/(\d+)\/8/) ?? [0, 0])[1]);
+      return Number((t.match(/(\d+)\/(\d+)/) ?? [0, 0])[1]);
     };
 
     const equip = page.getByRole('button', { name: 'Equip' }).first();
@@ -170,7 +198,7 @@ for (const [label, opts] of [
       for (const tab of tabs) {
         const text = (await tab.textContent()) ?? '';
         if (text.includes(label)) {
-          landed = Number((text.match(/(\d+)\/8/) ?? [0, 0])[1]) > 0;
+          landed = Number((text.match(/(\d+)\/(\d+)/) ?? [0, 0])[1]) > 0;
           break;
         }
       }

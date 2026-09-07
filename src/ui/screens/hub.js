@@ -5,13 +5,13 @@ import { el, clear, selectField, hideTooltip } from '../dom.js';
 import { itemRow } from '../items.js';
 import { CLASSES } from '../../data/classes.js';
 import { XP_PER_LEVEL, MAX_LEVEL } from '../../data/classes.js';
-import { FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS } from '../../data/tactics.js';
+import { FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, LOOT_FLOORS } from '../../data/tactics.js';
 import { computeStats } from '../../sim/stats.js';
 import { availablePoints } from '../../sim/heroes.js';
 import { heroById, squadHeroes, STASH_LIMIT, salvageFromStash, salvageAllUpTo, achievementProgress } from '../../game/profile.js';
 import { bossForAchievement } from '../../data/achievements.js';
 import { salvageValue, canSalvage, salvageTable } from '../../data/economy.js';
-import { itemScore } from '../../data/gear.js';
+import { itemScore, SLOTS, packCapacity } from '../../data/gear.js';
 
 export function hubScreen(app) {
   const root = el('div.screen');
@@ -94,11 +94,20 @@ export function hubScreen(app) {
         el('div.statline', null, [el('span.muted', null, 'Armour / resist'), el('b', null, `${Math.round(stats.armor)} / ${Math.round(stats.resist)}`)]),
         el('div.statline', null, [
           el('span.muted', null, 'Gear'),
-          el('b', { style: { color: geared < 5 ? 'var(--danger)' : 'inherit' } }, `${geared}/7 slots`),
+          el('b', { style: { color: geared < SLOTS.length - 2 ? 'var(--danger)' : 'inherit' } },
+            `${geared}/${SLOTS.length} slots`),
         ]),
         el('div.statline', null, [
           el('span.muted', null, 'Consumables'),
           el('b', null, String(hero.consumables.length)),
+        ]),
+        el('div.statline', null, [
+          el('span.muted', null, 'Carries'),
+          el('b', {
+            style: { color: hero.equipped.pouch ? 'inherit' : 'var(--danger)' },
+          }, hero.equipped.pouch
+            ? `${packCapacity(hero.equipped)} items`
+            : `${packCapacity(hero.equipped)} — no pouch`),
         ]),
         xpNeeded ? el('div.xpbar', null, el('i', { style: { width: `${Math.min(100, (hero.xp / xpNeeded) * 100)}%` } })) : null,
         el('div.tiny.dim', { style: { marginTop: '5px' } },
@@ -176,6 +185,19 @@ export function hubScreen(app) {
             el('button', {
               onclick: () => { t.avoidPlayers = !t.avoidPlayers; app.save(); render(); },
             }, t.avoidPlayers ? 'Avoid — break off from other squads' : 'Engage when contacted'),
+          ]),
+          selectField('Minimum loot rarity',
+            Object.values(LOOT_FLOORS).map((f) => ({ value: f.id, label: f.name })),
+            t.lootFloor ?? 'any', set('lootFloor'),
+            `${LOOT_FLOORS[t.lootFloor ?? 'any']?.desc} Applies on top of each hero's own loot policy — the stricter of the two wins.`),
+          el('div.field', null, [
+            el('label', null, 'Consumables'),
+            el('button', {
+              onclick: () => { t.takeConsumables = t.takeConsumables === false; app.save(); render(); },
+            }, t.takeConsumables === false ? 'Leave them on the ground' : 'Pick up — belt first, then bags'),
+            el('div.hint', null, t.takeConsumables === false
+              ? 'Potions and bandages are ignored entirely.'
+              : 'Found potions go straight onto the belt, which is the only place a hero will drink them from. They fall back to the pack when the belt is full.'),
           ]),
         ]),
       ]);

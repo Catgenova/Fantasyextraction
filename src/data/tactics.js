@@ -28,6 +28,20 @@ export const LOOT_POLICIES = {
   ignore: { id: 'ignore', name: 'Ignore loot', minRarity: null, desc: 'Never stop to loot.' },
 };
 
+/**
+ * Squad-wide floor on what is worth stopping for, set in Squad orders and
+ * adjustable mid-raid. It combines with each hero's own loot policy rather
+ * than replacing it: an item has to clear both, so the squad order can tighten
+ * a greedy hero but never loosens a picky one.
+ */
+export const LOOT_FLOORS = {
+  any: { id: 'any', name: 'Anything', minRarity: 'common', desc: 'Whatever each hero wants, commons included.' },
+  uncommon: { id: 'uncommon', name: 'Uncommon and better', minRarity: 'uncommon', desc: 'Nobody stops for grey trash.' },
+  rare: { id: 'rare', name: 'Rare and better', minRarity: 'rare', desc: 'Bags stay light for the walk out.' },
+  epic: { id: 'epic', name: 'Epic and better', minRarity: 'epic', desc: 'Only what the core drops.' },
+  legendary: { id: 'legendary', name: 'Legendary only', minRarity: 'legendary', desc: 'Walk past everything else.' },
+};
+
 export const SPELL_POLICIES = {
   auto: { id: 'auto', name: 'Auto', desc: 'Cast whenever the situation fits.' },
   emergency: { id: 'emergency', name: 'Emergency', desc: 'Hold until the squad is in real trouble.' },
@@ -66,7 +80,8 @@ export const EXTRACT_PLANS = {
  */
 export const READY_FOR_BOSS_TIER = [4, 8, 12];
 
-export const BACKPACK_SLOTS = 8;
+// Pack size is no longer a constant: it comes from the pouch a hero is
+// wearing. See `packCapacity` in src/data/gear.js.
 
 /**
  * Compass headings for in-raid navigation. The canvas y axis grows downward,
@@ -148,5 +163,11 @@ export function defaultSquadTactics() {
     // walks point decides where the whole squad goes.
     leaderId: null,
     avoidPlayers: false,
+    // Squad-wide loot filter, on top of each hero's own policy.
+    lootFloor: 'any',
+    // Consumables are governed by this alone, not by the rarity floor: a
+    // common potion is worth picking up on any run that a legendary filter
+    // would otherwise strip to nothing.
+    takeConsumables: true,
   };
 }

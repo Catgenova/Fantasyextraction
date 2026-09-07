@@ -108,6 +108,10 @@ export class Match {
           isPlayer: squad.isPlayer,
           pos: { x: spawn.x + off.x, y: spawn.y + off.y },
         });
+        // A live reference, not a copy: the loot floor and the consumable
+        // toggle are standing orders the player can change mid-raid, and the
+        // squad has to start obeying the new one on the next pickup.
+        e.squadTactics = squad.tactics;
         this.addEntity(e);
         squad.memberIds.push(e.id);
       });

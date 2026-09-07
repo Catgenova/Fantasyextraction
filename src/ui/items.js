@@ -3,7 +3,7 @@
 // everywhere in the game.
 
 import { el, tooltip, titleCase } from './dom.js';
-import { RARITIES, SLOT_NAMES, itemScore, BASES_BY_ID } from '../data/gear.js';
+import { RARITIES, SLOT_NAMES, itemScore, BASES_BY_ID, pouchSlots } from '../data/gear.js';
 import { CONSUMABLES } from '../data/consumables.js';
 
 const PCT_STATS = new Set([
@@ -45,10 +45,13 @@ export function modSummary(item, limit = 3) {
     const def = CONSUMABLES[item.defId];
     return def ? def.desc : '';
   }
-  return Object.entries(item.mods ?? {})
+  const parts = Object.entries(item.mods ?? {})
     .slice(0, limit)
-    .map(([stat, value]) => `${formatStat(stat, value)} ${statLabel(stat).toLowerCase()}`)
-    .join(', ');
+    .map(([stat, value]) => `${formatStat(stat, value)} ${statLabel(stat).toLowerCase()}`);
+  const slots = pouchSlots(item);
+  // A pouch's capacity is the only reason to wear it, so it leads.
+  if (slots) parts.unshift(`${slots} pack slots`);
+  return parts.join(', ');
 }
 
 /** The full hover card. */
@@ -73,6 +76,11 @@ export function itemTooltip(item, opts = {}) {
   nodes.push(el('div.t-sub', null,
     `${titleCase(item.rarity)} ${SLOT_NAMES[item.slot] ?? item.slot} · item level ${item.ilvl}` +
     (base?.classes ? ` · ${base.classes.map(titleCase).join('/')} only` : '')));
+
+  const slots = pouchSlots(item);
+  if (slots) {
+    nodes.push(el('div.t-mod', null, `Carries ${slots} items`));
+  }
 
   for (const [stat, value] of Object.entries(item.mods ?? {})) {
     // Swing time is the one stat where a bigger number is worse.

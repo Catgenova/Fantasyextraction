@@ -195,6 +195,12 @@ button.sm { padding: 4px 9px; font-size: 12px; }
 .item .slot-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 .item .mods { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
+.loot-orders {
+  display: flex; flex-direction: column; gap: 5px;
+  padding: 7px 9px; margin-bottom: 9px;
+  background: var(--panel-2); border: 1px solid var(--line); border-radius: var(--radius);
+}
+
 /* --- Trophies and class unlocks ----------------------------------------- */
 .trophy {
   position: relative;

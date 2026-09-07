@@ -6,8 +6,8 @@
 
 import { el, clear, hideTooltip } from '../dom.js';
 import { itemRow } from '../items.js';
-import { SLOTS, SLOT_NAMES } from '../../data/gear.js';
-import { BACKPACK_SLOTS } from '../../data/tactics.js';
+import { SLOTS, SLOT_NAMES, RARITIES, packCapacity } from '../../data/gear.js';
+import { LOOT_FLOORS } from '../../data/tactics.js';
 import { CONSUMABLE_SLOTS } from '../../data/consumables.js';
 import { CLASSES } from '../../data/classes.js';
 import { hpFrac } from '../../sim/entity.js';
@@ -92,7 +92,7 @@ export function createRunBags(match, controls = null) {
         [
           el('span', null, m.name.split(' ').pop()),
           el('span.tiny.dim', { style: { marginLeft: '5px' } },
-            !m.alive ? '✕' : m.extracted ? '↑' : `${m.inventory.length}/${BACKPACK_SLOTS}`),
+            !m.alive ? '✕' : m.extracted ? '↑' : `${m.inventory.length}/${packCapacity(m.equipped)}`),
         ],
       ))),
       el('div.row', { style: { gap: '4px' } }, [
@@ -114,6 +114,34 @@ export function createRunBags(match, controls = null) {
       return;
     }
 
+    // --- Standing loot orders ---------------------------------------------
+    // These are a live reference to the squad's tactics, so a change here is
+    // obeyed on the very next pickup. Worth having in the raid rather than
+    // only in camp: what you want off the floor changes once bags are filling
+    // and the walk to an exit is what is left.
+    const orders = hero.squadTactics;
+    if (orders) {
+      body.appendChild(el('div.loot-orders', null, [
+        el('div.tiny.dim', null, 'Squad picks up'),
+        el('div.row', { style: { gap: '4px', flexWrap: 'wrap' } }, [
+          ...Object.values(LOOT_FLOORS).map((f) => el(
+            'button.sm' + (((orders.lootFloor ?? 'any') === f.id) ? '.primary' : ''),
+            {
+              title: f.desc,
+              onclick: () => act(() => { orders.lootFloor = f.id; }),
+            },
+            f.id === 'any' ? 'Any' : RARITIES[f.minRarity].name,
+          )),
+          el('button.sm' + (orders.takeConsumables === false ? '' : '.primary'), {
+            title: orders.takeConsumables === false
+              ? 'Consumables are being left on the ground'
+              : 'Found consumables go to the belt first, then the pack',
+            onclick: () => act(() => { orders.takeConsumables = orders.takeConsumables === false; }),
+          }, 'Potions'),
+        ]),
+      ]));
+    }
+
     body.appendChild(el('div.spread', { style: { marginBottom: '8px' } }, [
       el('div', null, [
         el('div.tiny', { style: { color: cls.color, letterSpacing: '.1em', textTransform: 'uppercase' } }, cls.name),
@@ -128,7 +156,7 @@ export function createRunBags(match, controls = null) {
 
     // --- Backpack ---------------------------------------------------------
     body.appendChild(el('h3', { style: { margin: '10px 0 6px' } },
-      `Pack — ${hero.inventory.length} / ${BACKPACK_SLOTS}`));
+      `Pack — ${hero.inventory.length} / ${packCapacity(hero.equipped)}`));
 
     if (!hero.inventory.length) {
       body.appendChild(el('div.item.empty', null, 'Nothing picked up yet.'));
@@ -169,8 +197,8 @@ export function createRunBags(match, controls = null) {
         emptyText: `No ${SLOT_NAMES[slot].toLowerCase()}`,
         right: item
           ? el('button.sm', {
-            disabled: hero.inventory.length >= BACKPACK_SLOTS,
-            title: hero.inventory.length >= BACKPACK_SLOTS
+            disabled: hero.inventory.length >= packCapacity(hero.equipped),
+            title: hero.inventory.length >= packCapacity(hero.equipped)
               ? 'Pack is full — make room first' : `Move ${item.name} to the pack`,
             onclick: () => act(() => unequipToBackpack(match, hero, slot)),
           }, 'Remove')

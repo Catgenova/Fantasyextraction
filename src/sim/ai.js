@@ -7,12 +7,13 @@
 
 import { SPELLS } from '../data/spells.js';
 import { CONSUMABLES } from '../data/consumables.js';
-import { STANCES, TARGET_PRIORITIES, LOOT_POLICIES, FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, BACKPACK_SLOTS, COHESION, HEADINGS, HEADING_REACH } from '../data/tactics.js';
+import { STANCES, TARGET_PRIORITIES, LOOT_POLICIES, LOOT_FLOORS, FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, COHESION, HEADINGS, HEADING_REACH } from '../data/tactics.js';
 import { dealDamage, spawnProjectile, resolveEffects, isControlled, hasStatus, applyStatus, GLOBAL_COOLDOWN } from './combat.js';
 import { hpFrac, manaFrac, recomputeStats } from './entity.js';
 import { dist, dist2, dirTo, norm, add, scale, sub } from '../core/vec.js';
 import { resolveCollisions, obstaclesNear, bestExtract, extractIsOpen } from './map.js';
-import { itemScore } from '../data/gear.js';
+import { itemScore, packCapacity } from '../data/gear.js';
+import { stowConsumable, canPackConsumable } from './inventory.js';
 
 const OUT_OF_COMBAT_AFTER = 5;
 const THINK_HERO = 0.2;      // seconds between hero decisions
@@ -937,11 +938,27 @@ export function autoAttack(match, e, target) {
 // Looting
 // ---------------------------------------------------------------------------
 
-/** Would this hero's loot policy accept this item? Ignores bag space. */
+/**
+ * Would this hero's loot policy accept this item? Ignores bag space.
+ *
+ * Two filters apply. The hero's own policy is what the player set on that
+ * hero; the squad's floor is the standing order for the whole raid, and the
+ * stricter of the two wins — a squad order can tighten a greedy hero without
+ * ever loosening a picky one. Consumables answer to neither: they are governed
+ * by their own toggle, because a common potion is worth carrying on exactly
+ * the runs where a legendary-only filter would leave the squad with nothing to
+ * drink.
+ */
 export function wantsItem(e, item) {
+  if (!item) return false;
+  const squad = e.squadTactics;
+  if (item.kind === 'consumable') return squad ? squad.takeConsumables !== false : true;
+
   const policy = LOOT_POLICIES[e.tactics.lootPolicy] ?? LOOT_POLICIES.greedy;
   if (!policy.minRarity) return false;
-  return rarityRank(item.rarity) >= rarityRank(policy.minRarity);
+  const floor = LOOT_FLOORS[squad?.lootFloor ?? 'any'] ?? LOOT_FLOORS.any;
+  const need = Math.max(rarityRank(policy.minRarity), rarityRank(floor.minRarity));
+  return rarityRank(item.rarity) >= need;
 }
 
 /**
@@ -951,7 +968,9 @@ export function wantsItem(e, item) {
  */
 export function canTake(e, item) {
   if (!wantsItem(e, item)) return false;
-  if (e.inventory.length < BACKPACK_SLOTS) return true;
+  // A consumable with belt room needs no pack space at all.
+  if (item.kind === 'consumable' && canPackConsumable(e, item)) return true;
+  if (e.inventory.length < packCapacity(e.equipped)) return true;
   let worst = Infinity;
   for (const held of e.inventory) worst = Math.min(worst, valueOf(held));
   return valueOf(item) > worst * SWAP_MARGIN;
@@ -959,7 +978,10 @@ export function canTake(e, item) {
 
 export function tryPickup(match, e) {
   const policy = LOOT_POLICIES[e.tactics.lootPolicy] ?? LOOT_POLICIES.greedy;
-  if (!policy.minRarity) return;
+  const wantsConsumables = e.squadTactics ? e.squadTactics.takeConsumables !== false : true;
+  if (!policy.minRarity && !wantsConsumables) return;
+
+  const capacity = packCapacity(e.equipped);
 
   for (const pile of match.lootPiles) {
     if (pile.dead || !pile.items.length) continue;
@@ -969,7 +991,16 @@ export function tryPickup(match, e) {
       const item = pile.items[i];
       if (!canTake(e, item)) continue;
 
-      if (e.inventory.length < BACKPACK_SLOTS) {
+      // A found potion goes on the belt if there is room, because that is the
+      // only place the AI will ever drink it from. The pack is the fallback.
+      if (item.kind === 'consumable' && stowConsumable(e, item)) {
+        pile.items.splice(i, 1);
+        match.pushFloat(e.pos, item.name, match.rarityColor(item));
+        match.onLooted?.(e, item);
+        continue;
+      }
+
+      if (e.inventory.length < capacity) {
         pile.items.splice(i, 1);
         e.inventory.push(item);
         match.pushFloat(e.pos, item.name, match.rarityColor(item));
@@ -1167,7 +1198,7 @@ export function squadObjective(match, squad) {
   }
 
   // 2. Extraction triggers.
-  const bagsFull = members.every((m) => m.inventory.length >= BACKPACK_SLOTS);
+  const bagsFull = members.every((m) => m.inventory.length >= packCapacity(m.equipped));
   const timeUp = match.time >= extractPlan.triggerAt;
   const collapsing = match.collapseActive;
   const squadBroken = members.length === 1 && squad.memberIds.length > 1;

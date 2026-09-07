@@ -5,10 +5,9 @@
 // change has to rebuild it — otherwise the stat block silently keeps whatever
 // they landed with.
 
-import { canEquip, SLOTS } from '../data/gear.js';
+import { canEquip, SLOTS, packCapacity, pouchSlots } from '../data/gear.js';
 import { dist } from '../core/vec.js';
 import { rebuildHeroMods } from './entity.js';
-import { BACKPACK_SLOTS } from '../data/tactics.js';
 import { CONSUMABLE_SLOTS, CONSUMABLES } from '../data/consumables.js';
 
 // Discarding in a raid destroys the item outright rather than dropping it.
@@ -32,6 +31,11 @@ export function equipFromBackpack(match, e, index) {
   const item = e.inventory[index];
   if (!canEquipItem(e, item)) return false;
 
+  // A pouch decides how much the pack holds, so swapping down into a smaller
+  // one can leave a hero over capacity. Refuse rather than silently binning
+  // the overflow — the player can destroy or hand over the difference first.
+  if (pouchSlots(item) && e.inventory.length - 1 > pouchSlots(item)) return false;
+
   const previous = e.equipped[item.slot] ?? null;
   e.inventory.splice(index, 1);
   e.equipped[item.slot] = item;
@@ -50,7 +54,7 @@ export function equipFromBackpack(match, e, index) {
 export function unequipToBackpack(match, e, slot) {
   const item = e.equipped[slot];
   if (!item) return false;
-  if (e.inventory.length >= BACKPACK_SLOTS) return false;
+  if (e.inventory.length >= packCapacity(e.equipped)) return false;
 
   e.equipped[slot] = null;
   e.inventory.push(item);
@@ -67,11 +71,42 @@ export function destroyFromBackpack(match, e, index) {
   return true;
 }
 
-/** Is there anywhere for this found consumable to go? */
+/**
+ * Is there anywhere for this found consumable to go?
+ *
+ * A matching stack merges, but only up to that consumable's cap. Treating any
+ * matching stack as room made the belt bottomless: every potion on the map
+ * read as takeable, so squads detoured for all of them and spent five times as
+ * long in loot mode as they do with the cap honoured.
+ */
 export function canPackConsumable(e, item) {
   if (!item || item.kind !== 'consumable') return false;
-  if (e.consumables.some((c) => c.defId === item.defId)) return true;  // merges
+  const existing = e.consumables.find((c) => c.defId === item.defId);
+  if (existing) return existing.count < (CONSUMABLES[item.defId]?.stack ?? Infinity);
   return e.consumables.length < CONSUMABLE_SLOTS;
+}
+
+/**
+ * Put a loose consumable straight onto the belt, wherever it came from.
+ *
+ * The tactics AI only ever drinks from the belt, so a potion that lands in the
+ * pack is dead weight until somebody moves it. Picking one up therefore tries
+ * the belt first and only falls back to the pack when the belt is full.
+ *
+ * @returns {boolean} whether it was taken
+ */
+export function stowConsumable(e, item) {
+  if (!canPackConsumable(e, item)) return false;
+  const def = CONSUMABLES[item.defId];
+  const existing = e.consumables.find((c) => c.defId === item.defId);
+  if (existing) {
+    const room = (def?.stack ?? Infinity) - existing.count;
+    if (room <= 0) return false;
+    existing.count += Math.min(room, item.count);
+  } else {
+    e.consumables.push(item);
+  }
+  return true;
 }
 
 /**
@@ -83,16 +118,10 @@ export function canPackConsumable(e, item) {
  */
 export function packConsumable(match, e, index) {
   const item = e.inventory[index];
-  if (!canPackConsumable(e, item)) return false;
-
-  const def = CONSUMABLES[item.defId];
-  const existing = e.consumables.find((c) => c.defId === item.defId);
+  // Refuses when the belt stack is already at its cap. The old version capped
+  // the merge instead, which quietly destroyed the excess.
+  if (!stowConsumable(e, item)) return false;
   e.inventory.splice(index, 1);
-  if (existing) {
-    existing.count = Math.min(def?.stack ?? existing.count + item.count, existing.count + item.count);
-  } else {
-    e.consumables.push(item);
-  }
   match.pushFloat(e.pos, `packed ${item.name}`, match.rarityColor(item));
   return true;
 }
@@ -111,7 +140,7 @@ export function transferBlocker(from, to, item) {
   if (!item || !to || to.id === from.id) return 'No one to give it to';
   if (!to.alive) return `${to.name} is down`;
   if (to.extracted) return `${to.name} has extracted`;
-  if (to.inventory.length >= BACKPACK_SLOTS) return `${to.name}'s pack is full`;
+  if (to.inventory.length >= packCapacity(to.equipped)) return `${to.name}'s pack is full`;
   if (dist(from.pos, to.pos) > TRANSFER_RANGE) return `${to.name} is too far away`;
   return null;
 }

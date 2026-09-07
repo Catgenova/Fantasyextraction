@@ -17,13 +17,13 @@ import {
   achievementProgress, recordBossKill, hasAchievement,
 } from '../src/game/profile.js';
 import { ACHIEVEMENTS, achievementForBoss } from '../src/data/achievements.js';
-import { BOSSES } from '../src/data/enemies.js';
+import { BOSSES, MATCH_SECONDS } from '../src/data/enemies.js';
 import { CLASSES, CLASS_IDS, STARTER_CLASS_IDS } from '../src/data/classes.js';
 import { TREES, unlockedSpells } from '../src/data/skilltrees.js';
 import { spellsForClass, SPELL_SLOTS } from '../src/data/spells.js';
 import { computeStats } from '../src/sim/stats.js';
-import { createHero, autoAllocate, availableSpells } from '../src/sim/heroes.js';
-import { startingLoadout, canEquip, SLOTS } from '../src/data/gear.js';
+import { createHero, autoAllocate, availableSpells, sanitizeHero } from '../src/sim/heroes.js';
+import { startingLoadout, canEquip, SLOTS, rollItem } from '../src/data/gear.js';
 import { makeRng } from '../src/core/rng.js';
 import { defaultSquadTactics } from '../src/data/tactics.js';
 import { squadHeroes } from '../src/game/profile.js';
@@ -155,6 +155,24 @@ console.log('\n=== the unlocked classes are actually playable ===');
 
 console.log('\n=== a real raid reports its boss kills ===');
 
+/**
+ * Level-appropriate kit. Without it these are level-12 heroes in the common
+ * gear they were created with, which does not kill a boss and makes the check
+ * below a measurement of the difficulty curve rather than of the reporting.
+ */
+function equipForRaid(profile, seed, level) {
+  const r = makeRng(seed ^ 0x5bf03635);
+  for (const hero of profile.roster) {
+    hero.level = level;
+    autoAllocate(r, hero);
+    for (const slot of SLOTS) {
+      const item = rollItem(r, { slot, classId: hero.classId, rarity: 'rare', ilvl: level });
+      if (canEquip(item, hero.classId)) hero.equipped[slot] = item;
+    }
+    sanitizeHero(hero);
+  }
+}
+
 {
   // Only the player's kills count. Running raids until a boss dies also proves
   // the arenas are reachable at all — seven arenas nobody walks to would pass
@@ -164,7 +182,7 @@ console.log('\n=== a real raid reports its boss kills ===');
   const killed = new Set();
   for (let seed = 500; seed < 512 && !sawKill; seed++) {
     const profile = newProfile(seed);
-    for (const h of profile.roster) h.level = 12;
+    equipForRaid(profile, seed, 12);
     const heroes = squadHeroes(profile);
     const match = new Match({
       seed,
@@ -175,9 +193,11 @@ console.log('\n=== a real raid reports its boss kills ===');
       botSquads: generateBotSquads(seed, 5, 12),
     });
     let ticks = 0;
-    while (match.phase !== 'ended' && ticks < 1800 / TICK) { match.update(TICK); ticks++; }
+    // Headroom past the timer: a raid resolves on the tick after the clock
+    // runs out, and stopping exactly on it leaves `result` unset.
+    while (match.phase !== 'ended' && ticks < MATCH_SECONDS / TICK + 50) { match.update(TICK); ticks++; }
     if (match.stats.bossKills > 0) sawAnyBossDie = true;
-    if (match.result.bossesKilled.length) {
+    if (match.result?.bossesKilled.length) {
       sawKill = true;
       match.result.bossesKilled.forEach((b) => killed.add(b));
     }
@@ -204,7 +224,7 @@ console.log('\n=== a real raid reports its boss kills ===');
   let died = 0;
   for (let seed = 600; seed < 606; seed++) {
     const profile = newProfile(seed);
-    for (const h of profile.roster) h.level = 12;
+    equipForRaid(profile, seed, 12);
     const heroes = squadHeroes(profile);
     const match = new Match({
       seed,
@@ -215,9 +235,11 @@ console.log('\n=== a real raid reports its boss kills ===');
       botSquads: generateBotSquads(seed, 5, 12),
     });
     let ticks = 0;
-    while (match.phase !== 'ended' && ticks < 1800 / TICK) { match.update(TICK); ticks++; }
+    // Headroom past the timer: a raid resolves on the tick after the clock
+    // runs out, and stopping exactly on it leaves `result` unset.
+    while (match.phase !== 'ended' && ticks < MATCH_SECONDS / TICK + 50) { match.update(TICK); ticks++; }
     died += match.stats.bossKills;
-    credited += match.result.bossesKilled.length;
+    credited += match.result?.bossesKilled.length ?? 0;
   }
   check('rival squads kill bosses the player never touches', died > credited,
     `${died} died, ${credited} credited to the player`);

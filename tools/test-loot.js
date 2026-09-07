@@ -17,10 +17,9 @@ import { Match, TICK } from '../src/sim/match.js';
 import { newProfile, squadHeroes } from '../src/game/profile.js';
 import { generateBotSquads } from '../src/sim/bots.js';
 import { autoAllocate, sanitizeHero } from '../src/sim/heroes.js';
-import { rollItem, SLOTS, canEquip } from '../src/data/gear.js';
+import { rollItem, SLOTS, canEquip, packCapacity } from '../src/data/gear.js';
 import { makeRng } from '../src/core/rng.js';
 import { MATCH_SECONDS } from '../src/data/enemies.js';
-import { BACKPACK_SLOTS } from '../src/data/tactics.js';
 import { canTake, wantsItem } from '../src/sim/ai.js';
 
 const RUNS = 6;
@@ -43,9 +42,14 @@ const check = (name, ok, detail = '') => {
   // which base types happened to roll — rolling distinct commons made this
   // fixture quietly depend on the size of the base-item pool.
   const common = rollItem(rng, { baseId: 'gloves', rarity: 'common', ilvl: 1 });
+  // Pack size comes from the pouch now, so the fixture has to wear one to have
+  // a capacity to fill at all.
+  const pouch = rollItem(rng, { baseId: 'belt_pouch', rarity: 'common', ilvl: 1 });
   const hero = {
     tactics: { lootPolicy: 'greedy' },
-    inventory: Array.from({ length: BACKPACK_SLOTS }, () => ({ ...common })),
+    equipped: { pouch },
+    consumables: [],
+    inventory: Array.from({ length: packCapacity({ pouch }) }, () => ({ ...common })),
   };
   const legendary = rollItem(rng, { baseId: 'gloves', rarity: 'legendary', ilvl: 20 });
 
@@ -56,7 +60,7 @@ const check = (name, ok, detail = '') => {
   hero.inventory.pop();
   check('room in the pack means anything wanted can be taken', canTake(hero, common));
 
-  const picky = { tactics: { lootPolicy: 'ignore' }, inventory: [] };
+  const picky = { tactics: { lootPolicy: 'ignore' }, equipped: {}, consumables: [], inventory: [] };
   check('an ignoring hero takes nothing', !canTake(picky, legendary));
 }
 

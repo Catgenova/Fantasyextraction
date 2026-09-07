@@ -3,7 +3,7 @@
 
 import { rand, pick, weightedPick, shuffle } from '../core/rng.js';
 
-export const SLOTS = ['weapon', 'offhand', 'head', 'chest', 'hands', 'legs', 'trinket'];
+export const SLOTS = ['weapon', 'offhand', 'head', 'chest', 'hands', 'legs', 'trinket', 'pouch'];
 
 export const SLOT_NAMES = {
   weapon: 'Weapon',
@@ -13,7 +13,37 @@ export const SLOT_NAMES = {
   hands: 'Hands',
   legs: 'Legs',
   trinket: 'Trinket',
+  pouch: 'Pouch',
 };
+
+// ---------------------------------------------------------------------------
+// Pouches
+// ---------------------------------------------------------------------------
+// The pouch is the only slot whose value is not a stat: it decides how much a
+// hero can carry out. That makes it the one piece of gear an extraction game
+// can hang a whole progression on — a legendary pouch is five times the haul
+// of a common one, and losing it costs the run's capacity rather than a few
+// points of armour.
+
+export const POUCH_SLOTS = {
+  common: 4, uncommon: 8, rare: 12, epic: 16, legendary: 20,
+};
+
+/** Carrying capacity of a hero wearing nothing on their belt. */
+export const BARE_PACK_SLOTS = 2;
+
+/** Pack slots this item grants, or 0 if it is not a pouch. */
+export const pouchSlots = (item) =>
+  item?.slot === 'pouch' && item.kind === 'gear' ? (POUCH_SLOTS[item.rarity] ?? 0) : 0;
+
+/**
+ * How many pack slots a hero has. Takes the equipped map, so it works on both
+ * a persisted hero record and a live raid entity.
+ */
+export function packCapacity(equipped) {
+  const worn = equipped?.pouch;
+  return worn ? pouchSlots(worn) : BARE_PACK_SLOTS;
+}
 
 export const RARITIES = {
   common: { id: 'common', name: 'Common', color: '#b9bfc9', affixes: 1, power: 1.0, weight: 100 },
@@ -74,6 +104,12 @@ export const BASES = [
 
   { id: 'greaves', name: 'Greaves', slot: 'legs', classes: null, implicit: { armor: 20, vitality: 2 } },
   { id: 'trousers', name: 'Padded Trousers', slot: 'legs', classes: null, implicit: { armor: 10, moveSpeedPct: 0.04 } },
+
+  // Pouches carry no combat stat of their own — their rarity is their capacity
+  // (see POUCH_SLOTS). Affixes still roll on top, so a rare pouch is both more
+  // room and a little something else.
+  { id: 'belt_pouch', name: 'Belt Pouch', slot: 'pouch', classes: null, implicit: {} },
+  { id: 'satchel', name: 'Field Satchel', slot: 'pouch', classes: null, implicit: {} },
 
   { id: 'ring', name: 'Signet Ring', slot: 'trinket', classes: null, implicit: { critChance: 0.02 } },
   { id: 'amulet', name: 'Amulet', slot: 'trinket', classes: null, implicit: { resist: 12, manaRegen: 0.5 } },
@@ -204,6 +240,10 @@ export function itemScore(item) {
   };
   let score = 0;
   for (const [stat, value] of Object.entries(item.mods)) score += (w[stat] ?? 1) * value;
+  // A pouch's worth is the room it gives, which no stat weight can see. Priced
+  // so a legendary pouch outranks most legendary gear: on an extraction run,
+  // capacity is what converts a good raid into a kept haul.
+  score += pouchSlots(item) * 26;
   return Math.round(score);
 }
 
@@ -216,17 +256,17 @@ export function canEquip(item, classId) {
 /** Starter kit so a fresh hero is not naked. */
 export function startingLoadout(rng, classId) {
   const wanted = {
-    knight: ['sword', 'kite_shield', 'plate_helm', 'plate_chest'],
-    archer: ['bow', 'quiver', 'hood', 'leather_chest'],
-    priest: ['staff', 'tome', 'circlet', 'robe'],
-    rogue: ['dagger', 'parrying_dagger', 'hood', 'leather_chest'],
-    berserker: ['greataxe', 'parrying_dagger', 'plate_helm', 'plate_chest'],
-    slayer: ['greatsword', 'parrying_dagger', 'plate_helm', 'plate_chest'],
-    paladin: ['mace', 'kite_shield', 'plate_helm', 'plate_chest'],
-    necromancer: ['runestaff', 'focus', 'circlet', 'robe'],
-    ice_mage: ['runestaff', 'focus', 'circlet', 'robe'],
-    fire_mage: ['runestaff', 'focus', 'circlet', 'robe'],
-    lightning_mage: ['runestaff', 'focus', 'circlet', 'robe'],
+    knight: ['sword', 'kite_shield', 'plate_helm', 'plate_chest', 'belt_pouch'],
+    archer: ['bow', 'quiver', 'hood', 'leather_chest', 'belt_pouch'],
+    priest: ['staff', 'tome', 'circlet', 'robe', 'belt_pouch'],
+    rogue: ['dagger', 'parrying_dagger', 'hood', 'leather_chest', 'belt_pouch'],
+    berserker: ['greataxe', 'parrying_dagger', 'plate_helm', 'plate_chest', 'belt_pouch'],
+    slayer: ['greatsword', 'parrying_dagger', 'plate_helm', 'plate_chest', 'belt_pouch'],
+    paladin: ['mace', 'kite_shield', 'plate_helm', 'plate_chest', 'belt_pouch'],
+    necromancer: ['runestaff', 'focus', 'circlet', 'robe', 'belt_pouch'],
+    ice_mage: ['runestaff', 'focus', 'circlet', 'robe', 'belt_pouch'],
+    fire_mage: ['runestaff', 'focus', 'circlet', 'robe', 'belt_pouch'],
+    lightning_mage: ['runestaff', 'focus', 'circlet', 'robe', 'belt_pouch'],
   }[classId];
   return wanted.map((baseId) => rollItem(rng, { baseId, rarity: 'common', ilvl: 1 }));
 }
