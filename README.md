@@ -290,6 +290,7 @@ src/art/kits.js     the thirteen classes, as proportions + palette + kit
 src/art/beast.js    the top-down creature, which is a different animal
 src/art/beastanim.js  four creature animations
 src/art/plans.js    seven family body plans, varied per species
+src/ui/portrait.js  the same figures, drawn live on the DOM screens
 ```
 
 Six animations, baked one row per sheet: **idle**, **walk**, **attack**,
@@ -383,6 +384,30 @@ Creatures bake at 72px a cell against a hero's 128, and the solo monsters at
 120. They are drawn smaller than heroes — a pack creature is nine to eighteen
 world units — and there are fifty of them; at the hero's cell size the creature
 sheets alone would be most of the repository.
+
+### On the camp screens
+
+Heroes and creatures are animated in the camp too — a figure on every hero
+card, a large one on the hero screen with a control to play each animation, and
+the creature itself on every trophy row, because a locked row's whole job is to
+say what you have to go and kill and an animal does that faster than a name.
+
+These draw the rig **live** rather than blitting a sheet, which is the opposite
+of what the raid does and deliberate. A portrait is 54 to 176px — above the
+128px the sheets are baked at — so blitting would upscale and go soft exactly
+where the art is most visible, and the camp would have to load sixty-three
+sprite sheets to show thirteen small pictures. The raid has the opposite
+problem: two hundred and forty entities, each needing to cost one `drawImage`.
+Same `drawFigure`, same curves, different delivery, and the reason each way
+round is the reason.
+
+One ticker drives every portrait on the page and drops any whose canvas has
+left the document. Screens here are rebuilt by clearing and re-appending, so
+that check is the only signal a portrait is gone — without it every visit to
+the camp leaves another dozen canvases being painted forever. Four round trips
+between camp and hero screen takes it from 13 portraits to 69 if the check is
+removed, which is what the test asserts. Camp holds 60fps with all thirteen
+running.
 
 ### Looking at it
 

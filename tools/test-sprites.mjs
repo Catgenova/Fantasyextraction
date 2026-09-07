@@ -339,6 +339,80 @@ if (!playwright) {
     await page.close();
   }
 
+  // --- Portraits on the DOM screens ---------------------------------------
+  {
+    const page = await browser.newPage({ viewport: { width: 1500, height: 950 } });
+    const errors = [];
+    page.on('pageerror', (e) => errors.push(e.message));
+    page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
+    await page.goto(`${base}/index.html`, { waitUntil: 'networkidle' });
+    await page.evaluate(() => localStorage.clear());
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.waitForTimeout(700);
+
+    const count = () => page.evaluate(async () =>
+      (await import('/src/ui/portrait.js')).livePortraitCount());
+
+    const cards = await page.locator('.hero-card').count();
+    const trophies = await page.locator('.trophy').count();
+    const camp = await count();
+    check(`camp animates a figure per hero and per trophy`,
+      camp === cards + trophies, `${camp} portraits, ${cards} cards + ${trophies} trophies`);
+    check('every hero card carries a figure',
+      (await page.locator('.hero-card .card-figure canvas').count()) === cards);
+    check('and every trophy row carries its creature',
+      (await page.locator('.trophy .trophy-beast canvas').count()) === trophies);
+
+    // The registry is the thing that can leak. Screens are rebuilt by clearing
+    // and re-appending, so a portrait whose canvas has been detached has to
+    // drop out of the ticker — otherwise every visit to the camp leaves
+    // another dozen canvases being painted forever.
+    const seen = [];
+    for (let i = 0; i < 4; i++) {
+      await page.locator('.hero-card').first().click();
+      await page.waitForTimeout(350);
+      seen.push(await count());
+      await page.getByRole('button', { name: 'Camp', exact: true }).click();
+      await page.waitForTimeout(350);
+    }
+    check('a hero screen animates exactly one figure',
+      seen.every((n) => n === 1), seen.join(','));
+    const after = await count();
+    check('and going back and forth does not accumulate portraits',
+      after === camp, `${camp} -> ${after} after four round trips`);
+
+    // The hero screen's picker is the only place in the game that shows what
+    // an animation actually looks like.
+    await page.locator('.hero-card').first().click();
+    await page.waitForTimeout(350);
+    const picker = page.locator('.anim-pick button');
+    check('the hero screen offers every animation',
+      (await picker.count()) === ANIMATION_IDS.length,
+      `${await picker.count()} of ${ANIMATION_IDS.length}`);
+    check('and starts on idle',
+      (await page.locator('.anim-pick button.primary').innerText()) === 'idle');
+    // Asserted against what the canvas is playing, not against which button
+    // looks selected. A figure that ignores the selection entirely still lights
+    // the right button, and did.
+    const playing = () => page.locator('.hero-figure canvas').getAttribute('data-anim');
+    await picker.nth(2).click();
+    await page.waitForTimeout(250);
+    check('choosing one plays it',
+      (await playing()) === ANIMATION_IDS[2], await playing());
+    // Switching tabs re-renders the panel; the figure must not snap back.
+    await page.getByRole('button', { name: 'Spells' }).click();
+    await page.waitForTimeout(300);
+    check('and switching tabs keeps it playing',
+      (await playing()) === ANIMATION_IDS[2], await playing());
+    check('the button agrees with the figure',
+      (await page.locator('.anim-pick button.primary').innerText()) === ANIMATION_IDS[2]);
+    check('still exactly one figure after a tab switch', (await count()) === 1,
+      String(await count()));
+
+    check('no console errors from the portraits', errors.length === 0, errors.slice(0, 2).join(' | '));
+    await page.close();
+  }
+
   // The fallback is the whole reason the sprite path is a conditional. A
   // missing asset has to cost the art and nothing else.
   {

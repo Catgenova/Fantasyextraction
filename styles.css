@@ -152,6 +152,28 @@ button.sm { padding: 4px 9px; font-size: 12px; }
 .hero-card .cls { font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--cls, var(--accent)); }
 .hero-card .nm { font-family: var(--serif); font-size: 16px; margin: 2px 0 6px; }
 
+/* Figures on the DOM screens. Never intercept pointer events — a hero card is
+   a click target and the canvas sits on top of most of it. */
+.portrait { display: block; pointer-events: none; }
+.card-figure {
+  display: flex; justify-content: center; align-items: center;
+  height: 84px; margin: 2px 0 4px;
+  pointer-events: auto;
+}
+.card-figure .portrait { margin-top: -2px; }
+
+.hero-figure {
+  display: flex; flex-direction: column; align-items: center; gap: 8px;
+  padding: 6px 0 2px;
+}
+.hero-figure .portrait {
+  background: radial-gradient(ellipse at 50% 62%, rgba(0,0,0,.34), transparent 62%);
+}
+/* A trophy row is now a creature and a block of text side by side. */
+.trophy-beast { flex: 0 0 auto; width: 54px; height: 54px; }
+.anim-pick { display: flex; gap: 4px; flex-wrap: wrap; justify-content: center; }
+.anim-pick button { padding: 3px 8px; font-size: 11px; }
+
 .xpbar { height: 4px; background: var(--panel-3); border-radius: 3px; overflow: hidden; margin-top: 8px; }
 .xpbar > i { display: block; height: 100%; background: var(--accent-dim); }
 
@@ -240,6 +262,7 @@ button.sm { padding: 4px 9px; font-size: 12px; }
   border: 1px solid var(--line);
   border-radius: var(--radius);
   opacity: .62;
+  display: flex; align-items: center; gap: 10px;
 }
 .trophy::before {
   content: ''; position: absolute; inset: 0 auto 0 0; width: 3px;

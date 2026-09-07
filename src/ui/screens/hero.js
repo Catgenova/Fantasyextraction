@@ -2,6 +2,8 @@
 // gear, skill tree, equipped spells, and autobattle tactics.
 
 import { el, clear, selectField, sliderField, tooltip, hideTooltip } from '../dom.js';
+import { heroPortrait } from '../portrait.js';
+import { ANIMATION_IDS } from '../../art/anim.js';
 import { itemRow } from '../items.js';
 import { CLASSES } from '../../data/classes.js';
 import { SLOTS, SLOT_NAMES, canEquip, itemScore } from '../../data/gear.js';
@@ -15,6 +17,9 @@ import { addToStash, removeFromStash } from '../../game/profile.js';
 
 export function heroScreen(app, hero, initialTab = 'gear') {
   let tab = initialTab;
+  // Kept across re-renders so switching a tab does not reset the figure to
+  // idle behind the player's back.
+  let animShown = 'idle';
   const root = el('div.screen');
 
   function render() {
@@ -37,6 +42,7 @@ export function heroScreen(app, hero, initialTab = 'gear') {
           el('span.pill', null, `Lv ${hero.level}`),
         ]),
         el('div.panel-body', null, [
+          figureBlock(),
           el('p.small.muted', null, cls.blurb),
           el('div.divider'),
           el('h3', { style: { marginBottom: '6px' } }, 'Statistics'),
@@ -48,6 +54,36 @@ export function heroScreen(app, hero, initialTab = 'gear') {
             el('b', { style: { color: availablePoints(hero) > 0 ? 'var(--accent)' : 'inherit' } }, String(availablePoints(hero))),
           ]),
         ]),
+      ]);
+    }
+
+    /**
+     * The hero, moving. This is the one place in the game where the art is big
+     * enough to look at, so it plays every animation on demand rather than
+     * only idling — half of what a class is is how it swings.
+     */
+    function figureBlock() {
+      const portrait = heroPortrait(hero.classId, {
+        size: 176,
+        anim: animShown,
+      });
+      return el('div.hero-figure', null, [
+        portrait.node,
+        el('div.anim-pick', null, ANIMATION_IDS.map((id) => el(
+          'button.sm' + (animShown === id ? '.primary' : ''),
+          {
+            onclick: () => {
+              animShown = id;
+              portrait.play(id);
+              // Re-render only the buttons' state; rebuilding the panel would
+              // restart the animation the player just asked to see.
+              for (const b of root.querySelectorAll('.anim-pick button')) {
+                b.classList.toggle('primary', b.textContent === id);
+              }
+            },
+          },
+          id,
+        ))),
       ]);
     }
 

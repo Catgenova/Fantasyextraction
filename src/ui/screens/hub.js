@@ -2,6 +2,7 @@
 // and deploy.
 
 import { el, clear, selectField, hideTooltip } from '../dom.js';
+import { heroPortrait, beastPortrait } from '../portrait.js';
 import { itemRow } from '../items.js';
 import { CLASSES } from '../../data/classes.js';
 import { XP_PER_LEVEL, MAX_LEVEL } from '../../data/classes.js';
@@ -78,6 +79,10 @@ export function hubScreen(app) {
           ]),
           el('span.pill', null, `Lv ${hero.level}`),
         ]),
+        // Facing right, as the rig is authored. Pointing it up the card put
+        // every long weapon straight through the top of the frame.
+        el('div.card-figure', null,
+          heroPortrait(hero.classId, { size: 84, hoverAnim: 'attack' }).node),
         el('div.statline', null, [el('span.muted', null, 'Health'), el('b', null, String(Math.round(stats.maxHp)))]),
         el('div.statline', null, [el('span.muted', null, 'Attack power'), el('b', null, String(Math.round(stats.attackPower)))]),
         el('div.statline', null, [el('span.muted', null, 'Armour / resist'), el('b', null, `${Math.round(stats.armor)} / ${Math.round(stats.resist)}`)]),
@@ -293,15 +298,22 @@ export function hubScreen(app) {
         el('div.panel-body.col', { style: { gap: '5px' } }, rows.map(({ ach, earned: got }) => {
           const cls = CLASSES[ach.unlocks];
           const boss = bossForAchievement(ach);
+          // The creature itself, because a locked row's whole job is to tell a
+          // player what they have to go and kill. A name and a ring are a
+          // reading task; the animal is not.
           return el('div.trophy' + (got ? '.got' : ''), { style: { '--cls': cls.color } }, [
-            el('div.spread', null, [
-              el('div.nm', null, got ? ach.name : boss?.name ?? ach.bossId),
-              el('span.pill', { style: { color: got ? cls.color : 'var(--dim)' } },
-                got ? cls.name : 'Locked'),
+            el('div.trophy-beast', null,
+              beastPortrait(ach.bossId, { size: 54, hoverAnim: 'attack' }).node),
+            el('div.grow', null, [
+              el('div.spread', null, [
+                el('div.nm', null, got ? ach.name : boss?.name ?? ach.bossId),
+                el('span.pill', { style: { color: got ? cls.color : 'var(--dim)' } },
+                  got ? cls.name : 'Locked'),
+              ]),
+              el('div.tiny.dim', null, got
+                ? `${cls.name} unlocked · ${cls.role}`
+                : `${ach.blurb} Unlocks the ${cls.name}.`),
             ]),
-            el('div.tiny.dim', null, got
-              ? `${cls.name} unlocked · ${cls.role}`
-              : `${ach.blurb} Unlocks the ${cls.name}.`),
           ]);
         })),
       ]);
