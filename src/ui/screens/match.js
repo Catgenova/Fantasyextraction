@@ -6,6 +6,7 @@ import { el, clear, fmtTime, hideTooltip } from '../dom.js';
 import { createRenderer } from '../render.js';
 import { createRunBags } from './runbags.js';
 import { createNavPad } from './navpad.js';
+import { createHuntPad } from './huntpad.js';
 import { QUALITIES, QUALITY_ORDER } from '../../data/parts.js';
 import { CLASSES } from '../../data/classes.js';
 import { MATCH_SECONDS } from '../../data/enemies.js';
@@ -26,12 +27,14 @@ export function matchScreen(app, match) {
   const hud = el('div.hud');
   const bags = createRunBags(match, { isPaused: () => paused, togglePause });
   const navpad = createNavPad(match);
+  const huntpad = createHuntPad(match);
   const legend = buildLegend();
 
   // Only one overlay at a time — on a phone they occupy the same space.
   function openOnly(which) {
     if (which !== 'bags') bags.hide();
     if (which !== 'nav') navpad.hide();
+    if (which !== 'hunt') huntpad.hide();
     if (which !== 'legend') legend.hidden = true;
   }
   const clock = el('div.clock', null, '00:00');
@@ -48,6 +51,9 @@ export function matchScreen(app, match) {
   const navBtn = el('button.sm', {
     onclick: () => { const open = navpad.isOpen(); openOnly('nav'); if (open) navpad.hide(); else navpad.show(); },
   }, 'Navigate');
+  const huntBtn = el('button.sm', {
+    onclick: () => { const open = huntpad.isOpen(); openOnly('hunt'); if (open) huntpad.hide(); else huntpad.show(); },
+  }, 'Hunt');
   const bagsBtn = el('button.sm', {
     onclick: () => { const open = bags.isOpen(); openOnly('bags'); if (open) bags.hide(); else bags.show(); },
   }, 'Bags');
@@ -83,7 +89,7 @@ export function matchScreen(app, match) {
     el('button.primary.sm', { onclick: orderExtract }, 'Extract now'),
     el('button.sm', { onclick: clearOrder }, 'Resume plan'),
     el('div', { style: { width: '1px', height: '20px', background: 'var(--line)' } }),
-    navBtn, bagsBtn, legendBtn,
+    huntBtn, navBtn, bagsBtn, legendBtn,
     el('div', { style: { width: '1px', height: '20px', background: 'var(--line)' } }),
     pauseBtn, speedBtn, followBtn,
     el('div', { style: { width: '1px', height: '20px', background: 'var(--line)' } }),
@@ -93,6 +99,7 @@ export function matchScreen(app, match) {
   hud.appendChild(bannerHost);
   hud.appendChild(legend);
   hud.appendChild(navpad.node);
+  hud.appendChild(huntpad.node);
   hud.appendChild(bags.node);
   root.appendChild(hud);
 
@@ -277,6 +284,7 @@ export function matchScreen(app, match) {
 
     bags.refresh();
     navpad.refresh();
+    huntpad.refresh();
 
     if (match.feed.length !== lastFeedLength) {
       lastFeedLength = match.feed.length;

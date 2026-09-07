@@ -413,7 +413,11 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
 .bags .item { align-items: center; }
 .bags .item .nm { font-size: 12.5px; }
 
-.navpad {
+/* Shared chrome for the small HUD overlays that sit over the map — Navigate
+   and Hunt. Named for what it is rather than for whichever one came first:
+   giving the hunt panel a `.navpad` class made `.navpad` match two elements
+   and broke a navigation test's locator. */
+.hudsheet {
   position: absolute; z-index: 12;
   right: 276px; bottom: 64px; width: 214px;
   background: rgba(16,14,12,.95);
@@ -422,9 +426,28 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
   backdrop-filter: blur(6px);
   box-shadow: 0 12px 40px rgba(0,0,0,.5);
 }
-.navpad[hidden] { display: none !important; }
+.hudsheet[hidden] { display: none !important; }
 .navrose { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; }
 .navrose button { padding: 7px 0; font-size: 12px; }
+
+/* The hunt list is longer than a compass rose, so it scrolls inside itself
+   rather than growing off the bottom of a phone. */
+.huntpad { width: 250px; max-height: min(62vh, 460px); overflow-y: auto; }
+.hunt-now {
+  border: 1px solid var(--line); border-radius: 6px;
+  padding: 6px 8px; margin-bottom: 8px; display: flex;
+  flex-direction: column; gap: 4px;
+}
+.hunt-ring {
+  font-size: 10px; letter-spacing: .12em; text-transform: uppercase;
+  color: var(--dim); margin: 9px 0 4px;
+}
+.hunt-row {
+  border-left: 3px solid var(--cls, var(--line));
+  padding: 5px 0 6px 7px; margin-bottom: 4px;
+}
+.hunt-row .nm { font-size: 12px; }
+.hunt-row button { padding: 4px 7px; font-size: 11px; }
 
 .legend {
   position: absolute; z-index: 12;
@@ -609,12 +632,17 @@ body:not([data-screen="match"]) .panel.grow { flex: none; }
 
   /* Sheets fill the space between the squad strip and the control bar, which
      now has a fixed height and so can be cleared reliably. */
-  .bags, .legend, .navpad {
+  .bags, .legend, .hudsheet {
     top: 44px; bottom: 54px; left: 6px; right: 6px;
     width: auto; max-height: none; z-index: 20;
   }
-  .navpad { overflow-y: auto; }
+  .hudsheet { overflow-y: auto; }
   .navrose button { padding: 12px 0; font-size: 14px; }
+  /* Hunt rows are the one place a mis-tap changes where the whole squad is
+     going, so the targets grow with everything else on a phone. */
+  .hunt-row { padding: 8px 0 9px 9px; }
+  .hunt-row button { padding: 9px 12px; font-size: 13px; }
+  .hunt-ring { font-size: 11px; }
   .bags-body { padding: 9px 10px; }
   .bags .item { flex-wrap: wrap; }
   .legend { overflow-y: auto; }

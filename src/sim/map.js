@@ -2,10 +2,17 @@
 // danger rings; the deeper you go the better the spawns and the loot.
 
 import { makeRng, rand, randInt, chance, pick, shuffle } from '../core/rng.js';
-import { dist } from '../core/vec.js';
+import { dist, clamp } from '../core/vec.js';
 import { CREATURES } from '../data/creatures.js';
 
 const PACK_SPECIES = Object.values(CREATURES).filter((c) => c.hunt === 'small');
+
+// How many small species each ring draws. Five is the smallest number that
+// still gives every species on the map both pack sizes and enough camps to
+// keep hunting one all raid; going higher thins each species back out until a
+// hunt order is a search again.
+const FAUNA_PER_RING = 5;
+const CAMPS_PER_SPECIES = 4;
 
 // The raid map is deliberately huge: crossing it corner to corner takes most
 // of the 30-minute timer on foot, so where you land and where you extract are
@@ -106,8 +113,10 @@ export function generateMap(seed) {
   }
 
   // --- Points of interest --------------------------------------------------
-  // Camps seed persistent enemy groups; arenas hold the two scheduled bosses.
+  // Camps seed persistent enemy groups; the solo grounds hold one large
+  // creature each.
   const campCount = 72;
+  const campSites = [];
   for (let i = 0; i < campCount; i++) {
     let p = null;
     for (let attempt = 0; attempt < 40; attempt++) {
@@ -115,16 +124,61 @@ export function generateMap(seed) {
       if (clearOfSpawnsAndExits(map, c, 480)) { p = c; break; }
     }
     if (!p) continue;
-    const tier = tierAt(p);
-    // One species per pack, decided at generation so a squad can be told to go
-    // and hunt a named creature rather than "whatever is over there".
+    campSites.push({ ...p, tier: tierAt(p) });
+  }
+
+  // A raid has a fauna rather than the whole bestiary. Each ring draws a few
+  // of the species that live in it, and every camp in that ring is one of
+  // them.
+  //
+  // This is what makes a hunt order answerable. Spreading forty species over
+  // seventy camps gave a species three camps if it was lucky and none of the
+  // larger packs at all, so "hunt a large pack of Sicklejaw" named something
+  // that did not exist on the map — an order the squad could search for until
+  // the timer ran out. Drawing five species a ring gives each of them about
+  // five camps, enough to guarantee both pack sizes and enough to still be
+  // hunting one an hour into a raid.
+  //
+  // It also makes maps differ from each other, which forty-species-everywhere
+  // never did: what lives here is a fact about this raid, and worth knowing.
+  const fauna = {};
+  for (const tier of [0, 1, 2]) {
     const pool = PACK_SPECIES.filter((c) => c.tier === tier);
-    const species = pool.length ? pool[randInt(rng, 0, pool.length - 1)] : PACK_SPECIES[0];
-    map.pois.push({
-      id: `camp_${i}`, kind: 'camp', x: p.x, y: p.y, tier, radius: 220, cleared: false,
-      speciesId: species.id,
-      // Roughly a third of packs are the larger, riskier version of themselves.
-      packKind: chance(rng, 0.34) ? 'large' : 'small',
+    // Scale the draw to the ring rather than using a flat five, and never draw
+    // more species than the ring has camps to give them. The core is the
+    // smallest ring — about eight camps to the outer ring's forty — so a flat
+    // five there is one or two camps each, and a species with one camp has
+    // only one pack size, which makes half its hunts unanswerable.
+    //
+    // Dividing by CAMPS_PER_SPECIES is what guarantees the invariant rather
+    // than merely making it likely: every species drawn is dealt at least four
+    // camps, so both pack sizes always exist. A floor under this — an earlier
+    // version insisted on three species a ring — puts the bug straight back,
+    // and did: one map in forty had a species down to a single camp.
+    const inRing = campSites.filter((c) => c.tier === tier).length;
+    const want = clamp(Math.floor(inRing / CAMPS_PER_SPECIES), 1, FAUNA_PER_RING);
+    const draw = shuffle(rng, pool.slice()).slice(0, Math.min(want, pool.length));
+    fauna[tier] = draw.length ? draw : PACK_SPECIES.slice(0, 1);
+  }
+  map.fauna = Object.fromEntries(Object.entries(fauna).map(([t, list]) => [t, list.map((c) => c.id)]));
+
+  let campSeq = 0;
+  for (const [tier, list] of Object.entries(fauna)) {
+    const sites = shuffle(rng, campSites.filter((c) => c.tier === Number(tier)));
+    sites.forEach((site, i) => {
+      const species = list[i % list.length];
+      // Deal the pack sizes within each species rather than rolling them.
+      // A roll at roughly a third leaves a species with three camps holding
+      // no large pack about a third of the time; dealing means the first camp
+      // of a species is always small, the second always large, and every
+      // species on the map can be hunted both ways.
+      const nth = Math.floor(i / list.length);
+      map.pois.push({
+        id: `camp_${campSeq++}`, kind: 'camp', x: site.x, y: site.y,
+        tier: site.tier, radius: 220, cleared: false,
+        speciesId: species.id,
+        packKind: nth % 3 === 1 ? 'large' : 'small',
+      });
     });
   }
 

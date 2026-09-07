@@ -18,7 +18,7 @@ const ROSE = [
 ];
 
 export function createNavPad(match) {
-  const root = el('div.navpad', { hidden: true });
+  const root = el('div.hudsheet.navpad', { hidden: true });
 
   function centroid() {
     return match.squadCentroid(match.playerSquad) ?? { ...CENTER };

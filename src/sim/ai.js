@@ -15,6 +15,17 @@ import { resolveCollisions, obstaclesNear, bestExtract, extractIsOpen } from './
 import { itemScore, packCapacity } from '../data/gear.js';
 import { QUALITY_ORDER, partValue } from '../data/parts.js';
 import { CREATURES } from '../data/creatures.js';
+import { quarryLabel } from '../data/hunts.js';
+
+// Inside this range a creature is a fight regardless of what the squad came
+// here for. Outside it, a hunt order lets them keep walking.
+//
+// Tuned, and the narrow band wins on both halves of the trade at once. Over
+// twelve seeds hunting a mid-ring species, quarry carves and total carves
+// went 68/256 at 260 units, 49/213 at 420 and 9/176 at 640 — a squad that
+// stops for everything within sight neither hunts nor farms, because the
+// fights it picks up on the way are the ones that get it killed.
+const HUNT_IGNORE_RANGE = 260;
 import { stowConsumable, canPackConsumable } from './inventory.js';
 
 const OUT_OF_COMBAT_AFTER = 5;
@@ -1066,6 +1077,7 @@ export function tryCarve(match, e, dt) {
 
   const species = CREATURES[corpse.defId];
   if (!species) return;
+  if (e.isPlayer) match.notice(species.id, { carves: 1 });
   const part = match.rollPart(species, corpse.carve?.qualityBias ?? 0);
 
   if (!wantsItem(e, part)) {
@@ -1325,10 +1337,29 @@ export function squadObjective(match, squad) {
   // Committing to every squad you bump into turns a raid into a deathmatch,
   // so PvP is a decision: your plan wants it, they are on top of you, or they
   // already shot first.
+  const quarry = squad.tactics.quarry;
+
   const contact = match.neighbours(centroid, 640)
     .filter((t) => t.alive && t.team !== squad.team && !t.evading);
   if (contact.length) {
-    const pve = contact.filter((t) => t.team === 'pve');
+    let pve = contact.filter((t) => t.team === 'pve');
+
+    // A hunt order is as much about what the squad walks past as where it
+    // goes. Without this the order barely steered anything: on a map of
+    // seventy camps a squad is in contact with something almost permanently,
+    // so the hunt step below hardly ever ran and half the raids never reached
+    // a species that had eight camps on the map.
+    //
+    // Only the wide band is filtered. Anything already on top of the squad,
+    // and anything that has drawn blood, is a fight whether the order likes
+    // it or not — walking away from those is how a squad dies with an order
+    // still pending.
+    if (quarry?.speciesId && pve.length) {
+      const committed = pve.filter((t) => t.defId === quarry.speciesId
+        || dist(centroid, t.pos) < HUNT_IGNORE_RANGE
+        || members.some((m) => m.lastHitBy === t.id && match.time - m.lastDamageAt < 5));
+      pve = committed;
+    }
     const rivals = contact.filter((t) => t.kind === 'hero');
 
     const shotFirst = members.some((m) => match.time - m.lastDamageAt < 4
@@ -1408,7 +1439,33 @@ export function squadObjective(match, squad) {
     squad.lootTargetId = null;
   }
 
-  // 6. Follow the plan.
+  // 6. A standing hunt order. This sits below contact and carving on purpose:
+  // a quarry says where to *go*, not what to ignore when something is already
+  // chewing on you, and walking past a body to keep hunting would throw away
+  // the reason the order exists.
+  //
+  // Unlike a landmark trip it does not clear itself on arrival. Clearing a
+  // camp of Sicklejaw is the order being obeyed once, not finished — the squad
+  // moves to the next one, which is what "hunt Sicklejaw" means to a player
+  // five parts short of a set.
+  if (quarry?.speciesId) {
+    const found = match.findQuarry(centroid, quarry);
+    if (found) {
+      return { mode: 'travel', pos: { x: found.x, y: found.y }, label: `Hunting ${quarryLabel(quarry)}` };
+    }
+    // Nothing on this map satisfies it any more. Camps respawn, so a pack
+    // hunt never runs out; this is a solo hunt whose creature is dead. Say so
+    // once and fall through to the plan rather than leaving a squad steered
+    // by an order that can no longer mean anything.
+    if (!squad.huntSpent) {
+      squad.huntSpent = true;
+      match.log(`Nothing left to hunt: ${quarryLabel(quarry)}.`, 'info');
+    }
+  } else if (squad.huntSpent) {
+    squad.huntSpent = false;
+  }
+
+  // 7. Follow the plan.
   if (plan.chaseEvents) {
     const ev = match.activeEvents.find((v) => v.pos);
     if (ev) return { mode: 'travel', pos: { ...ev.pos }, label: `Event: ${ev.name}` };

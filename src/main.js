@@ -7,7 +7,7 @@ import { heroScreen } from './ui/screens/hero.js';
 import { matchScreen } from './ui/screens/match.js';
 import { resultsScreen } from './ui/screens/results.js';
 import { smithScreen } from './ui/screens/smith.js';
-import { newProfile, sanitizeProfile, squadHeroes, heroById, applyMatchResult } from './game/profile.js';
+import { newProfile, sanitizeProfile, squadHeroes, heroById, applyMatchResult, knownSpecies } from './game/profile.js';
 import { loadSave, writeSave, clearSave } from './persist.js';
 import { Match } from './sim/match.js';
 import { generateBotSquads } from './sim/bots.js';
@@ -23,6 +23,12 @@ const app = {
   current: null,
   currentNode: null,
 };
+
+// The harness reaches the running game through this, and so does anyone
+// poking at it from a console. A browser test that can only read the DOM can
+// tell that a button lit up but not that the order reached the squad, which
+// is the half that matters.
+window.__ashenveil = app;
 
 const mount = document.getElementById('app');
 
@@ -187,6 +193,7 @@ function startRaid() {
       heroes,
       tactics: profile.squadTactics,
     },
+    knownSpecies: knownSpecies(profile),
     botSquads: generateBotSquads(seed, RIVAL_SQUADS, avgLevel),
   });
 

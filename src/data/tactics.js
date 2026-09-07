@@ -171,5 +171,9 @@ export function defaultSquadTactics() {
     // common potion is worth picking up on any run that a legendary filter
     // would otherwise strip to nothing.
     takeConsumables: true,
+    // A standing hunt order: { speciesId, kind }, or null for "whatever the
+    // plan turns up". Set in camp against the profile's journal and changed
+    // mid-raid against what the squad can actually see.
+    quarry: null,
   };
 }

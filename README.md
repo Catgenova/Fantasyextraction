@@ -49,8 +49,8 @@ difficulty slider.
 
 | Hunt | What it is | Pays |
 |---|---|---|
-| **Small pack** | Three to nine of one small species | One or two carves each, at the grade they died at |
-| **Large pack** | Fewer of them, but the deep-ring versions | The same parts, better odds on grade |
+| **Small pack** | A few of one small species | One or two carves each, at the grade they died at |
+| **Large pack** | The same species in greater numbers | The same parts, more of them |
 | **Solo monster** | One of the ten large creatures, alone in its ground | Four to six carves, and two grades of bias upward |
 
 Packs are sized by threat rather than headcount — `PACK_BUDGET` in
@@ -61,6 +61,73 @@ put nineteen Skiterlings on a starter squad and wiped it in sixty seconds.
 Other squads are hunting the same ground. Nothing about picking a fight makes
 you safe from them, and a squad that has just finished a solo monster is the
 best thing on the map to rob.
+
+## Hunting something in particular
+
+The smith works in fives, so wanting a *specific* species is the normal state
+of a player who has decided what to build. A **hunt order** is how you say so:
+pick a species and a pack size, and the squad goes and finds one.
+
+It is a standing order, not a destination. Clearing the pack it sent them to is
+the order being obeyed once, not finished — the squad moves to the next site of
+the same species, and keeps doing that until you call it off.
+
+A hunt order also decides what the squad *ignores*. Anything of the wrong
+species further than 260 units away is walked past; anything closer, and
+anything that has already drawn blood, is a fight whether the order likes it or
+not. That band is the whole feature. Tuned over twelve seeds hunting a mid-ring
+species, quarry carves and total carves came to 68/256 at 260 units, 49/213 at
+420 and 9/176 at 640 — a squad that stops for everything within sight neither
+hunts nor farms, because the fights it picks up on the way are the ones that
+get it killed.
+
+Ordered against unordered, at matched seeds, the squad carves its quarry about
+four times as often and comes home with roughly 44% of the parts it would have
+gathered indiscriminately. That is the trade the order is: depth for breadth.
+
+### Where the order comes from
+
+**In camp**, you pick from the **journal** — every species you have ever killed
+or carved, which is what the game remembers you knowing. A new profile knows
+the two creatures its starting parts came off and nothing else.
+
+**In the raid**, the **Hunt** panel lists this map's own fauna, grouped by ring
+and marked with the distance to the nearest site. Every row on it is a hunt the
+squad can actually walk to.
+
+The two lists differ because a raid draws about a dozen of the fifty species,
+so a camp order can name something this map does not hold. When that happens it
+is dropped as you land, with a line in the raid log saying so, and you pick
+again from what is actually out there.
+
+That split is the second design of this system, and the first one is worth
+recording because it sounded better. Originally an order could name anything in
+the journal and the squad went *looking* — searching the ring that species
+lives in, camp by camp, learning the map as it went. It played badly. A journal
+remembers everything you have met and a map holds a dozen, so two orders in
+three named something that was not there; over twelve seeds a mid-ring order
+carved the quarry in three raids of twelve and halved the total haul, 558
+carves down to 258. Making the map honest about its own contents fixed it: the
+same measurement went to eight raids in twelve and 353% more of the quarry.
+
+## The fauna
+
+A raid has a fauna rather than the whole bestiary. Each ring draws a few of the
+species that live in it, and every camp in that ring is one of them — nine to
+fourteen species a map, four to eleven camps each.
+
+This is what makes a hunt order answerable at all. Spreading forty species over
+seventy camps gave a species three camps if it was lucky and often no large
+pack whatsoever, so a third of the list named something that did not exist. The
+draw is sized by how many camps a ring actually has (`FAUNA_PER_RING` and
+`CAMPS_PER_SPECIES` in `src/sim/map.js`) rather than being a flat number, which
+is what guarantees the invariant instead of merely making it likely: an earlier
+version insisted on at least three species per ring and one map in forty still
+had a species down to a single camp. Across a hundred maps there is now no
+species with fewer than four camps and no hunt that cannot be answered.
+
+It also makes maps differ from each other, which forty-species-everywhere never
+did. What lives here is a fact about this raid, and worth knowing.
 
 ## Carving
 
@@ -260,9 +327,9 @@ navigation and the other two stay with the leader, closing in whenever they
 drift. The leader slows to a crawl while anyone is trailing and turns back
 outright if they fall a long way behind.
 
-Your input during a raid is deliberately narrow: navigation, an extract order,
-the speed control, your squad's packs, and the standing loot orders. Everything
-else was decided in camp.
+Your input during a raid is deliberately narrow: what to hunt, navigation, an
+extract order, the speed control, your squad's packs, and the standing carve
+orders. Everything else was decided in camp.
 
 **Navigate** gives eight compass headings plus the core, the nearest hunting
 ground, and the nearest extraction. A heading is open-ended — the squad marches
@@ -300,7 +367,8 @@ priority, carve filter, retreat threshold, potion threshold, focus fire, and a
 per-spell policy (auto / emergency / hold).
 
 **Per squad:** formation, raid plan (farm the ring, boss hunt, event chaser,
-squad hunter), extraction plan, leader, and whether to engage rival squads.
+squad hunter), standing hunt order, extraction plan, leader, and whether to
+engage rival squads.
 
 Those settings are read directly by `src/sim/ai.js`, which is the interpreter
 for them — there is no second, hidden set of rules.
@@ -377,7 +445,8 @@ spawn-camped out of a raid.
 src/
   core/      seeded rng, vector maths
   data/      classes, spells, skill trees, consumables, tactics, and the
-             hunt: creatures, behaviours, parts, gear, sets — all plain data
+             hunt: creatures, behaviours, parts, gear, sets, hunt orders —
+             all plain data
   sim/       stats, combat, entities, map generation, the tactics AI,
              hero records, bot squads, and the Match instance
   game/      the persistent player profile and the blacksmith
@@ -397,6 +466,7 @@ node tools/test-loot.js
 node tools/test-movement.js
 node tools/test-bestiary.js
 node tools/test-smith.js
+node tools/test-hunt.js
 node tools/test-extraction.js
 node tools/test-achievements.js
 node tools/test-bags.mjs        # needs Playwright; skips if absent
@@ -404,6 +474,7 @@ node tools/test-navigation.mjs  # needs Playwright; skips if absent
 node tools/test-layout.mjs      # needs Playwright; skips if absent
 node tools/test-unlocks.mjs     # needs Playwright; skips if absent
 node tools/test-forge.mjs       # needs Playwright; skips if absent
+node tools/test-huntpad.mjs     # needs Playwright; skips if absent
 ```
 
 `simulate.js` runs whole raids headless and reports outcomes — the fastest way
@@ -463,6 +534,22 @@ then cannot be equipped is worse than one that stays locked.
 unlocked class surviving the screens — eighteen tree nodes, its own starting
 spells, gear it can actually wear, added to the squad, deployed.
 
+`test-hunt.js` covers hunt orders, and the last section of it is the reason the
+file exists. Everything structural about the first version of this system
+passed — orders resolved, sites matched, the journal recorded — while the
+feature delivered almost nothing, so the file ends by running whole raids with
+and without an order at matched seeds and comparing what came home. It also
+asserts the map invariant the whole system rests on across a hundred maps: no
+species with fewer than four camps, and no hunt on the list that has nowhere to
+go.
+
+`test-huntpad.mjs` is the browser half: the camp's picker offers exactly what
+the journal remembers and grows as the squad meets things, a pack species
+offers both sizes and a solo creature offers neither, and an order given from
+the in-raid panel reaches the squad rather than only lighting up a button. It
+reads the live squad through `window.__ashenveil`, because a DOM-only check can
+tell that a button turned gold and not that anything happened.
+
 `test-forge.mjs` is the browser half of the smith. Forging cannot be undone, so
 most of what it checks are the guard rails rather than the arithmetic: a recipe
 quotes its grade and its cost before anything is spent, the first tap only arms
@@ -495,29 +582,34 @@ reproduced exactly.
 ## Current balance
 
 Measured with `tools/simulate.js` at seed 300, both sides fully built —
-level-appropriate gear and a spent skill tree — against five rival squads:
+level-appropriate gear and a spent skill tree — against five rival squads, and
+with no hunt order set:
 
 | Raid plan | Level | Runs | Clean | Partial | Wiped | Avg parts kept | Solo kills |
 |---|---|---|---|---|---|---|---|
-| Farm the ring | 5 | 12 | 8 | 3 | 1 | 29.0 | 0.33 |
-| Solo hunt | 5 | 8 | 1 | 2 | 5 | 7.5 | 0.38 |
-| Solo hunt | 14 | 8 | 0 | 5 | 3 | 11.6 | 2.13 |
-| Squad hunter | 10 | 8 | 6 | 2 | 0 | 42.0 | 1.75 |
+| Farm the ring | 5 | 12 | 6 | 3 | 3 | 22.0 | 0.17 |
+| Solo hunt | 5 | 8 | 0 | 2 | 6 | 3.0 | 0.13 |
+| Solo hunt | 14 | 8 | 0 | 5 | 3 | 10.4 | 2.63 |
+| Squad hunter | 10 | 8 | 8 | 0 | 0 | 48.0 | 2.13 |
 
 That spread is the intent: farming packs is a reliable income, and the solo
-monsters are a place you earn the right to visit. A level-5 solo hunt wipes
-five times in eight and brings home 7.5 parts; the same plan at 14 kills 2.13
-of them a raid.
+monsters are a place you earn the right to visit. A level-5 solo hunt wipes six
+times in eight and brings home three parts; the same plan at 14 kills 2.63 of
+them a raid.
 
-The carve economy reads differently from the old loot economy, and better. A
-farming run now comes home with 29 parts rather than 25 items, but those parts
-are a handful of species — enough to forge two or three pieces of one set
-rather than a stash of unrelated singles. Hunting rival squads pays best of all
-at 42, because a squad you kill is a squad that was already carrying.
+Drawing a fauna per map rather than sprinkling forty species over seventy camps
+moved this a little, and not in the direction it looks. Farming at level 5
+reads worse than before (6/3/3 against 8/3/1) purely because seed 300 happens
+to draw a harsh outer ring — over eight seeds at 500 the same change went 2/3/3
+to 5/1/2 and the haul from 16.5 parts to 24.0. A map now has a character, which
+means some maps are harder than others; that is the point of the change rather
+than a cost of it.
 
-Solo kills are lower across the board than boss kills used to be, and that is
-the pivot working: a large creature is a fight you commit to rather than
-something you walk past on the way to an exit.
+The carve economy still reads better than the old loot economy. A farming run
+comes home with 22 parts, but those parts are a handful of species — enough to
+forge two or three pieces of one set rather than a stash of unrelated singles.
+Hunting rival squads pays best of all at 48, because a squad you kill is a
+squad that was already carrying.
 
 ## Status
 
@@ -526,16 +618,11 @@ the same hero records and driven by the same tactics AI as the player's squad,
 which is what makes robbing one meaningful — they are wearing gear somebody
 forged.
 
-Two things the hunt loop still owes the player:
-
-- **Choosing the hunt is not yet an order.** The map already stores a
-  `speciesId` and a `packKind` on every camp, so a squad *is* fighting a named
-  species in a fight of a known size — but there is no way to say "go and hunt
-  a pack of Sicklejaw" and have the squad route to one. That is the next thing
-  to build, and the data is in place for it.
-- **Sets are easier to talk about than to assemble.** Five pieces of one
-  species means five parts of the right types off the same creature, and
-  nothing yet helps a player see how close they are from inside a raid.
+What the hunt loop still owes the player: **sets are easier to talk about than
+to assemble.** Five pieces of one species means five parts of the right types
+off the same creature, and while the camp now tells you which set you are
+closest to, nothing yet helps you see it from inside a raid or plan which
+carves you actually still need.
 
 The known weak spot is steering, and it is currently dormant rather than fixed:
 the map generates no obstacles, so there is nothing to wedge against. With

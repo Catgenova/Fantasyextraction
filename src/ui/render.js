@@ -5,6 +5,7 @@
 import { WORLD_SIZE, RING_CORE, RING_MID, CENTER, BIOMES, extractIsOpen } from '../sim/map.js';
 import { QUALITIES } from '../data/parts.js';
 import { CLASSES } from '../data/classes.js';
+import { CREATURES } from '../data/creatures.js';
 import { hpFrac, manaFrac } from '../sim/entity.js';
 import { canTake } from '../sim/ai.js';
 import { dist } from '../core/vec.js';
@@ -355,15 +356,31 @@ export function createRenderer(canvas, minimapCanvas) {
   }
 
   function drawPois(match, view) {
+    // The site the squad is currently hunting is drawn whether or not it has
+    // streamed in, because an order the player cannot see on the map is one
+    // they have to take on trust.
+    const squad = match.playerSquad;
+    const quarry = squad?.tactics?.quarry;
+    const target = quarry
+      ? match.findQuarry(match.squadCentroid(squad) ?? CENTER, quarry)
+      : null;
+
     for (const poi of match.map.pois) {
       if (!inView(view, poi.x, poi.y, poi.radius)) continue;
+      const hunted = target && poi.id === target.id;
       if (poi.kind === 'camp') {
-        if (!poi.active) continue;
-        ctx.strokeStyle = 'rgba(190,120,90,.16)';
-        ctx.lineWidth = 2;
+        if (!poi.active && !hunted) continue;
+        ctx.strokeStyle = hunted ? 'rgba(240,190,120,.5)' : 'rgba(190,120,90,.16)';
+        ctx.lineWidth = hunted ? 3 : 2;
+        if (hunted) ctx.setLineDash([10, 9]);
         ctx.beginPath();
         ctx.arc(poi.x, poi.y, poi.radius, 0, Math.PI * 2);
         ctx.stroke();
+        ctx.setLineDash([]);
+        if (hunted) {
+          label(`HUNT: ${(CREATURES[poi.speciesId]?.name ?? '').toUpperCase()}`,
+            poi.x, poi.y - poi.radius - 12, 'rgba(240,200,140,.8)', 13);
+        }
       } else {
         const alive = poi.bossEntityId ? match.byId(poi.bossEntityId)?.alive : !poi.spawned;
         ctx.strokeStyle = alive ? 'rgba(240,163,60,.34)' : 'rgba(120,110,100,.16)';

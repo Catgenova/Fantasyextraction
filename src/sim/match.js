@@ -13,6 +13,7 @@ import { CREATURES } from '../data/creatures.js';
 import { treeMods, addMods, emptyMods } from './stats.js';
 import { setAuras } from '../data/sets.js';
 import { READY_FOR_BOSS_TIER } from '../data/tactics.js';
+import { poiMatchesQuarry, sanitizeQuarry, quarryLabel } from '../data/hunts.js';
 
 export const TICK = 1 / 30;           // fixed sim step
 const CAMP_ACTIVATE = 1700;
@@ -70,6 +71,15 @@ export class Match {
     this._gridTime = -1;
 
     this.stats = { kills: 0, bossKills: 0, heroKills: 0, looted: 0 };
+    // What the player squad has met this raid, species id -> {kills, carves}.
+    // This is what the journal is built from, and what decides which hunts
+    // they can order: a species you have laid eyes on is one you can go and
+    // look for again.
+    this.encountered = {};
+    // Species the player already knew when they landed, from the profile's
+    // journal. A hunt can be ordered against these from the drop — you know
+    // roughly where a Sicklejaw lives even before you find this raid's camp.
+    this.priorKnowledge = new Set(config.knownSpecies ?? []);
     // Which bosses the *player's* squad put down, by definition id. Rival
     // squads kill bosses too, and their trophies are not yours.
     this.bossesKilled = [];
@@ -133,6 +143,21 @@ export class Match {
     });
 
     this.playerSquad = this.squads.get(this.config.playerSquad.id);
+
+    // A quarry chosen in camp is a preference, not a promise: it was written
+    // against the profile's journal, and this raid holds about fifteen of the
+    // fifty species. If what they asked for is not here, say so at the drop
+    // rather than steering the squad toward something that does not exist.
+    // The squad's tactics are a copy, so this never writes back to the save.
+    const standing = sanitizeQuarry(this.playerSquad?.tactics?.quarry);
+    if (standing && !this.faunaSpecies().has(standing.speciesId)) {
+      this.playerSquad.tactics.quarry = null;
+      this.droppedQuarry = standing;
+      this.log(`No ${CREATURES[standing.speciesId]?.name ?? 'quarry'} in this raid. Pick another hunt.`, 'event');
+    } else if (this.playerSquad) {
+      this.playerSquad.tactics.quarry = standing;
+      if (standing) this.log(`Hunting ${quarryLabel(standing)}.`, 'event');
+    }
   }
 
   /**
@@ -409,6 +434,7 @@ export class Match {
         if (!poi.active && nearest < CAMP_ACTIVATE && this.time >= poi.respawnAt
             && this.entities.length < ENTITY_BUDGET) {
           this.#populateCamp(poi);
+          this.#noticePoi(poi);
         } else if (poi.active && nearest > CAMP_DEACTIVATE) {
           // Despawn untouched camps so the sim stays cheap on a huge map.
           const survivors = poi.spawnedIds.map((id) => this.byId(id)).filter((e) => e?.alive);
@@ -429,6 +455,7 @@ export class Match {
         this.addEntity(boss);
         poi.spawned = true;
         poi.bossEntityId = boss.id;
+        this.#noticePoi(poi);
         this.log(`${boss.name} stirs.`, 'boss');
       }
     }
@@ -466,6 +493,86 @@ export class Match {
       this.addEntity(e);
       poi.spawnedIds.push(e.id);
     }
+  }
+
+  /**
+   * Record a sighting in the journal, if the player squad is the one who made
+   * it.
+   *
+   * It has to be their own eyes: a rival squad walking past a Sicklejaw camp
+   * on the far side of the map is not something the player has learned. Laying
+   * eyes on a species is enough — you can meet something without ever getting
+   * a knife into one, and the journal is a record of what you have met.
+   */
+  #noticePoi(poi) {
+    const centre = this.squadCentroid(this.playerSquad);
+    if (!centre || dist(centre, poi) > CAMP_ACTIVATE) return;
+    const speciesId = poi.kind === 'camp' ? poi.speciesId : poi.bossId;
+    if (speciesId) this.notice(speciesId, {});
+  }
+
+  /** Fold one sighting, kill or carve into this raid's encounter ledger. */
+  notice(speciesId, tally = {}) {
+    if (!speciesId || !CREATURES[speciesId]) return;
+    const rec = this.encountered[speciesId] ??= { kills: 0, carves: 0 };
+    rec.kills += tally.kills ?? 0;
+    rec.carves += tally.carves ?? 0;
+  }
+
+  /**
+   * The scouting report: what lives in this raid.
+   *
+   * A raid draws about fifteen of the fifty species, and the player is told
+   * which at the drop. That is the difference between a hunt order and a
+   * wish. The first version made an order name a species from the profile's
+   * journal and had the squad go looking — which sounds better and played
+   * far worse, because a journal remembers every species the player has ever
+   * met and a map holds fifteen. Two orders in three named something that was
+   * not here, and the squad spent the raid walking: over twelve seeds a
+   * mid-ring order carved the quarry in three of them and halved the total
+   * haul, 558 carves down to 258.
+   *
+   * So the map is honest about its own contents, and every hunt on the list
+   * is one the squad can actually walk to.
+   */
+  fauna() {
+    const out = [];
+    for (const [tier, ids] of Object.entries(this.map.fauna ?? {})) {
+      for (const id of ids) out.push({ speciesId: id, tier: Number(tier), hunt: 'small' });
+    }
+    for (const poi of this.map.pois) {
+      if (poi.kind !== 'boss' && poi.kind !== 'boss_event') continue;
+      out.push({ speciesId: poi.bossId, tier: poi.tier ?? 0, hunt: 'solo' });
+    }
+    return out;
+  }
+
+  /** Species present in this raid, as a set. */
+  faunaSpecies() {
+    return new Set(this.fauna().map((f) => f.speciesId));
+  }
+
+  /**
+   * The nearest place that satisfies a quarry, or null if this raid holds
+   * none.
+   *
+   * Ordering a hunt is what reveals the site: a squad told to hunt Sicklejaw
+   * goes and finds the spoor. Requiring them to have already laid eyes on the
+   * camp is what made an order a search, and a search is what the measurement
+   * above rejected.
+   */
+  findQuarry(from, quarry) {
+    if (!quarry?.speciesId) return null;
+    let best = null;
+    let bestD = Infinity;
+    for (const poi of this.map.pois) {
+      if (!poiMatchesQuarry(poi, quarry)) continue;
+      // A ground whose creature is already dead is not a hunt any more.
+      if (poi.bossEntityId && !this.byId(poi.bossEntityId)?.alive) continue;
+      const d = dist(from, poi);
+      if (d < bestD) { bestD = d; best = poi; }
+    }
+    return best;
   }
 
   /** A pack species that belongs in this ring. */
@@ -562,6 +669,7 @@ export class Match {
           this.bossesKilled.push(target.defId);
         }
       }
+      if (killerSquad === this.playerSquad) this.notice(target.defId, { kills: 1 });
       if (killerSquad) this.#awardXp(killerSquad, target.xp);
       if (killer?.kind === 'hero') killer.stats_run.kills++;
 
@@ -907,6 +1015,7 @@ export class Match {
       heroes,
       stats: { ...this.stats },
       bossesKilled: [...this.bossesKilled],
+      encountered: JSON.parse(JSON.stringify(this.encountered)),
       timedOut: this.time >= MATCH_SECONDS,
     };
   }

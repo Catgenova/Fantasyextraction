@@ -8,11 +8,15 @@ import { XP_PER_LEVEL, MAX_LEVEL } from '../../data/classes.js';
 import { FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, LOOT_FLOORS } from '../../data/tactics.js';
 import { computeStats } from '../../sim/stats.js';
 import { availablePoints } from '../../sim/heroes.js';
-import { squadHeroes, STASH_LIMIT, achievementProgress, stashParts, stashGear } from '../../game/profile.js';
+import { squadHeroes, STASH_LIMIT, achievementProgress, stashParts, stashGear, knownSpecies } from '../../game/profile.js';
 import { QUALITIES, QUALITY_ORDER, partValue } from '../../data/parts.js';
 import { CREATURES } from '../../data/creatures.js';
 import { bossForAchievement } from '../../data/achievements.js';
 import { itemScore, SLOTS, packCapacity } from '../../data/gear.js';
+import { HUNT_KINDS, quarryLabel, sanitizeQuarry, kindsForSpecies } from '../../data/hunts.js';
+import { setCounts, SET_FULL } from '../../data/sets.js';
+
+const RING_NAMES = { 0: 'outer ring', 1: 'mid ring', 2: 'core' };
 
 export function hubScreen(app) {
   const root = el('div.screen');
@@ -197,6 +201,7 @@ export function hubScreen(app) {
               onclick: () => { t.avoidPlayers = !t.avoidPlayers; app.save(); render(); },
             }, t.avoidPlayers ? 'Avoid — break off from other squads' : 'Engage when contacted'),
           ]),
+          quarryField(t),
           selectField('Minimum carve quality',
             Object.values(LOOT_FLOORS).map((f) => ({ value: f.id, label: f.name })),
             t.lootFloor ?? 'any', set('lootFloor'),
@@ -211,6 +216,64 @@ export function hubScreen(app) {
               : 'Found potions go straight onto the belt, which is the only place a hero will drink them from. They fall back to the pack when the belt is full.'),
           ]),
         ]),
+      ]);
+    }
+
+    /**
+     * The standing hunt order, written against the journal.
+     *
+     * It is a preference rather than a promise: a raid draws about fifteen of
+     * the fifty species, so an order can name something this map does not
+     * hold, and the raid drops it at the landing and says so. That is why the
+     * mid-raid Hunt panel exists alongside this one — that list is built from
+     * what is actually out there.
+     */
+    function quarryField(t) {
+      const known = [...knownSpecies(profile)]
+        .map((id) => CREATURES[id])
+        .filter(Boolean)
+        .sort((a, b) => a.tier - b.tier || a.name.localeCompare(b.name));
+      const quarry = sanitizeQuarry(t.quarry);
+      const kinds = quarry ? kindsForSpecies(quarry.speciesId) : [];
+
+      // Which set the squad is closest to finishing is the thing that makes
+      // one species worth asking for over another, so the hint says it.
+      const wants = new Map();
+      for (const hero of squadHeroes(profile)) {
+        for (const [speciesId, n] of setCounts(hero.equipped)) {
+          if (n >= SET_FULL) continue;
+          if ((wants.get(speciesId) ?? 0) < n) wants.set(speciesId, n);
+        }
+      }
+      const closest = [...wants.entries()].sort((a, b) => b[1] - a[1])[0];
+
+      return el('div.field', null, [
+        el('label', null, 'Hunt'),
+        el('select', {
+          value: quarry?.speciesId ?? '',
+          onchange: (e) => {
+            const id = e.target.value;
+            t.quarry = id ? sanitizeQuarry({ speciesId: id, kind: quarry?.kind }) : null;
+            app.save();
+            render();
+          },
+        }, [
+          el('option', { value: '' }, 'Whatever the raid plan turns up'),
+          ...known.map((c) => el('option', { value: c.id },
+            `${c.name} — ${RING_NAMES[c.tier] ?? 'unknown'}`)),
+        ]),
+        kinds.length > 1
+          ? el('div.row', { style: { gap: '4px', marginTop: '5px' } }, kinds.map((kind) => el(
+            'button.sm' + (quarry.kind === kind ? '.primary' : ''),
+            { onclick: () => { t.quarry = { ...quarry, kind }; app.save(); render(); } },
+            HUNT_KINDS[kind].name,
+          )))
+          : null,
+        el('div.hint', null, quarry
+          ? `${quarryLabel(quarry)}. If this raid holds none, the order is dropped when you land and you pick another from the Hunt panel.`
+          : closest
+            ? `Nobody is hunting anything in particular. ${CREATURES[closest[0]]?.name ?? 'One set'} is your closest set, at ${closest[1]}/${SET_FULL}.`
+            : 'Nobody is hunting anything in particular. The squad takes what the raid plan walks them into.'),
       ]);
     }
 

@@ -9,6 +9,8 @@ import { craftItem, canEquip, itemScore } from '../data/gear.js';
 import { QUALITY_ORDER, partValue } from '../data/parts.js';
 import { achievementForBoss, ACHIEVEMENT_BY_ID, ACHIEVEMENTS } from '../data/achievements.js';
 import { STARTER_CLASS_IDS } from '../data/classes.js';
+import { CREATURES } from '../data/creatures.js';
+import { sanitizeQuarry } from '../data/hunts.js';
 
 export const STASH_LIMIT = 120;
 
@@ -43,6 +45,14 @@ export function newProfile(seed = Date.now() >>> 0) {
     // Boss trophies, by achievement id -> { at, seed }. Each one unlocks a
     // class; the roster hero it granted is created at the same moment.
     achievements: {},
+    // What the player has actually met, by species id. This is the memory a
+    // hunt order is written against — you cannot go looking for something you
+    // have never seen. The three starting parts came off something, so the
+    // journal opens with those three rather than empty.
+    bestiary: {
+      threshclaw: { kills: 0, carves: 1, firstAt: Date.now() },
+      plateback: { kills: 0, carves: 1, firstAt: Date.now() },
+    },
     history: [],
   };
 }
@@ -73,6 +83,21 @@ export function sanitizeProfile(profile) {
   }
   profile.history = profile.history ?? [];
   profile.gold = profile.gold ?? 0;
+
+  // The journal, and the standing hunt order written against it. A save from
+  // before either existed gets a journal seeded from whatever parts it is
+  // holding, so an old profile is not told it has never met anything.
+  const journal = profile.bestiary ?? {};
+  profile.bestiary = {};
+  for (const [id, record] of Object.entries(journal)) {
+    if (CREATURES[id]) profile.bestiary[id] = record;
+  }
+  for (const part of profile.stash) {
+    if (part?.kind === 'part' && CREATURES[part.speciesId] && !profile.bestiary[part.speciesId]) {
+      profile.bestiary[part.speciesId] = { kills: 0, carves: 1, firstAt: profile.createdAt ?? Date.now() };
+    }
+  }
+  profile.squadTactics.quarry = sanitizeQuarry(profile.squadTactics.quarry);
   // Drop trophies for achievements that no longer exist rather than carrying
   // an id nothing can explain.
   const trophies = profile.achievements ?? {};
@@ -170,8 +195,31 @@ export function removeFromStash(profile, itemId) {
  * Fold a finished match into the profile: XP for everyone, kept loot into the
  * stash, and equipment wiped from any hero who did not make it out.
  */
+/**
+ * Fold a raid's encounters into the journal.
+ *
+ * @param {Record<string, {kills?: number, carves?: number}>} encountered
+ */
+export function recordEncounters(profile, encountered) {
+  profile.bestiary ??= {};
+  const learned = [];
+  for (const [speciesId, tally] of Object.entries(encountered)) {
+    if (!CREATURES[speciesId]) continue;
+    const known = profile.bestiary[speciesId];
+    if (!known) learned.push(speciesId);
+    const record = known ?? { kills: 0, carves: 0, firstAt: Date.now() };
+    record.kills += tally.kills ?? 0;
+    record.carves += tally.carves ?? 0;
+    profile.bestiary[speciesId] = record;
+  }
+  return learned;
+}
+
+/** Species the player may write a hunt order against. */
+export const knownSpecies = (profile) => new Set(Object.keys(profile.bestiary ?? {}));
+
 export function applyMatchResult(profile, result) {
-  const summary = { levelUps: [], gained: [], lost: [], unlocked: [] };
+  const summary = { levelUps: [], gained: [], lost: [], unlocked: [], learned: [] };
 
   // Trophies first: a boss kill counts even if the squad died on the way out,
   // so the unlock survives a wipe that costs them everything else.
@@ -180,6 +228,11 @@ export function applyMatchResult(profile, result) {
     const earned = recordBossKill(profile, bossId, rng, { seed: result.seed });
     if (earned) summary.unlocked.push(earned);
   }
+
+  // The journal. Killing a thing and carving a thing are different kinds of
+  // knowing — you can meet a species without ever getting a knife into one —
+  // so both are recorded and either is enough to hunt it again.
+  summary.learned = recordEncounters(profile, result.encountered ?? {});
 
   for (const h of result.heroes) {
     const hero = heroById(profile, h.heroId);
