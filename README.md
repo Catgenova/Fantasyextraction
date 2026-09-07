@@ -287,6 +287,9 @@ src/art/rig.js      the top-down humanoid, and what a pose is
 src/art/anim.js     six animations as functions of normalised time
 src/art/gear.js     weapons, shields, foci, helms — the held vocabulary
 src/art/kits.js     the thirteen classes, as proportions + palette + kit
+src/art/beast.js    the top-down creature, which is a different animal
+src/art/beastanim.js  four creature animations
+src/art/plans.js    seven family body plans, varied per species
 ```
 
 Six animations, baked one row per sheet: **idle**, **walk**, **attack**,
@@ -336,13 +339,59 @@ width, what is in each hand, and the grip. Everything else — helms, cloaks,
 trim — exists for the camp screens, where the same figure is drawn five times
 larger.
 
+### The creatures
+
+Fifty species get the same treatment, with a different rig. A person from above
+is a wide shallow oval with the head in the middle; a beast is the opposite —
+long along its facing, head at one end, tail at the other, legs out to the
+sides. That is a separate anatomy, so `src/art/beast.js` is a separate file.
+
+Four animations rather than six: **idle**, **walk**, **attack**, **hurt**,
+**die**. A beast has no cast, and fifty species times two extra rows is a great
+deal of PNG for something nobody would look at.
+
+Fifty creatures cannot each be drawn by hand and should not be. The **family**
+owns the anatomy and the **species** varies it, and every per-species number is
+derived from data that already exists — colour is the creature's colour, size
+is its radius, and the small variations are hashed from its own id, so they are
+stable, distinct and free. The seven pack families are seven different animals:
+
+| Family | Silhouette |
+|---|---|
+| Raptorial | Longest and narrowest — a line pointed at you |
+| Wyverling | Wider than it is long, which nothing else on the map is |
+| Carapace | One low armoured disc; almost no head shows |
+| Venomite | Eight legs, and the legs *are* the silhouette |
+| Delver | A torpedo with digging claws and nothing sticking out sideways |
+| Mireborn | Broad and squat, limbs planted well outside the body |
+| Carrionkin | A small body under a half-spread wing, neck reaching |
+
+The ten solo monsters are hand-shaped instead. There are few enough to be worth
+it, and each one is a trophy — a player who takes a Nightfell should not find it
+was a big Sicklejaw.
+
+Two things the tests caught that the eye had not. Three families — delver,
+mireborn, carrionkin — had **no anatomical variation at all**: each was one
+animal drawn in four colours, because the plan spent its single variation
+number on one measurement. They get two independent numbers now and vary on
+several axes. And Skyrender and Stormcrest were the same winged biped; one
+never lands and the other is built around the moment it arrives, so now the
+first is the longest wingspan in the game on the slightest body and the second
+is compact, big-headed and short-tailed.
+
+Creatures bake at 72px a cell against a hero's 128, and the solo monsters at
+120. They are drawn smaller than heroes — a pack creature is nine to eighteen
+world units — and there are fifty of them; at the hero's cell size the creature
+sheets alone would be most of the repository.
+
 ### Looking at it
 
 ```bash
 node tools/bake-sprites.mjs              # rebuild every sheet
 node tools/bake-sprites.mjs --class rogue
-node tools/lineup.mjs idle 0 170         # all thirteen in one pose
+node tools/lineup.mjs idle 0 170         # all thirteen classes in one pose
 node tools/lineup.mjs walk 2 74          # ...at the size a raid draws them
+node tools/lineup.mjs idle 0 155 sicklejaw plateback screelwing   # creatures
 node tools/contact-sheet.mjs knight idle:0 attack:5
 ```
 Then open `tools/sprite-lab.html` for the live version, which plays every

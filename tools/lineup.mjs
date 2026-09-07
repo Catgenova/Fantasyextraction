@@ -19,7 +19,7 @@ catch {
   catch { console.log('SKIP  Playwright is not installed.'); process.exit(0); }
 }
 
-const [animId = 'idle', frame = '0', cell = '220'] = process.argv.slice(2);
+const [animId = 'idle', frame = '0', cell = '220', ...ids] = process.argv.slice(2);
 
 const server = createServer(async (req, res) => {
   try {
@@ -39,10 +39,13 @@ const errors = [];
 page.on('pageerror', (e) => errors.push(e.message));
 await page.goto(`${base}/tools/sprite-lab.html`, { waitUntil: 'networkidle' });
 
-const url = await page.evaluate(
-  ([a, f, c]) => window.bakeLineup(a, f, c), [animId, Number(frame), Number(cell)],
-);
-const out = join(ROOT, `contact-lineup-${animId}-${cell}.png`);
+// With species named, line up creatures instead of classes.
+const url = ids.length
+  ? await page.evaluate(([list, a, f, c]) => window.bakeBeastLineup(list, a, f, c),
+    [ids, animId, Number(frame), Number(cell)])
+  : await page.evaluate(([a, f, c]) => window.bakeLineup(a, f, c),
+    [animId, Number(frame), Number(cell)]);
+const out = join(ROOT, `contact-lineup-${ids.length ? 'beast-' : ''}${animId}-${cell}.png`);
 await writeFile(out, Buffer.from(url.split(',')[1], 'base64'));
 console.log(out);
 if (errors.length) console.error(errors.join('\n'));

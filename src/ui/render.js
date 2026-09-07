@@ -6,7 +6,7 @@ import { WORLD_SIZE, RING_CORE, RING_MID, CENTER, BIOMES, extractIsOpen } from '
 import { QUALITIES } from '../data/parts.js';
 import { CLASSES } from '../data/classes.js';
 import { CREATURES } from '../data/creatures.js';
-import { loadSprites, drawHeroSprite, spritesReady } from './sprites.js';
+import { loadSprites, drawHeroSprite, drawBeastSprite, spritesReady, beastsReady } from './sprites.js';
 import { hpFrac, manaFrac } from '../sim/entity.js';
 import { canTake } from '../sim/ai.js';
 import { dist } from '../core/vec.js';
@@ -564,6 +564,21 @@ export function createRenderer(canvas, minimapCanvas) {
     // missing asset from taking the raid view with it.
     if (e.kind === 'hero' && spritesReady()
         && drawHeroSprite(ctx, e, match.time, r)) {
+      drawHeroDecorations(match, e, ui, r, isPlayerSquad);
+      return;
+    }
+    if (e.kind !== 'hero' && beastsReady()
+        && drawBeastSprite(ctx, e, match.time, r)) {
+      // Rank still has to be legible — a boss and a trash mob of the same
+      // species share a sheet and differ only in size, so the ring around an
+      // elite or a boss is doing work the art does not.
+      if (e.rank === 'boss' || e.rank === 'elite') {
+        ctx.strokeStyle = e.rank === 'boss' ? 'rgba(240,163,60,.7)' : 'rgba(200,150,90,.45)';
+        ctx.lineWidth = e.rank === 'boss' ? 3 : 2;
+        ctx.beginPath();
+        ctx.arc(e.pos.x, e.pos.y, r + 7, 0, Math.PI * 2);
+        ctx.stroke();
+      }
       drawHeroDecorations(match, e, ui, r, isPlayerSquad);
       return;
     }

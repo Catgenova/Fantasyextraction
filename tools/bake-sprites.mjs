@@ -5,10 +5,18 @@
 // Chromium so the sheets can never disagree with what the game draws: both
 // sides call the same `drawFigure` and the same animation curves.
 //
-// One sheet per class, one row per animation, frames left to right. Written to
-// assets/sprites/<class>.png with assets/sprites/atlas.json describing them.
+// One sheet per class and per creature, one row per animation, frames left to
+// right. Written to assets/sprites/<class>.png and
+// assets/sprites/creatures/<species>.png, with assets/sprites/atlas.json
+// describing both.
 //
-//   node tools/bake-sprites.mjs [--cell 128] [--class knight]
+// Creatures are baked smaller than heroes because they are drawn smaller — a
+// pack creature is nine to eighteen world units against a hero's fourteen, and
+// there are fifty of them. At the hero's 128px cell the creature sheets alone
+// would be most of the repository.
+//
+//   node tools/bake-sprites.mjs [--cell 128] [--class knight] [--species sicklejaw]
+//   node tools/bake-sprites.mjs --skip-classes
 //
 // Needs Playwright. Skips rather than fails if it is missing.
 
@@ -29,7 +37,12 @@ const flag = (name, fallback) => {
   return i >= 0 && args[i + 1] ? args[i + 1] : fallback;
 };
 const CELL = Number(flag('cell', 128));
+const SMALL_CELL = Number(flag('small-cell', 88));
+const LARGE_CELL = Number(flag('large-cell', 136));
 const ONLY = flag('class', null);
+const ONLY_SPECIES = flag('species', null);
+const SKIP_CLASSES = args.includes('--skip-classes');
+const SKIP_CREATURES = args.includes('--skip-creatures');
 
 let playwright;
 try {
@@ -72,7 +85,8 @@ if (errors.length) {
 }
 
 await mkdir(OUT, { recursive: true });
-const ids = (await page.evaluate(() => window.KIT_IDS)).filter((id) => !ONLY || id === ONLY);
+const ids = SKIP_CLASSES ? []
+  : (await page.evaluate(() => window.KIT_IDS)).filter((id) => !ONLY || id === ONLY);
 
 // Merge into whatever is already there rather than starting empty. Rebuilding
 // the atlas from only the classes in this run means `--class knight` silently
@@ -100,8 +114,39 @@ for (const classId of ids) {
   console.log(`  ${classId.padEnd(16)} ${sheet.cols}x${sheet.rows} cells, ${total} frames, ${kb} kB`);
 }
 
+// --- Creatures --------------------------------------------------------------
+const CREATURE_OUT = join(OUT, 'creatures');
+await mkdir(CREATURE_OUT, { recursive: true });
+atlas.creatures = { ...(atlas.creatures ?? {}) };
+
+const species = SKIP_CREATURES ? []
+  : (await page.evaluate(() => window.PLAN_IDS)).filter((id) => !ONLY_SPECIES || id === ONLY_SPECIES);
+
+let creatureBytes = 0;
+for (const speciesId of species) {
+  const solo = await page.evaluate(
+    (id) => window.SOLO_IDS.includes(id), speciesId,
+  );
+  const cell = solo ? LARGE_CELL : SMALL_CELL;
+  const sheet = await page.evaluate(
+    ([id, c]) => window.bakeBeast(id, c), [speciesId, cell],
+  );
+  if (!sheet) continue;
+  const png = Buffer.from(sheet.png.split(',')[1], 'base64');
+  creatureBytes += png.length;
+  const file = `${speciesId}.png`;
+  await writeFile(join(CREATURE_OUT, file), png);
+  atlas.creatures[speciesId] = {
+    file: `creatures/${file}`, cell: sheet.cell, cols: sheet.cols, rows: sheet.rows,
+    animations: sheet.animations,
+  };
+}
+if (species.length) {
+  console.log(`  ${species.length} creatures, ${(creatureBytes / 1024 / 1024).toFixed(2)} MB total`);
+}
+
 await writeFile(join(OUT, 'atlas.json'), JSON.stringify(atlas, null, 2));
-console.log(`\nBaked ${ids.length} class${ids.length === 1 ? '' : 'es'} to assets/sprites/ at ${CELL}px.`);
+console.log(`\nBaked ${ids.length} class${ids.length === 1 ? '' : 'es'} and ${species.length} creature${species.length === 1 ? '' : 's'}.`);
 
 if (errors.length) console.error(`\n${errors.length} console error(s):\n  ` + errors.join('\n  '));
 await browser.close();

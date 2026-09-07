@@ -19,7 +19,10 @@ import { CLASSES } from '../src/data/classes.js';
 import { ANIMATIONS, ANIMATION_IDS, poseForFrame } from '../src/art/anim.js';
 import { KITS, kitFor } from '../src/art/kits.js';
 import * as GEAR from '../src/art/gear.js';
-import { animFor } from '../src/ui/sprites.js';
+import { animFor, beastAnimFor } from '../src/ui/sprites.js';
+import { CREATURES, SMALL_IDS, LARGE_IDS } from '../src/data/creatures.js';
+import { planFor, PLAN_IDS, FAMILY_IDS } from '../src/art/plans.js';
+import { BEAST_ANIMATIONS, BEAST_ANIMATION_IDS, beastPoseForFrame } from '../src/art/beastanim.js';
 import { restPose } from '../src/art/rig.js';
 
 const ROOT = new URL('..', import.meta.url).pathname;
@@ -119,6 +122,77 @@ const slowStep = animFor(slow, 100).t, fastStep = animFor(fast, 100).t;
 check('a faster hero cycles its walk faster', fastStep > slowStep,
   `${slowStep.toFixed(3)} vs ${fastStep.toFixed(3)}`);
 
+// --------------------------------------------------------------- creatures --
+console.log('\n=== every creature has a body ===');
+
+check('a plan for all fifty species',
+  PLAN_IDS.length === 50 && PLAN_IDS.every((id) => planFor(id)),
+  `${PLAN_IDS.filter((id) => !planFor(id)).length} missing`);
+check('every plan has a body and a head',
+  PLAN_IDS.every((id) => { const p = planFor(id); return p.bodyLen > 0 && p.bodyWide > 0 && p.headLen > 0; }));
+check('and a species that does not exist has no plan', planFor('nothing') === null);
+
+// The seven families are the whole point of the plan system: a raptorial has
+// to be a different animal from a carapace, not the same oval in another
+// colour. Compared on anatomy alone, ignoring size and hue.
+const shape = (id) => {
+  const p = planFor(id);
+  return [
+    (p.bodyLen / p.bodyWide).toFixed(1), p.legs, !!p.wingSpan, !!p.shell,
+    !!p.frill, (p.tailLen / p.bodyLen).toFixed(1),
+  ].join('|');
+};
+const famShape = new Map();
+for (const id of SMALL_IDS) {
+  const fam = CREATURES[id].family;
+  if (!famShape.has(fam)) famShape.set(fam, new Set());
+  famShape.get(fam).add(shape(id));
+}
+const familyProfiles = new Map();
+for (const [fam, shapes] of famShape) familyProfiles.set(fam, [...shapes][0]);
+const shared = [...familyProfiles.entries()].filter(([fam, sig]) =>
+  [...familyProfiles.entries()].some(([other, s2]) => other !== fam && s2 === sig));
+check('the seven families are seven different animals',
+  familyProfiles.size === FAMILY_IDS.length && shared.length === 0,
+  shared.map(([f]) => f).join(', ') || `${familyProfiles.size} distinct`);
+
+// Within a family, species still have to vary or a pack is one creature
+// stamped nine times.
+const varied = [...famShape.entries()].filter(([, shapes]) => shapes.size > 1);
+check('and species vary within their family',
+  varied.length >= 5, `${varied.length}/${famShape.size} families vary`);
+
+// The solo monsters are hand-shaped, so no two should coincide at all.
+const soloShapes = LARGE_IDS.map(shape);
+check('no two solo monsters share a body',
+  new Set(soloShapes).size === soloShapes.length,
+  `${new Set(soloShapes).size}/${soloShapes.length} distinct`);
+
+console.log('\n=== creature animations ===');
+check('every creature animation has frames and a duration',
+  BEAST_ANIMATION_IDS.every((a) => BEAST_ANIMATIONS[a].frames > 0 && BEAST_ANIMATIONS[a].seconds > 0));
+const beastDie = beastPoseForFrame('die', planFor('sicklejaw'), BEAST_ANIMATIONS.die.frames - 1);
+check('a creature death reaches the ground', beastDie.fallen > 0.95, beastDie.fallen.toFixed(2));
+// A bite is the loudest thing a creature can do at this size, so the attack
+// has to actually open the mouth.
+const bite = Array.from({ length: BEAST_ANIMATIONS.attack.frames },
+  (_, i) => beastPoseForFrame('attack', planFor('sicklejaw'), i).jaw);
+check('an attack opens the jaw', Math.max(...bite) > 0.8, Math.max(...bite).toFixed(2));
+check('and closes it again', bite[bite.length - 1] < 0.4, bite[bite.length - 1].toFixed(2));
+
+const beast = (over = {}) => ({
+  id: 'm1', kind: 'monster', defId: 'sicklejaw', alive: true, facing: 0,
+  pos: { x: 0, y: 0 }, vel: { x: 0, y: 0 },
+  lastDamageAt: -999, lastSwingAt: -999, ...over,
+});
+const bat = (e, t = 100) => beastAnimFor(e, t).id;
+check('a still creature idles', bat(beast()) === 'idle');
+check('a moving one walks', bat(beast({ vel: { x: 40, y: 0 } })) === 'walk');
+check('a bite outranks walking', bat(beast({ vel: { x: 40, y: 0 }, lastSwingAt: 99.9 })) === 'attack');
+check('a flinch outranks a bite', bat(beast({ lastSwingAt: 99.9, lastDamageAt: 99.95 })) === 'hurt');
+check('death outranks everything',
+  bat(beast({ alive: false, deathTime: 99, lastSwingAt: 99.9, lastDamageAt: 99.95 })) === 'die');
+
 // ------------------------------------------------------------------ atlas --
 console.log('\n=== the baked sheets and their index agree ===');
 
@@ -164,6 +238,34 @@ if (atlas) {
       const rows = Object.values(m.animations).map((a) => a.row);
       return new Set(rows).size === rows.length;
     }));
+
+  check('the atlas indexes every creature',
+    PLAN_IDS.every((id) => atlas.creatures?.[id]),
+    PLAN_IDS.filter((id) => !atlas.creatures?.[id]).slice(0, 5).join(',') || 'all fifty');
+
+  const beastBad = [];
+  for (const [id, meta] of Object.entries(atlas.creatures ?? {})) {
+    for (const animId of BEAST_ANIMATION_IDS) {
+      if (meta.animations[animId]?.frames !== BEAST_ANIMATIONS[animId].frames) {
+        beastBad.push(`${id}:${animId}`);
+      }
+    }
+    try {
+      const png = await readFile(join(ROOT, 'assets/sprites', meta.file));
+      const w = png.readUInt32BE(16), h = png.readUInt32BE(20);
+      if (w !== meta.cols * meta.cell || h !== meta.rows * meta.cell) beastBad.push(`${id} size`);
+    } catch { beastBad.push(`${id} unreadable`); }
+  }
+  check('every creature sheet matches its index', beastBad.length === 0,
+    beastBad.slice(0, 4).join(', ') || 'all match');
+
+  // A solo monster is drawn twice the size of a pack creature, so baking them
+  // at the same cell throws away half the resolution where it is most visible.
+  const smallCells = SMALL_IDS.map((id) => atlas.creatures?.[id]?.cell).filter(Boolean);
+  const largeCells = LARGE_IDS.map((id) => atlas.creatures?.[id]?.cell).filter(Boolean);
+  check('solo monsters are baked larger than pack creatures',
+    largeCells.length > 0 && Math.min(...largeCells) > Math.max(...smallCells),
+    `${Math.max(...smallCells)} vs ${Math.min(...largeCells)}`);
 }
 
 // ---------------------------------------------------------------- browser --
@@ -217,15 +319,22 @@ if (!playwright) {
       const m = window.__ashenveil.liveMatch;
       const heroes = m.entities.filter((e) => e.kind === 'hero');
       const ctx = document.createElement('canvas').getContext('2d');
+      const beasts = m.entities.filter((e) => e.kind !== 'hero' && e.team === 'pve');
       return {
         ready: sp.spritesReady(),
+        beastsReady: sp.beastsReady(),
         heroes: heroes.length,
         drawn: heroes.filter((h) => sp.drawHeroSprite(ctx, h, m.time, 14)).length,
+        beasts: beasts.length,
+        beastsDrawn: beasts.filter((b) => sp.drawBeastSprite(ctx, b, m.time, 12)).length,
       };
     });
     check('the sheets load in a raid', got.ready);
     check('and every hero on the field draws from one',
       got.heroes > 0 && got.drawn === got.heroes, `${got.drawn}/${got.heroes}`);
+    check('creature sheets load too', got.beastsReady);
+    check('and every creature on the field draws from one',
+      got.beasts > 0 && got.beastsDrawn === got.beasts, `${got.beastsDrawn}/${got.beasts}`);
     check('no console errors', errors.length === 0, errors.slice(0, 2).join(' | '));
     await page.close();
   }
@@ -241,9 +350,12 @@ if (!playwright) {
     const ok = await page.evaluate(async () => {
       const sp = await import('/src/ui/sprites.js');
       const m = window.__ashenveil.liveMatch;
-      return { ready: sp.spritesReady(), running: m.phase === 'running', canvas: !!document.querySelector('canvas#stage') };
+      return {
+        ready: sp.spritesReady(), beasts: sp.beastsReady(),
+        running: m.phase === 'running', canvas: !!document.querySelector('canvas#stage'),
+      };
     });
-    check('with the sheets blocked nothing loads', ok.ready === false);
+    check('with the sheets blocked nothing loads', ok.ready === false && ok.beasts === false);
     check('and the raid still runs', ok.running && ok.canvas);
     check('without throwing', errors.length === 0, errors.slice(0, 2).join(' | '));
     await page.close();
