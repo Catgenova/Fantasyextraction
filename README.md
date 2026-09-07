@@ -601,14 +601,111 @@ A large creature only spawns once a squad comes within 1500 units of its
 ground, so a raid you spend in the outer ring never pays for the core's
 population.
 
-**The map currently generates no obstacles.** Rocks and ruins are switched off
+## Getting somewhere
+
+Movement used to be pure reactive steering: a unit vector at the goal, plus
+separation, plus a lean around anything in the way, normalised and multiplied
+by speed. That controller cannot see past its own 300-unit bucket, so
+everything it did about being stuck was an attempt to reconstruct global
+information from local failure — sampling progress, detecting orbits, throwing
+a waypoint out to whichever side looked emptier and widening it on each retry.
+About a hundred and ten lines of it, and it still left heroes pinned for
+minutes at a time.
+
+There is now an actual navigation layer, in `src/sim/navgrid.js`.
+
+**A clearance field.** The obstacles never move, so once per map every cell of
+a 70-unit grid records its distance to the nearest obstacle surface. A circle
+of radius R fits exactly where clearance ≥ R, which is what makes a gap
+narrower than a hero *impassable* rather than something to steer between and
+wedge in. Computed exactly rather than by a transform over a rasterised grid:
+quantising to a cell would round clearance to 70 units, five times a hero's
+radius, and call a wall a doorway. 44ms for the whole map.
+
+**Flow fields, cached per goal.** A breadth-first search backwards from a goal
+gives every cell a direction along the shortest passable route to it, so there
+is no local minimum to escape — the field is globally correct by construction.
+Cached by goal *cell* rather than per entity, which is what makes it
+affordable: squads converge on a handful of places, so one field serves every
+entity heading there, the player's squad and all five rival squads together.
+21ms to build, then free. At most one is built per tick, so a cache miss costs
+a straight line for a moment rather than a dropped frame.
+
+**Sliding instead of ejecting.** The old order was move, then push back out of
+anything you overlapped, and those two can cancel exactly — walk into a corner
+and the ejection returns you precisely as far as you stepped, forever. The
+inward component of velocity is now removed *before* the step, twice, so a body
+meeting a wall head-on stops against it and one meeting it at an angle carries
+on along it.
+
+**A line-of-sight shortcut.** Following a cell field when the direct line is
+walkable produces a staircase for no reason, and on this map most lines are
+walkable. Asking first is string-pulling, and it is much cheaper than a field.
+
+**Anticipating other bodies.** Separation was purely positional — nothing is
+felt until contact, then a shove, then walk back in. Head-on that is a
+standoff, and a standoff at exactly the separation distance is the shape of the
+worst pin this project ever recorded. Bodies now lean across a *predicted*
+collision up to about a second out, each side independently, which is the cheap
+half of a reciprocal velocity obstacle.
+
+**Followers route along the leader's trail.** A formation slot is geometry and
+geometry does not know about walls; a hero whose slot lands inside a rock
+spends the walk pressed against it. A slot that cannot be reached now falls
+back to ground the leader has just walked over, which is reachable by
+construction.
+
+### What the measurement said
+
+Twenty raids at each of four seed bases, obstacles switched on for both sides:
+
+| Seed base | Worst pin, before → after | Long-pin share, before → after |
+|---|---|---|
+| 900 | 1197s → **93s** | 0.56% → **0.02%** |
+| 2000 | 530s → **112s** | 0.38% → **0.06%** |
+| 3000 | 77s → 97s | 0.01% → 0.05% |
+| 4000 | 557s → **104s** | 0.73% → **0.06%** |
+
+Long-pin share averages 0.42% → 0.05%, and heroes move no slower for it (62.6
+→ 61.9 units per second) — routing around costs a little distance, which is
+what routing around is.
+
+### The part that did not work
+
+The plan was to delete the old heuristics outright, on the theory that a global
+field made them redundant. It did not. With them gone and the field kept to
+long-haul travel, heroes went from 3.2% of their time making no progress to
+16.7%, and their average speed fell from 63 units per second to 35. Turning any
+single new piece off did not recover it, and turning the *field* off made it
+worse still — so the field was helping and the deletion was the damage.
+
+The reason is that the field only engaged beyond 420 units, and heroes do not
+get stuck out there. They get stuck at close range: pressed against a rock
+beside a camp they are already standing in. The old code's stuck *detection*
+was load-bearing; only its response — guess a side, throw a waypoint, widen on
+failure — was the weak part.
+
+So the detection stayed and the response was replaced. When a body is judged
+stuck, it now asks the field for a route at any range and follows that;
+the sideways guess remains only as the fallback for when no route exists. That
+recovered everything: 3.2% and 63 units per second, with the pins gone.
+
+**The map still generates no obstacles.** Rocks and ruins are switched off
 at `OBSTACLE_CLUSTERS` in `src/sim/map.js` — everything that reads them still
 works, there is simply nothing to read — so raids are fought on open ground.
-It costs some of the map's character and makes the outer ring safer still, but
-it removes the one movement problem this project has never properly solved:
-heroes stuck with somewhere to be fall from 8.3% of the time to 1.2%, the
-worst pin from 253 seconds to 18, and the sim gets about 30% cheaper per tick.
-Set the constant back to 420 to bring them back.
+That is now a choice rather than a necessity. It was switched off because
+steering could not cope with scenery; with the navigation layer above, it can —
+obstacles on, the numbers are 3.2–4.1% of hero-time without progress and a
+worst pin around 100 seconds, against 3.9% and 65.5 units/s for the empty map
+that ships. Balance is comparable too, and farming is slightly *better* with
+scenery back (8 clean runs in 12 against 6, and 29.5 parts against 22),
+presumably because rocks break up a charge.
+
+The cost is about 60% more per tick — 413µs against 257µs on a level-5 farming
+raid — which is the price of having something to collide with. Set
+`OBSTACLE_CLUSTERS` back to 420 in `src/sim/map.js` to bring them back; nothing
+else needs changing, and with them off the navigation layer never builds a grid
+at all, so it is free until it is wanted.
 
 Landing zones are safe ground for the first 90 seconds; nobody gets
 spawn-camped out of a raid.
@@ -621,8 +718,8 @@ src/
   data/      classes, spells, skill trees, consumables, tactics, and the
              hunt: creatures, behaviours, parts, gear, sets, hunt orders —
              all plain data
-  sim/       stats, combat, entities, map generation, the tactics AI,
-             hero records, bot squads, and the Match instance
+  sim/       stats, combat, entities, map generation, navigation, the
+             tactics AI, hero records, bot squads, and the Match instance
   game/      the persistent player profile and the blacksmith
   art/       the class figures: rig, animations, held gear, per-class kits
   ui/        canvas renderer, sprite blitting, DOM helpers, and the screens
@@ -640,6 +737,7 @@ node tools/simulate.js 5 --plan boss --level 14 --verbose
 node tools/test-progression.js
 node tools/test-loot.js
 node tools/test-movement.js
+node tools/test-nav.js
 node tools/test-bestiary.js
 node tools/test-smith.js
 node tools/test-hunt.js
@@ -668,6 +766,15 @@ a hero's policy *wanted* an item but never whether they had room — and then
 stand on it for the rest of the raid. Nothing crashed; the squad just stopped
 playing. So the test measures behaviour: how long is spent in loot mode, and
 whether that time produces pickups.
+
+`test-nav.js` covers the navigation layer against maps built by hand, so the
+right answer is known rather than inferred: a wall with one gap, a goal walled
+off entirely, a goal sitting inside geometry, and a pair of diagonal blockers.
+That last one exists because a straight wall has no corners to cut — the
+corner-cutting bug it guards passed every other check in the file, and only
+showed up once something with an actual corner was put in front of it. The
+line-of-sight sampler is checked against a wall one cell thick, which is the
+width it is most likely to step over.
 
 `test-movement.js` guards the steering, and carries a lesson about what a test
 can measure. Its headline check was once "nobody is pinned for a whole raid",

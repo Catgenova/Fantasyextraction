@@ -26,6 +26,12 @@ const COLLAPSE_MAX_R = WORLD_SIZE * 0.75;
 // squeezes you toward the exits, it does not delete them.
 const COLLAPSE_MIN_R = WORLD_SIZE * 0.32;
 const ENTITY_CELL = 400;
+// Wide enough that no cell index collides once folded into one number. The
+// world is 14000 units, so 400-unit cells give 35 columns; 1024 leaves room
+// for anything that wanders outside the map before it is clamped.
+const GRID_SPAN = 1024;
+const gridKey = (x, y) =>
+  Math.floor(y / ENTITY_CELL) * GRID_SPAN + Math.floor(x / ENTITY_CELL);
 const ENTITY_BUDGET = 240;   // camps stop streaming in past this
 const CARCASS_SECONDS = 100; // how long an uncarved body is worth walking back to
 // Sustained damage a pack is allowed to represent, by ring. A large pack is
@@ -238,7 +244,9 @@ export class Match {
     this._grid.clear();
     for (const e of this.entities) {
       if (!e.alive || e.extracted) continue;
-      const key = `${Math.floor(e.pos.x / ENTITY_CELL)},${Math.floor(e.pos.y / ENTITY_CELL)}`;
+      // A numeric key rather than `${x},${y}`. This runs for every living
+      // entity every tick and the string was being built and hashed each time.
+      const key = gridKey(e.pos.x, e.pos.y);
       let bucket = this._grid.get(key);
       if (!bucket) { bucket = []; this._grid.set(key, bucket); }
       bucket.push(e);
@@ -254,7 +262,7 @@ export class Match {
     const out = [];
     for (let dy = -span; dy <= span; dy++) {
       for (let dx = -span; dx <= span; dx++) {
-        const bucket = this._grid.get(`${gx + dx},${gy + dy}`);
+        const bucket = this._grid.get((gy + dy) * GRID_SPAN + (gx + dx));
         if (!bucket) continue;
         for (const e of bucket) if (dist2(pos, e.pos) <= r2) out.push(e);
       }
@@ -341,6 +349,9 @@ export class Match {
 
     // Camp streaming and squad-level planning are coarse decisions; running
     // them every tick is pure waste on a map this size.
+    // Reset the per-tick budget for building navigation fields.
+    this._navBuilds = 0;
+
     this._campTimer = (this._campTimer ?? 0) - dt;
     if (this._campTimer <= 0) { this._campTimer = 0.5; this.#updateCamps(); }
 

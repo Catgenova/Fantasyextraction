@@ -302,18 +302,31 @@ function buildObstacleGrid(map) {
  * giving `steer` a real character controller rather than move-then-unpenetrate,
  * so the de-duplication should land together with that, not before it.
  */
-export function obstaclesNear(map, x, y) {
+/**
+ * Obstacles in the nine buckets around a point.
+ *
+ * `out` is filled and returned rather than a fresh array being built, because
+ * this is the hottest function in the sim: three calls per entity per tick —
+ * the obstacle lean, the stuck escape, the collision resolve — is sixty-five
+ * thousand array allocations a second at two hundred and forty entities. Pass
+ * a scratch array you own; the default exists for callers outside the tick,
+ * like building the navigation grid.
+ *
+ * Callers must finish iterating before calling again with the same scratch.
+ */
+export function obstaclesNear(map, x, y, out = []) {
   const { cols, cells } = map.grid;
   const gx = Math.max(0, Math.min(cols - 1, Math.floor(x / GRID_CELL)));
   const gy = Math.max(0, Math.min(cols - 1, Math.floor(y / GRID_CELL)));
-  const out = [];
+  out.length = 0;
   for (let dy = -1; dy <= 1; dy++) {
     for (let dx = -1; dx <= 1; dx++) {
       const cx = gx + dx;
       const cy = gy + dy;
       if (cx < 0 || cy < 0 || cx >= cols || cy >= cols) continue;
       const bucket = cells.get(cy * cols + cx);
-      if (bucket) out.push(...bucket);
+      if (!bucket) continue;
+      for (let i = 0; i < bucket.length; i++) out.push(bucket[i]);
     }
   }
   return out;
@@ -323,8 +336,10 @@ export function obstaclesNear(map, x, y) {
  * Push a circle out of any obstacle it overlaps. Cheap and stable — good
  * enough for a top-down sim where nothing moves fast enough to tunnel.
  */
+const collideScratch = [];
+
 export function resolveCollisions(map, pos, radius) {
-  for (const o of obstaclesNear(map, pos.x, pos.y)) {
+  for (const o of obstaclesNear(map, pos.x, pos.y, collideScratch)) {
     const dx = pos.x - o.x;
     const dy = pos.y - o.y;
     const d = Math.hypot(dx, dy);
