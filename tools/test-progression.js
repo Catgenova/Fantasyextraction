@@ -4,6 +4,7 @@
 
 import { Match, TICK } from '../src/sim/match.js';
 import { newProfile, squadHeroes, applyMatchResult, STASH_LIMIT } from '../src/game/profile.js';
+import { SLOTS } from '../src/data/gear.js';
 import { generateBotSquads } from '../src/sim/bots.js';
 import { MATCH_SECONDS } from '../src/data/enemies.js';
 
@@ -40,7 +41,7 @@ function runRaid(seed, profile) {
 {
   const profile = newProfile(31);
   const hero = profile.roster[0];
-  const worn = Object.values(hero.equipped).filter(Boolean);
+  const worn = Object.values(hero.equipped).filter(Boolean).map((i) => ({ ...i }));
   const carried = [profile.stash[3], profile.stash[4]].filter(Boolean);
   const stashBefore = profile.stash.length;
 
@@ -55,9 +56,19 @@ function runRaid(seed, profile) {
     }],
   });
 
-  check('a hero who did not extract is stripped of everything worn',
-    Object.values(hero.equipped).every((i) => !i),
-    `${Object.values(hero.equipped).filter(Boolean).length} items still equipped`);
+  // The rule changed: a dead hero loses what they were wearing and the camp
+  // puts them straight back into wooden gear. Losing everything used to mean
+  // losing the ability to take the next raid, which turns one bad run into an
+  // account that is over.
+  check('a hero who did not extract loses what they were wearing',
+    Object.values(hero.equipped).every((i) => !worn.some((w) => w && w.id === i?.id)),
+    `${Object.values(hero.equipped).filter((i) => worn.some((w) => w && w.id === i?.id)).length} of the old pieces kept`);
+  check('and is re-kitted in wooden gear, every slot',
+    Object.values(hero.equipped).length === SLOTS.length
+    && Object.values(hero.equipped).every((i) => i?.wooden),
+    `${Object.values(hero.equipped).filter((i) => i?.wooden).length}/${SLOTS.length} wooden`);
+  check('the report names who was re-kitted', summary.rekitted.includes(hero.name),
+    summary.rekitted.join(',') || 'nobody');
   check('and their belt is emptied', hero.consumables.length === 0);
   check('the report lists what was lost',
     summary.lost.length === worn.length + carried.length,
@@ -119,10 +130,12 @@ function runRaid(seed, profile) {
     for (const h of result.heroes) {
       if (h.extracted) continue;
       const hero = profile.roster.find((x) => x.id === h.heroId);
-      const stillWearing = Object.values(hero.equipped).filter(Boolean).length;
+      const kept = Object.values(hero.equipped).filter((it) => it && !it.wooden).length;
       if (h.lost.length > 0) {
         lostGearOnce = true;
-        check(`raid ${i}: ${hero.name} died stripped of gear`, stillWearing === 0, `${stillWearing} items still equipped`);
+        check(`raid ${i}: ${hero.name} died and came back in wooden gear`,
+          kept === 0 && Object.values(hero.equipped).every((it) => it?.wooden),
+          `${kept} carved pieces still worn`);
       }
     }
     // This used to read `gained === 0 || stash > before || stash >= before`,

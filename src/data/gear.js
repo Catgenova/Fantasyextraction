@@ -57,6 +57,10 @@ export const pouchLadder = (speciesId) =>
 
 export const pouchSlots = (item) => {
   if (item?.slot !== 'pouch' || item.kind !== 'gear') return 0;
+  // Wooden is off the ladder entirely — it has no species and no grade, and
+  // looking it up returns nothing, which would make a wooden satchel hold as
+  // much as no satchel at all.
+  if (item.wooden) return WOODEN_POUCH_SLOTS;
   return POUCH_SLOTS[pouchLadder(item.speciesId)]?.[item.quality] ?? 0;
 };
 
@@ -254,20 +258,85 @@ export function canEquip(item, classId) {
   return !item.classes || item.classes.includes(classId);
 }
 
-/**
- * What a hero owns before they have hunted anything: a Plateback kit, which is
- * the tier-0 species anybody can find. Deliberately plain — the first real
- * armour is meant to be the one you carve.
- */
-export function startingLoadout(rng, classId) {
-  const kit = [
-    { partType: 'claw', slot: 'weapon', speciesId: 'threshclaw', classId },
-    { partType: 'plate', slot: 'chest', speciesId: 'plateback' },
-    { partType: 'plate', slot: 'head', speciesId: 'plateback' },
-    { partType: 'sinew', slot: 'pouch', speciesId: 'threshclaw' },
-  ];
-  return kit.map((spec) => craftItem({ ...spec, quality: 'ragged' })).filter(Boolean);
+// ---------------------------------------------------------------------------
+// Wooden gear
+// ---------------------------------------------------------------------------
+// The floor. Nobody is ever naked: a hero who dies is re-kitted in this, and a
+// new account starts in it.
+//
+// It is not carved from anything, which is the point — it has no species, so it
+// belongs to no set and counts toward no set bonus, and it never drops when its
+// wearer dies. It is not loot, it is the thing you have instead of loot.
+//
+// Everything about the numbers says "replace me". A wooden piece is a little
+// over half a ragged tier-0 carve, which is itself the worst thing the smith
+// can make, so the first real piece a player forges is an obvious upgrade in
+// every slot.
+
+export const WOODEN_QUALITY = 'wooden';
+/** Share of a ragged tier-0 carve's budget that a wooden piece gets. */
+const WOODEN_SHARE = 0.5;
+/** Extra pack slots from a wooden pouch — under the +4 of the poorest sinew. */
+export const WOODEN_POUCH_SLOTS = 2;
+
+const WOODEN_NAMES = {
+  weapon: 'Wooden Sword',
+  offhand: 'Wicker Shield',
+  head: 'Leather Cap',
+  chest: 'Padded Jerkin',
+  hands: 'Cloth Wraps',
+  legs: 'Rough Breeches',
+  trinket: 'Carved Token',
+  pouch: 'Woven Satchel',
+};
+
+// The same shape vocabulary the carved pieces use, so a wooden chest is
+// recognisably a chest and not a differently-flavoured trinket.
+const WOODEN_SHAPE = {
+  weapon: { weaponDamage: 3, attackSpeedPct: 0.8 },
+  offhand: { armor: 2, blockChance: 0.5 },
+  head: { armor: 2, vitality: 1 },
+  chest: { armor: 3, vitality: 1.2 },
+  hands: { armor: 1.5, agility: 1 },
+  legs: { armor: 2, moveSpeedPct: 0.8 },
+  trinket: { might: 1, agility: 1, spirit: 1 },
+  pouch: { vitality: 1 },
+};
+
+/** One piece of wooden kit. */
+export function woodenItem(slot) {
+  const shape = WOODEN_SHAPE[slot];
+  if (!shape) return null;
+  const budget = 26 * (SLOT_BUDGET[slot] ?? 0.5) * WOODEN_SHARE;
+  const total = Object.values(shape).reduce((a, b) => a + b, 0) || 1;
+
+  const mods = {};
+  for (const [stat, weight] of Object.entries(shape)) {
+    const value = roundStat(stat, (weight / total) * budget * (STAT_SCALE[stat] ?? 1));
+    if (value) mods[stat] = value;
+  }
+
+  return {
+    id: nextItemId(),
+    kind: 'gear',
+    wooden: true,
+    slot,
+    quality: WOODEN_QUALITY,
+    speciesId: null,
+    partType: null,
+    tier: 0,
+    classes: null,          // anybody can hold a stick
+    name: WOODEN_NAMES[slot] ?? 'Wooden Gear',
+    mods,
+  };
 }
+
+/** A full set of it, one piece in every slot. */
+export function woodenLoadout() {
+  return Object.fromEntries(SLOTS.map((slot) => [slot, woodenItem(slot)]));
+}
+
+export const isWooden = (item) => !!item?.wooden;
 
 // Quality is the axis rarity used to be; the UI still wants an ordered list
 // and a colour per grade, and both live with the parts.

@@ -247,7 +247,10 @@ export const isAlly = (a, b) => a.team === b.team && a.id !== b.id;
 export function lootableFrom(e) {
   const out = [];
   for (const item of e.inventory ?? []) out.push(item);
-  for (const item of Object.values(e.equipped ?? {})) if (item) out.push(item);
+  // Wooden gear is issued free and replaced free, so it is worth nothing to
+  // whoever killed you. Dropping it would litter every fight with satchels and
+  // fill the winner's bags with kit they already have eight of.
+  for (const item of Object.values(e.equipped ?? {})) if (item && !item.wooden) out.push(item);
   for (const c of e.consumables ?? []) if (c.count > 0) out.push(c);
   return out;
 }

@@ -32,7 +32,8 @@ Then open <http://localhost:8080>. Progress is saved to `localStorage`.
    corpse has to be carved before it rots. What you carve out is what you
    extract with.
 4. **After-action** — anything an extracted hero carried goes into the stash.
-   Anything a dead hero carried *or was wearing* is gone.
+   Anything a dead hero carried *or was wearing* is gone, and they are re-kitted
+   in wooden gear so the next raid is still possible.
 5. **Forge** — the blacksmith turns parts into equipment. Which species and
    which part decide what the piece does; the grade of the parts decides how
    much of it there is.
@@ -41,6 +42,40 @@ Then open <http://localhost:8080>. Progress is saved to `localStorage`.
 
 There is no rarity ladder and no random affixes. A piece of gear is a species,
 a part and a grade, and all three are things you went and got.
+
+## Wooden gear
+
+Nobody is ever naked. A new account starts in a full set of wooden kit, and a
+hero who dies is re-issued one the moment they are back in camp.
+
+It is not carved from anything, which is the point. Wooden gear has no species,
+so it belongs to no set and counts toward no set bonus; it never drops when its
+wearer is killed, because it is worth nothing to whoever killed them and would
+otherwise litter every fight with satchels. It is not loot — it is what you have
+instead of loot.
+
+| Slot | Piece |
+|---|---|
+| Weapon | Wooden Sword |
+| Off-hand | Wicker Shield |
+| Head | Leather Cap |
+| Chest | Padded Jerkin |
+| Hands | Cloth Wraps |
+| Legs | Rough Breeches |
+| Trinket | Carved Token |
+| Pouch | Woven Satchel — +2 slots, against +4 for the poorest sinew |
+
+Every number says *replace me*. A wooden piece gets half the budget of a ragged
+tier-0 carve, which is already the worst thing the smith can make, so the first
+real piece forged in any slot is an obvious upgrade. That is a promise the tests
+hold to literally: `test-smith.js` scores every craftable combination — every
+species, every part, every grade — and asserts wooden loses to all of them in
+all eight slots. A floor that only holds against the example you happened to
+compare it with is not a floor.
+
+The reason it exists is that death used to strip a hero to nothing, and a hero
+wearing nothing cannot fight their way back to anything. One bad run ended the
+account. Losing a raid should cost the raid.
 
 ## Choosing a fight
 

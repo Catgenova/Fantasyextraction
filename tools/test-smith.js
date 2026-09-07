@@ -12,7 +12,7 @@
 import { newProfile, stashParts, stashGear } from '../src/game/profile.js';
 import { availableRecipes, forge, forgeBlocker, resultQuality, costFor, SLOT_COST } from '../src/game/smith.js';
 import { makePart, QUALITY_ORDER } from '../src/data/parts.js';
-import { craftItem, slotsForPart, SLOTS, canEquip, partsForSlot, pouchSlots, packCapacity, BASE_PACK_SLOTS, itemScore, startingLoadout } from '../src/data/gear.js';
+import { craftItem, slotsForPart, SLOTS, canEquip, partsForSlot, pouchSlots, packCapacity, BASE_PACK_SLOTS, itemScore, woodenLoadout, woodenItem } from '../src/data/gear.js';
 import { activeSets, setMods, setAuras, setCounts, SET_PARTIAL, SET_FULL } from '../src/data/sets.js';
 import { CREATURES } from '../src/data/creatures.js';
 import { computeStats } from '../src/sim/stats.js';
@@ -172,8 +172,49 @@ check('a pouch scores on the room it gives',
   `${itemScore(pouchOf('nightfell', 'mythic'))} vs ${itemScore(pouchOf('sicklejaw', 'ragged'))}`);
 
 // Every hero starts able to carry something home.
-check('the starting kit includes a sinew pouch',
-  startingLoadout(null, 'knight').some((i) => i.slot === 'pouch' && i.partType === 'sinew'));
+check('the wooden kit includes a satchel',
+  !!woodenLoadout().pouch && pouchSlots(woodenLoadout().pouch) > 0,
+  `+${pouchSlots(woodenLoadout().pouch)} slots`);
+
+console.log('\n=== wooden gear is the floor ===');
+
+// The whole promise of wooden gear is that anything the smith makes beats it.
+// Checked against every species, part and grade rather than against one
+// example: a floor that only holds for the piece you happened to compare it
+// with is not a floor.
+{
+  const wooden = woodenLoadout();
+  const weakest = {};
+  for (const c of Object.values(CREATURES)) {
+    for (const partType of Object.keys(c.parts)) {
+      for (const slot of slotsForPart(partType)) {
+        for (const q of QUALITY_ORDER) {
+          const it = craftItem({ speciesId: c.id, partType, slot, quality: q, classId: 'knight' });
+          if (!it) continue;
+          const score = itemScore(it);
+          if (weakest[slot] === undefined || score < weakest[slot].score) {
+            weakest[slot] = { score, what: `${c.name} ${partType} ${q}` };
+          }
+        }
+      }
+    }
+  }
+  const beaten = SLOTS.filter((slot) => weakest[slot] && itemScore(wooden[slot]) >= weakest[slot].score);
+  check('every craftable piece beats wooden, in every slot',
+    beaten.length === 0,
+    beaten.map((s) => `${s} (${itemScore(wooden[s])} vs ${weakest[s].score} for ${weakest[s].what})`).join('; ')
+      || 'all eight');
+  check('and wooden fills every slot',
+    SLOTS.every((slot) => wooden[slot]), SLOTS.filter((s) => !wooden[s]).join(','));
+  // No species means no set: a wooden kit must not count toward a set bonus,
+  // or a naked hero would be wearing an eight-piece one.
+  check('wooden gear belongs to no set',
+    setCounts(wooden).size === 0, `${setCounts(wooden).size} species counted`);
+  check('and a wooden pouch carries less than the poorest sinew',
+    pouchSlots(wooden.pouch) < pouchSlots(craftItem({
+      speciesId: 'sicklejaw', partType: 'sinew', slot: 'pouch', quality: 'ragged',
+    })), `${pouchSlots(wooden.pouch)} vs 4`);
+}
 
 console.log('\n=== sets ===');
 

@@ -5,7 +5,7 @@ import { createHero, sanitizeHero, addXp } from '../sim/heroes.js';
 import { defaultSquadTactics } from '../data/tactics.js';
 import { makeConsumable } from '../data/consumables.js';
 import { makePart } from '../data/parts.js';
-import { craftItem, canEquip, itemScore } from '../data/gear.js';
+import { craftItem, canEquip, itemScore, woodenLoadout } from '../data/gear.js';
 import { QUALITY_ORDER, partValue } from '../data/parts.js';
 import { achievementForBoss, ACHIEVEMENT_BY_ID, ACHIEVEMENTS } from '../data/achievements.js';
 import { STARTER_CLASS_IDS } from '../data/classes.js';
@@ -219,7 +219,7 @@ export function recordEncounters(profile, encountered) {
 export const knownSpecies = (profile) => new Set(Object.keys(profile.bestiary ?? {}));
 
 export function applyMatchResult(profile, result) {
-  const summary = { levelUps: [], gained: [], lost: [], unlocked: [], learned: [] };
+  const summary = { levelUps: [], gained: [], lost: [], unlocked: [], learned: [], rekitted: [] };
 
   // Trophies first: a boss kill counts even if the squad died on the way out,
   // so the unlock survives a wipe that costs them everything else.
@@ -249,10 +249,15 @@ export function applyMatchResult(profile, result) {
         if (addToStash(profile, item)) summary.gained.push(item);
       }
     } else {
-      // Death costs everything they were carrying and wearing.
+      // Death costs everything they were carrying and wearing — and then the
+      // camp puts them back in wooden gear. Losing a raid should cost the
+      // raid, not the ability to take the next one: a hero stripped to nothing
+      // cannot fight their way back to anything, which turns one bad run into
+      // an account that is over.
       for (const item of h.lost) summary.lost.push(item);
-      for (const slot of Object.keys(hero.equipped)) hero.equipped[slot] = null;
+      hero.equipped = woodenLoadout();
       hero.consumables = [];
+      summary.rekitted.push(hero.name);
     }
     sanitizeHero(hero);
   }

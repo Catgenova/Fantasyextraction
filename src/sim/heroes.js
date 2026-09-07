@@ -5,7 +5,7 @@ import { SPELL_SLOTS } from '../data/spells.js';
 import { CONSUMABLE_SLOTS } from '../data/consumables.js';
 import { unlockedSpells, totalPointsSpent, TREES } from '../data/skilltrees.js';
 import { defaultHeroTactics } from '../data/tactics.js';
-import { SLOTS, canEquip, startingLoadout } from '../data/gear.js';
+import { SLOTS, canEquip, woodenLoadout } from '../data/gear.js';
 import { pick, shuffle, chance } from '../core/rng.js';
 
 const NAMES = {
@@ -42,7 +42,9 @@ export function createHero(rng, classId, opts = {}) {
   };
 
   if (opts.startingGear !== false) {
-    for (const item of startingLoadout(rng, classId)) equipItem(hero, item);
+    // Wooden gear, in every slot. A hero is never naked: this is what they
+    // start in, and what they are re-kitted in when they die.
+    for (const item of Object.values(woodenLoadout())) equipItem(hero, item);
   }
   return hero;
 }

@@ -24,7 +24,7 @@ import { TREES, unlockedSpells } from '../src/data/skilltrees.js';
 import { spellsForClass, SPELL_SLOTS } from '../src/data/spells.js';
 import { computeStats } from '../src/sim/stats.js';
 import { createHero, autoAllocate, availableSpells, sanitizeHero } from '../src/sim/heroes.js';
-import { craftItem, SLOTS, slotsForPart, canEquip, packCapacity, startingLoadout } from '../src/data/gear.js';
+import { craftItem, SLOTS, slotsForPart, canEquip, packCapacity, woodenLoadout } from '../src/data/gear.js';
 import { QUALITY_ORDER } from '../src/data/parts.js';
 import { CREATURES } from '../src/data/creatures.js';
 import { makeRng } from '../src/core/rng.js';
@@ -146,7 +146,7 @@ console.log('\n=== the unlocked classes are actually playable ===');
     const stats = computeStats(hero);
     // A hero whose kit it cannot wear, or whose tree cannot be spent, is a
     // dead class however good the data file looks.
-    const wearable = startingLoadout(rng, classId).every((i) => canEquip(i, classId));
+    const wearable = Object.values(woodenLoadout()).every((i) => canEquip(i, classId));
     const slotsCovered = SLOTS.every((slot) =>
       hero.equipped[slot] !== undefined);
     const maxed = { ...hero, level: 20, alloc: {} };

@@ -42,6 +42,17 @@ export const QUALITIES = {
   mythic: { id: 'mythic', name: 'Mythic', power: 2.8, weight: 1, color: '#f0a33c' },
 };
 
+/**
+ * Wooden gear's grade. Present in `QUALITIES` so the UI has a name and a colour
+ * for it, and deliberately absent from `QUALITY_ORDER` below — that list drives
+ * carve rolls, the smith's grading and the squad's minimum-quality filter, and
+ * wooden is not a carve. Anything ranking by `QUALITY_ORDER` reads it as -1,
+ * which is the correct answer: below everything.
+ */
+QUALITIES.wooden = {
+  id: 'wooden', name: 'Wooden', power: 0.5, weight: 0, color: '#8a7a63',
+};
+
 export const QUALITY_ORDER = ['ragged', 'sound', 'fine', 'pristine', 'mythic'];
 
 /**
