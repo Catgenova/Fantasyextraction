@@ -4,6 +4,7 @@
 import { CLASSES } from '../data/classes.js';
 import { TREES } from '../data/skilltrees.js';
 import { STANCES } from '../data/tactics.js';
+import { setMods } from '../data/sets.js';
 
 /** Every additive modifier key the game understands, with its identity value. */
 export const MOD_KEYS = [
@@ -72,6 +73,8 @@ export function computeStats(hero, opts = {}) {
   mods.resist += cls.baseResist;
 
   addMods(mods, gearMods(hero.equipped));
+  // Wearing enough of one creature makes you fight a little like it.
+  addMods(mods, setMods(hero.equipped));
   const { passive } = treeMods(hero.classId, hero.alloc);
   addMods(mods, passive);
   if (opts.extra) addMods(mods, opts.extra);

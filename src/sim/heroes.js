@@ -20,6 +20,8 @@ const NAMES = {
   ice_mage: ['Isolde Frey', 'Kaneth', 'Silvia Nim', 'Halvard', 'Orenna', 'Petrel'],
   fire_mage: ['Cinder Vex', 'Maro Kell', 'Zaine', 'Ember Okonkwo', 'Halix', 'Roseau'],
   lightning_mage: ['Volt Ashby', 'Ianthe', 'Sparrow Kade', 'Delphine', 'Auric', 'Mirren Fyfe'],
+  warden: ['Holt', 'Bryn Ashgrove', 'Serel', 'Marchand', 'Quill Vantry', 'Ossa'],
+  lancer: ['Cass Verrin', 'Idris', 'Perrault', 'Solveig', 'Tam Redlance', 'Aurel'],
 };
 
 let seq = 0;

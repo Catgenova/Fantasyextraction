@@ -273,7 +273,10 @@ export function hubScreen(app) {
       return el('div.panel.grow.scroll', { style: { minHeight: '0' } }, [
         el('div.panel-head', null, [
           el('h2', null, 'Stash'),
-          el('span.small.muted', null, `${profile.stash.length} / ${STASH_LIMIT}`),
+          el('div.row', { style: { gap: '8px' } }, [
+            el('button.sm', { onclick: () => app.go('smith') }, 'Blacksmith'),
+            el('span.small.muted', null, `${profile.stash.length} / ${STASH_LIMIT}`),
+          ]),
         ]),
         el('div.panel-body.col', { style: { gap: '8px' } }, [
           parts.length

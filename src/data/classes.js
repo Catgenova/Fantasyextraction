@@ -308,6 +308,57 @@ export const CLASSES = {
     preferredWeapons: ['runestaff'],
     startingSpells: ['arc_bolt', 'thunderclap'],
   },
+  warden: {
+    id: 'warden',
+    name: 'Warden',
+    role: 'Melee control',
+    color: '#6f9a7e',
+    blurb:
+      'Decides where a fight happens. Snares, hooks and holds — it does less damage than anything else in melee and takes away the option of leaving.',
+    base: { might: 12, agility: 8, spirit: 6, vitality: 15 },
+    growth: { might: 1.3, agility: 0.7, spirit: 0.5, vitality: 1.8 },
+    powerAttr: 'might',
+    shape: 'shield',
+    baseArmor: 78,
+    baseResist: 45,
+    moveSpeed: 98,
+    attack: {
+      kind: 'melee',
+      range: 54,
+      interval: 1.5,
+      damage: 12,
+      scaling: { attackPower: 0.85 },
+      school: 'physical',
+    },
+    preferredWeapons: ['tail'],
+    startingSpells: ['snare', 'grapnel'],
+  },
+
+  lancer: {
+    id: 'lancer',
+    name: 'Lancer',
+    role: 'Reach fighter',
+    color: '#8fb3d9',
+    blurb:
+      'Fights from further out than a melee has any right to, closes the last of it in one movement, and is not there when the answer arrives.',
+    base: { might: 14, agility: 11, spirit: 5, vitality: 12 },
+    growth: { might: 1.6, agility: 1.0, spirit: 0.4, vitality: 1.4 },
+    powerAttr: 'might',
+    shape: 'spike',
+    baseArmor: 72,
+    baseResist: 40,
+    moveSpeed: 106,
+    attack: {
+      kind: 'melee',
+      range: 66,
+      interval: 1.45,
+      damage: 13,
+      scaling: { attackPower: 0.95 },
+      school: 'physical',
+    },
+    preferredWeapons: ['tail', 'horn'],
+    startingSpells: ['lunge', 'vault'],
+  },
 };
 
 export const CLASS_IDS = Object.keys(CLASSES);

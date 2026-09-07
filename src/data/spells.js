@@ -676,6 +676,134 @@ export const SPELLS = {
     hint: { priority: 8, enemiesWithin: 3 },
     desc: 'A standing storm that keeps hitting everything under it for 8s.',
   },
+  // ------------------------------------------------------------------ WARDEN
+  snare: {
+    id: 'snare', name: 'Snare', classId: 'warden', tier: 0,
+    manaCost: 10, cooldown: 6, range: 200, target: 'enemy',
+    effects: [
+      { type: 'damage', school: 'physical', base: 12, scaling: { attackPower: 0.5 } },
+      { type: 'debuff', status: 'snared', duration: 5, mods: { moveSpeedPct: -0.55 } },
+    ],
+    hint: { priority: 4, targetClosingIn: false },
+    desc: 'Takes 55% of a target\u2019s speed for 5s.',
+  },
+  grapnel: {
+    id: 'grapnel', name: 'Grapnel', classId: 'warden', tier: 0,
+    manaCost: 12, cooldown: 9, range: 210, target: 'enemy',
+    effects: [
+      { type: 'damage', school: 'physical', base: 14, scaling: { attackPower: 0.6 } },
+      { type: 'taunt', duration: 4 },
+    ],
+    hint: { priority: 5, alliesThreatened: 1 },
+    desc: 'Hooks one target and makes itself the only thing worth attacking.',
+  },
+  pin: {
+    id: 'pin', name: 'Pin', classId: 'warden', tier: 1,
+    manaCost: 16, cooldown: 12, range: 60, target: 'enemy',
+    effects: [
+      { type: 'damage', school: 'physical', base: 18, scaling: { attackPower: 0.8 } },
+      { type: 'debuff', status: 'stun', duration: 1.8 },
+    ],
+    hint: { priority: 6 },
+    desc: 'Puts a target on the ground for 1.8s.',
+  },
+  bracing_chain: {
+    id: 'bracing_chain', name: 'Bracing Chain', classId: 'warden', tier: 1,
+    manaCost: 18, cooldown: 20, target: 'self',
+    effects: [{ type: 'buff', status: 'bracing_chain', duration: 8, mods: { armor: 100, blockChance: 0.15 } }],
+    hint: { priority: 5, selfHpBelow: 0.6 },
+    desc: '+100 armour and 15% block for 8s.',
+  },
+  dragnet: {
+    id: 'dragnet', name: 'Dragnet', classId: 'warden', tier: 2,
+    manaCost: 24, cooldown: 16, radius: 220, target: 'areaEnemy', range: 90,
+    effects: [
+      { type: 'damage', school: 'physical', base: 16, scaling: { attackPower: 0.6 } },
+      { type: 'debuff', status: 'snared', duration: 7, mods: { moveSpeedPct: -0.5, attackSpeedPct: -0.2 } },
+    ],
+    hint: { priority: 6, enemiesWithin: 3 },
+    desc: 'Slows and blunts a whole pack for 7s.',
+  },
+  hold_fast: {
+    id: 'hold_fast', name: 'Hold Fast', classId: 'warden', tier: 2,
+    manaCost: 22, cooldown: 26, radius: 230, target: 'allAllies',
+    effects: [{ type: 'buff', status: 'hold_fast', duration: 7, mods: { damageTakenPct: -0.22, armor: 60 } }],
+    hint: { priority: 7, alliesHpBelow: 0.55 },
+    desc: 'The squad takes 22% less damage for 7s.',
+  },
+  iron_web: {
+    id: 'iron_web', name: 'Iron Web', classId: 'warden', tier: 3,
+    manaCost: 32, cooldown: 55, radius: 250, target: 'areaEnemy', range: 120,
+    effects: [
+      { type: 'debuff', status: 'iron_web', duration: 6, mods: { moveSpeedPct: -0.85, vulnerability: 0.25 } },
+      { type: 'damage', school: 'physical', base: 20, scaling: { attackPower: 0.7 } },
+    ],
+    hint: { priority: 9, enemiesWithin: 3 },
+    desc: 'Holds a pack almost still for 6s and makes them 25% easier to kill.',
+  },
+
+  // ------------------------------------------------------------------ LANCER
+  lunge: {
+    id: 'lunge', name: 'Lunge', classId: 'lancer', tier: 0,
+    manaCost: 10, cooldown: 7, target: 'self',
+    effects: [
+      { type: 'dash', distance: 200, away: false },
+      { type: 'buff', status: 'lunge', duration: 3, mods: { damagePct: 0.18, rangeBonus: 20 } },
+    ],
+    hint: { priority: 5 },
+    desc: 'Closes 200u and hits 18% harder for 3s.',
+  },
+  vault: {
+    id: 'vault', name: 'Vault', classId: 'lancer', tier: 0,
+    manaCost: 9, cooldown: 9, target: 'self',
+    effects: [
+      { type: 'dash', distance: 190, away: true },
+      { type: 'buff', status: 'vault', duration: 3, mods: { moveSpeedPct: 0.3, dodge: 0.2 } },
+    ],
+    hint: { priority: 6, enemyWithin: 80 },
+    desc: 'Disengages with 30% move speed and 20% dodge for 3s.',
+  },
+  skewer: {
+    id: 'skewer', name: 'Skewer', classId: 'lancer', tier: 1,
+    manaCost: 16, cooldown: 9, range: 80, target: 'enemy',
+    effects: [{ type: 'damage', school: 'physical', base: 24, scaling: { attackPower: 1.3 } }],
+    hint: { priority: 4 },
+    desc: 'A straight thrust at the edge of reach.',
+  },
+  skyfall: {
+    id: 'skyfall', name: 'Skyfall', classId: 'lancer', tier: 1,
+    manaCost: 20, cooldown: 14, radius: 150, target: 'areaEnemy', range: 220,
+    effects: [{ type: 'damage', school: 'physical', base: 26, scaling: { attackPower: 1.0 } }],
+    hint: { priority: 5, enemiesWithin: 2 },
+    desc: 'Comes down on a cluster from above.',
+  },
+  impale: {
+    id: 'impale', name: 'Impale', classId: 'lancer', tier: 2,
+    manaCost: 20, cooldown: 12, range: 80, target: 'enemy',
+    effects: [
+      { type: 'damage', school: 'physical', base: 22, scaling: { attackPower: 1.1 } },
+      { type: 'dot', status: 'bleed', school: 'physical', base: 8, scaling: { attackPower: 0.34 }, duration: 8, tick: 1 },
+    ],
+    hint: { priority: 5, targetHpAbove: 0.4 },
+    desc: 'Leaves them bleeding for 8s.',
+  },
+  windrider: {
+    id: 'windrider', name: 'Windrider', classId: 'lancer', tier: 2,
+    manaCost: 22, cooldown: 24, target: 'self',
+    effects: [{ type: 'buff', status: 'windrider', duration: 8, mods: { attackSpeedPct: 0.4, moveSpeedPct: 0.25, rangeBonus: 25 } }],
+    hint: { priority: 6 },
+    desc: '+40% attack speed, +25% move and more reach for 8s.',
+  },
+  stormlance: {
+    id: 'stormlance', name: 'Stormlance', classId: 'lancer', tier: 3,
+    manaCost: 30, cooldown: 50, range: 300, radius: 120, target: 'areaEnemy',
+    effects: [
+      { type: 'damage', school: 'physical', base: 48, scaling: { attackPower: 1.9 } },
+      { type: 'debuff', status: 'stormlance', duration: 8, mods: { vulnerability: 0.2 } },
+    ],
+    hint: { priority: 8, targetIsElite: true },
+    desc: 'A committed run-through that leaves the target 20% more vulnerable.',
+  },
 };
 
 export const SPELL_LIST = Object.values(SPELLS);

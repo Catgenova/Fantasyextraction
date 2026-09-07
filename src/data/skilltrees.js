@@ -339,6 +339,65 @@ export const TREES = {
       node({ id: 'l_stormcaller', branch: 'conduit', tier: 3, name: 'Stormcaller', maxRank: 1, aura: { cooldownPct: 0.08, damagePct: 0.06 }, desc: 'Squad aura: +8% cooldown reduction and +6% damage.' }),
     ],
   },
+  warden: {
+    branches: [
+      { id: 'chains', name: 'Chains', blurb: 'Taking away the option of leaving.' },
+      { id: 'anchor', name: 'Anchor', blurb: 'Being immovable, and near.' },
+      { id: 'warding', name: 'Warding', blurb: 'What the squad gets out of it.' },
+    ],
+    nodes: [
+      node({ id: 'w_grip', branch: 'chains', tier: 0, name: 'Grip', maxRank: 3, mods: { might: 3 }, desc: '+3 might per rank.' }),
+      node({ id: 'w_pin', branch: 'chains', tier: 1, name: 'Pin', unlocks: 'pin', desc: 'Unlocks Pin.' }),
+      node({ id: 'w_reach', branch: 'chains', tier: 1, name: 'Long Chain', maxRank: 2, mods: { rangeBonus: 18 }, desc: '+18 attack range per rank.' }),
+      node({ id: 'w_dragnet', branch: 'chains', tier: 2, name: 'Dragnet', unlocks: 'dragnet', desc: 'Unlocks Dragnet.' }),
+      node({ id: 'w_wide', branch: 'chains', tier: 2, name: 'Wide Cast', maxRank: 2, mods: { aoeRadiusPct: 0.15 }, desc: '+15% area-effect radius per rank.' }),
+      node({ id: 'w_web', branch: 'chains', tier: 3, name: 'Iron Web', unlocks: 'iron_web', desc: 'Unlocks Iron Web.' }),
+
+      node({ id: 'w_footing', branch: 'anchor', tier: 0, name: 'Footing', maxRank: 3, mods: { armor: 28, vitality: 2 }, desc: '+28 armour and +2 vitality per rank.' }),
+      node({ id: 'w_bracing', branch: 'anchor', tier: 1, name: 'Bracing Chain', unlocks: 'bracing_chain', desc: 'Unlocks Bracing Chain.' }),
+      node({ id: 'w_setstance', branch: 'anchor', tier: 1, name: 'Set Stance', maxRank: 2, mods: { blockChance: 0.06 }, desc: '+6% block chance per rank.' }),
+      node({ id: 'w_unmoved', branch: 'anchor', tier: 2, name: 'Unmoved', maxRank: 2, mods: { damageTakenPct: -0.07 }, desc: '-7% damage taken per rank.' }),
+      node({ id: 'w_stubborn', branch: 'anchor', tier: 2, name: 'Deep Roots', maxRank: 2, mods: { maxHpFlat: 55 }, desc: '+55 max health per rank.' }),
+      node({ id: 'w_immovable', branch: 'anchor', tier: 3, name: 'Immovable', maxRank: 1, mods: { armor: 110, blockChance: 0.1 }, desc: '+110 armour and +10% block.' }),
+
+      node({ id: 'w_watch', branch: 'warding', tier: 0, name: 'Watchfulness', maxRank: 3, mods: { resist: 22, spirit: 1 }, desc: '+22 resist and +1 spirit per rank.' }),
+      node({ id: 'w_holdfast', branch: 'warding', tier: 1, name: 'Hold Fast', unlocks: 'hold_fast', desc: 'Unlocks Hold Fast.' }),
+      node({ id: 'w_cover', branch: 'warding', tier: 1, name: 'Cover', maxRank: 2, aura: { damageTakenPct: -0.04 }, desc: 'Squad aura: -4% damage taken per rank.' }),
+      node({ id: 'w_bulwark', branch: 'warding', tier: 2, name: 'Standing Guard', maxRank: 2, aura: { armor: 30 }, desc: 'Squad aura: +30 armour per rank.' }),
+      node({ id: 'w_relief', branch: 'warding', tier: 2, name: 'Relief', maxRank: 2, mods: { cooldownPct: 0.07 }, desc: '+7% cooldown reduction per rank.' }),
+      node({ id: 'w_keeper', branch: 'warding', tier: 3, name: 'Keeper', maxRank: 1, aura: { maxHpFlat: 60, resist: 45 }, desc: 'Squad aura: +60 max health and +45 resist.' }),
+    ],
+  },
+
+  lancer: {
+    branches: [
+      { id: 'reach', name: 'Reach', blurb: 'Hitting from where nothing can hit back.' },
+      { id: 'flight', name: 'Flight', blurb: 'Closing and leaving in one movement.' },
+      { id: 'thrust', name: 'Thrust', blurb: 'What lands at the end of it.' },
+    ],
+    nodes: [
+      node({ id: 'l_polearm', branch: 'reach', tier: 0, name: 'Polearm Drill', maxRank: 3, mods: { rangeBonus: 12, might: 2 }, desc: '+12 attack range and +2 might per rank.' }),
+      node({ id: 'l_skewer', branch: 'reach', tier: 1, name: 'Skewer', unlocks: 'skewer', desc: 'Unlocks Skewer.' }),
+      node({ id: 'l_pierce', branch: 'reach', tier: 1, name: 'Pierce', maxRank: 2, mods: { armorPen: 70 }, desc: 'Ignore 70 enemy armour per rank.' }),
+      node({ id: 'l_impale', branch: 'reach', tier: 2, name: 'Impale', unlocks: 'impale', desc: 'Unlocks Impale.' }),
+      node({ id: 'l_bleed', branch: 'reach', tier: 2, name: 'Deep Wounds', maxRank: 2, mods: { dotPct: 0.16 }, desc: '+16% damage-over-time per rank.' }),
+      node({ id: 'l_stormlance', branch: 'reach', tier: 3, name: 'Stormlance', unlocks: 'stormlance', desc: 'Unlocks Stormlance.' }),
+
+      node({ id: 'l_light', branch: 'flight', tier: 0, name: 'Light Step', maxRank: 3, mods: { moveSpeedPct: 0.05 }, desc: '+5% move speed per rank.' }),
+      node({ id: 'l_skyfall', branch: 'flight', tier: 1, name: 'Skyfall', unlocks: 'skyfall', desc: 'Unlocks Skyfall.' }),
+      node({ id: 'l_glide', branch: 'flight', tier: 1, name: 'Glide', maxRank: 2, mods: { dodge: 0.05 }, desc: '+5% dodge per rank.' }),
+      node({ id: 'l_windrider', branch: 'flight', tier: 2, name: 'Windrider', unlocks: 'windrider', desc: 'Unlocks Windrider.' }),
+      node({ id: 'l_recover', branch: 'flight', tier: 2, name: 'Quick Recovery', maxRank: 2, mods: { cooldownPct: 0.08 }, desc: '+8% cooldown reduction per rank.' }),
+      node({ id: 'l_aerial', branch: 'flight', tier: 3, name: 'Aerial', maxRank: 1, mods: { dodge: 0.1, moveSpeedPct: 0.1 }, desc: '+10% dodge and move speed.' }),
+
+      node({ id: 'l_form', branch: 'thrust', tier: 0, name: 'Form', maxRank: 3, mods: { might: 3 }, desc: '+3 might per rank.' }),
+      node({ id: 'l_commit', branch: 'thrust', tier: 1, name: 'Commitment', maxRank: 2, mods: { critDamage: 0.2 }, desc: '+20% crit damage per rank.' }),
+      node({ id: 'l_tempo', branch: 'thrust', tier: 1, name: 'Tempo', maxRank: 2, mods: { attackSpeedPct: 0.08 }, desc: '+8% attack speed per rank.' }),
+      node({ id: 'l_precision', branch: 'thrust', tier: 2, name: 'Precision', maxRank: 2, mods: { critChance: 0.06 }, desc: '+6% crit chance per rank.' }),
+      node({ id: 'l_vanguard', branch: 'thrust', tier: 2, name: 'Vanguard', maxRank: 2, aura: { damagePct: 0.05 }, desc: 'Squad aura: +5% damage per rank.' }),
+      node({ id: 'l_lancehead', branch: 'thrust', tier: 3, name: 'Lancehead', maxRank: 1, mods: { damagePct: 0.16, armorPen: 90 }, desc: '+16% damage and 90 armour penetration.' }),
+    ],
+  },
 };
 
 export const nodesForClass = (classId) => TREES[classId].nodes;

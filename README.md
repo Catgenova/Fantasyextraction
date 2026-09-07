@@ -1,11 +1,13 @@
 # Ashenveil
 
-A browser-based **PvPvE extraction looter autobattler**.
+A browser-based **PvPvE extraction hunting autobattler**.
 
 You do not control heroes in a fight. Between raids you pick three of them,
-gear them, spend their skill points, slot their spells, and write the tactics
-they will fight by. Then you drop into a 30-minute raid you can steer but not
-micromanage — and everything they are wearing is at risk until they extract.
+forge their gear, spend their skill points, slot their spells, and write the
+tactics they will fight by. Then you drop into a 30-minute raid you can steer
+but not micromanage — hunt the things that live there, carve what you kill, and
+get out. Everything they are wearing is at risk until they extract, and so is
+every other squad on the map.
 
 ## Running it
 
@@ -21,41 +23,155 @@ Then open <http://localhost:8080>. Progress is saved to `localStorage`.
 
 ## The loop
 
-1. **Camp** — choose a squad of three, move gear between the stash and your
-   heroes, allocate skill points, slot spells, and set tactics.
-2. **Raid** — land at one of twelve zones, fight through a very large map, and
-   reach one of three extraction points before the 30-minute timer runs out.
-3. **After-action** — anything an extracted hero carried goes into the stash.
-   Anything a dead hero carried *or was wearing* is gone, and drops on the
-   field for whoever killed them.
-4. **Trophies** — the first time your squad kills a boss you earn its trophy,
-   which unlocks a hero class and recruits someone to play it.
-5. **Salvage** — stash space is finite, so gear you do not want breaks down
-   into **Scrap**. What a piece is worth scales with its rarity, from 5 for a
-   common to 180 for a legendary, plus 5% per item level. Scrap is the
-   currency repairs will be paid in.
+1. **Camp** — choose a squad of three, take your carved parts to the
+   blacksmith, move forged gear between the stash and your heroes, allocate
+   skill points, slot spells, and set tactics.
+2. **Raid** — land at one of twelve zones, pick your fights, and reach one of
+   three extraction points before the 30-minute timer runs out.
+3. **Carve** — nothing on this map drops equipment. Kills leave a corpse, and a
+   corpse has to be carved before it rots. What you carve out is what you
+   extract with.
+4. **After-action** — anything an extracted hero carried goes into the stash.
+   Anything a dead hero carried *or was wearing* is gone.
+5. **Forge** — the blacksmith turns parts into equipment. Which species and
+   which part decide what the piece does; the grade of the parts decides how
+   much of it there is.
+6. **Trophies** — the first time your squad takes a solo monster you earn its
+   trophy, which unlocks a hero class and recruits someone to play it.
 
-A stash of 120 fills in a handful of farming runs, so clearing it one row at a
-time is not a real option. The stash offers a sweep for each way a player
-actually thinks about the problem — everything at or below a rarity, or one of
-two judgements about the roster:
+There is no rarity ladder and no random affixes. A piece of gear is a species,
+a part and a grade, and all three are things you went and got.
 
-| Sweep | Takes |
+## Choosing a fight
+
+Three kinds of fight are on the map, and they are a real choice rather than a
+difficulty slider.
+
+| Hunt | What it is | Pays |
+|---|---|---|
+| **Small pack** | Three to nine of one small species | One or two carves each, at the grade they died at |
+| **Large pack** | Fewer of them, but the deep-ring versions | The same parts, better odds on grade |
+| **Solo monster** | One of the ten large creatures, alone in its ground | Four to six carves, and two grades of bias upward |
+
+Packs are sized by threat rather than headcount — `PACK_BUDGET` in
+`src/sim/match.js` spends a points budget per ring, so a camp of Skiterlings is
+numerous and a camp of Bonereavers is not. Sizing by headcount instead is what
+put nineteen Skiterlings on a starter squad and wiped it in sixty seconds.
+
+Other squads are hunting the same ground. Nothing about picking a fight makes
+you safe from them, and a squad that has just finished a solo monster is the
+best thing on the map to rob.
+
+## Carving
+
+A corpse is worth stopping for and stopping is the cost. Carving takes 1.5
+seconds a pull on a small creature and 4 on a large one, so a solo monster is
+sixteen to twenty-four seconds spent standing still in the place you just made
+a lot of noise. Corpses last 100 seconds, which is long enough to finish a
+fight first and not long enough to come back later.
+
+What comes out is a **part**: a species, one of ten types, and a grade.
+
+| Part | Fits |
 |---|---|
-| Commons / Uncommon / Rare / Epic and below | Everything at or below that tier |
-| **Unusable** | Gear locked to a class nobody on your roster has |
-| **Outclassed** | Gear every hero who could wear it already beats in that slot |
+| Hide | Chest, legs, hands, head, pouch |
+| Scale | Chest, legs, head, offhand |
+| Plate | Chest, head, hands, offhand |
+| Claw | Weapon, hands |
+| Fang | Weapon, trinket |
+| Horn | Head, weapon |
+| Tail | Weapon, offhand |
+| Membrane | Legs, hands, offhand, pouch |
+| Gland | Trinket, offhand |
+| Marrow | Trinket |
 
-No sweep will ever take a legendary — losing one to a mis-tap is exactly the
-mistake a bulk button should not be able to make — and each still asks before
-it runs. A sweep that would take nothing is not shown at all, so the row
-shrinks as the stash gets cleaner instead of offering dead buttons. An empty
-slot counts as beatable, so a hero missing a helm never makes helms
-"outclassed".
+| Grade | Power |
+|---|---|
+| Ragged | ×1.00 |
+| Sound | ×1.28 |
+| Fine | ×1.62 |
+| Pristine | ×2.10 |
+| Mythic | ×2.80 |
+
+Solo monsters carve at a two-grade bias, which is most of why they are worth
+the risk: a pristine part off a pack is luck, off a large creature it is
+roughly what you expected.
+
+## The blacksmith
+
+Parts in, equipment out. A recipe is a species, a part type and a slot, and it
+costs two or three parts depending on the slot — three for a weapon or chest,
+two for everything else.
+
+**A piece comes out at the grade of the worst part that went into it.** That
+one rule is what makes a pile of ragged parts worth carrying and a single
+mythic claw worth nothing on its own. The smith reaches for the best parts it
+has, so a pile of four with one ragged in it still forges sound.
+
+What a piece *does* comes from the creature. `speciesAffinity` in
+`src/data/gear.js` reads the creature's own stat block — a heavily armoured
+thing makes armoured gear, a fast thing makes gear that grants speed — but
+normalises it to a *shape* rather than a magnitude, dividing through by its own
+mean and clamping the result. Skipping that step is a bug I shipped and had to
+take back out: Nightfell has 16000 health, so unnormalised affinity made every
+trinket in the game a vitality trinket.
+
+The weapon slot gets a damage overlay on top of the shape, because a horn is a
+piece of armour by every reading of the creature it came off and a horn club
+still has to be a weapon. Without it a mythic horn weapon forged with 95 armour
+and no damage.
+
+Only weapons are bound to a class. Armour fits anyone — a Plateback cuirass
+does not care who is in it.
+
+## Sets
+
+Wear enough of one creature and you start fighting like it. Every species
+carries the set made from it, and the bonus echoes its **behaviour**: a
+Sicklejaw set is speed and attack speed because a Sicklejaw hits and leaves; a
+Thornback set is block and mitigation because a Thornback punishes contact.
+
+| Pieces | You get |
+|---|---|
+| 3 | Half the set's modifiers |
+| 5 | All of them, plus its squad aura |
+
+Two thresholds rather than one make a set a ladder instead of a cliff, and
+eight slots means a full set still leaves room for three pieces of something
+else — which is where mixed builds live. The aura is the reward for the full
+five specifically; leaking it at three would make the last two pieces
+pointless.
+
+## The bestiary
+
+Forty small species that hunt in packs, ten large ones that hunt alone.
+
+| Family | Species | What they are |
+|---|---|---|
+| Raptorial | 8 | Fast, light, and they arrive together |
+| Wyverling | 6 | Winged; they open from above and disengage |
+| Carapace | 6 | Slow and armoured; they hold ground |
+| Venomite | 6 | Little damage up front and a lot afterwards |
+| Delver | 6 | Burrowers; they are not where you last saw them |
+| Mireborn | 4 | Control — grapples, slows, sticky ground |
+| Carrionkin | 4 | They do better against a squad already hurt |
+
+Twelve small species are outer-ring, seventeen mid, eleven core. The ten large
+creatures run one outer (Bastionback), four mid, and five core, with Nightfell
+at the centre of the map.
+
+The thing that makes fifty species distinguishable without fifty special cases
+is `src/data/behaviours.js`: twenty-five behaviour archetypes — swarm, harry,
+flank, pounce, spitter, ambusher, burrower, screamer, bulwark, tailwhip, leech,
+bomber, stalker, venomous, frenzy, retaliate, grapple, deathcloud, charger,
+breath, slam, sunder, roar, divebomb, constrict — each a set of `hint` fields
+the monster AI reads. A species picks one, and the same vocabulary names its
+set bonus, so what a creature does in a fight and what its armour does for you
+are the same word.
 
 ## Classes
 
-Three are yours from the first raid. The other eight are earned — see
+Three are yours from the first raid. The other ten are earned — see
 **Trophies** below.
 
 | Class | Role | Power attribute | Shape | Unlocked by |
@@ -63,62 +179,72 @@ Three are yours from the first raid. The other eight are earned — see
 | **Knight** | Frontline | Might | Shield | — |
 | **Archer** | Ranged DPS | Agility | Chevron | — |
 | **Priest** | Support | Spirit | Disc | — |
-| **Rogue** | Melee burst | Agility | Chevron | The Quiet Knife |
-| **Berserker** | Melee bruiser | Might | Spike | Grendrak the Unbroken |
-| **Necromancer** | Attrition caster | Spirit | Disc | Gravemaw, the Bonefather |
-| **Ice Mage** | Control caster | Spirit | Disc | Hoarfrost, the Still Winter |
-| **Fire Mage** | Burst caster | Spirit | Disc | Emberjaw, the Kiln Wyrm |
-| **Lightning Mage** | Sustained caster | Spirit | Disc | Ashenveil, the Hollow Choir |
-| **Slayer** | Elite hunter | Might | Spike | Malgareth, the Rent Veil |
-| **Paladin** | Frontline support | Might | Shield | The Warden of the Seal |
+| **Paladin** | Frontline support | Might | Shield | Bastionback |
+| **Berserker** | Melee bruiser | Might | Spike | Tyrannoclast |
+| **Necromancer** | Attrition caster | Spirit | Disc | Deepdelver |
+| **Ice Mage** | Control caster | Spirit | Disc | Glaciermaw |
+| **Warden** | Melee control | Might | Shield | Mirethane |
+| **Fire Mage** | Burst caster | Spirit | Disc | Pyroclast |
+| **Lightning Mage** | Sustained caster | Spirit | Disc | Stormcrest |
+| **Rogue** | Melee burst | Agility | Chevron | Venomcoil |
+| **Lancer** | Reach fighter | Might | Spike | Skyrender |
+| **Slayer** | Elite hunter | Might | Spike | Nightfell |
 
 Each has seven spells and a three-branch, four-tier skill tree whose nodes
 grant passives, squad-wide auras, or unlock the five spells that are not
 starters. Four spells can be slotted at a time.
 
-None of the eight is a straight upgrade on a starter. The Berserker hits
-harder than the Knight and dies faster for it; the Paladin mitigates less but
-heals the squad; the Fire Mage does the most damage in the game and has the
-least health to protect it. Silhouettes are shared by role rather than unique
-per class — eleven shapes would be unreadable at raid zoom — so colour and the
-name label separate classes within a role.
+None of the ten is a straight upgrade on a starter. The Berserker hits harder
+than the Knight and dies faster for it; the Paladin mitigates less but heals
+the squad; the Fire Mage does the most damage in the game and has the least
+health to protect it. The Warden gives up damage entirely for snares and
+grapples, and the Lancer trades armour for reach — it opens at 66 units, which
+is further than any other melee class can start a fight.
+
+Silhouettes are shared by role rather than unique per class — thirteen shapes
+would be unreadable at raid zoom — so colour and the name label separate
+classes within a role.
 
 ## Trophies
 
-Eight bosses, eight trophies, one hero class each. It is the only way to get a
-class: nothing here is bought, rolled for, or dropped, so a roster is a
-readable record of what its owner has actually killed. The camp lists all
-eight, and a locked row names the boss and the ring it is in, because a player
-who wants a Necromancer needs to know what to go and kill for it.
+Ten solo monsters, ten trophies, one hero class each. It is the only way to get
+a class: nothing here is bought, rolled for, or dropped, so a roster is a
+readable record of what its owner has actually killed. The camp lists all ten,
+and a locked row names the creature and the ring it is in, because a player who
+wants a Necromancer needs to know what to go and kill for it.
 
-| Ring | Boss | Unlocks |
-|---|---|---|
-| Outer | The Quiet Knife | Rogue |
-| Mid | Grendrak the Unbroken | Berserker |
-| Mid | Gravemaw, the Bonefather | Necromancer |
-| Mid | Hoarfrost, the Still Winter | Ice Mage |
-| Core | Emberjaw, the Kiln Wyrm | Fire Mage |
-| Core | Ashenveil, the Hollow Choir | Lightning Mage |
-| Core | Malgareth, the Rent Veil | Slayer |
-| Centre | The Warden of the Seal | Paladin |
+| Ring | Creature | Trophy | Unlocks |
+|---|---|---|---|
+| Outer | Bastionback | Something That Would Not Fall | Paladin |
+| Mid | Tyrannoclast | The Line It Chose | Berserker |
+| Mid | Deepdelver | What Was Underneath | Necromancer |
+| Mid | Glaciermaw | The Cold It Kept | Ice Mage |
+| Mid | Mirethane | It Would Not Let Go | Warden |
+| Core | Pyroclast | The Ground It Ruined | Fire Mage |
+| Core | Stormcrest | It Never Once Landed | Lightning Mage |
+| Core | Venomcoil | Patience, Applied | Rogue |
+| Core | Skyrender | It Came Back Down | Lancer |
+| Centre | Nightfell | The One That Was Choosing | Slayer |
 
-The tiering doubles as the progression ladder. The outer-ring boss is the one
-a fresh squad can realistically take, and it pays for a fourth class; each
-deeper kill opens something built for the ring after it.
+The tiering doubles as the progression ladder. Bastionback is the one a fresh
+squad can realistically take, and it pays for a fourth class; each deeper kill
+opens something built for the ring after it. Each trophy also reads as a lesson
+learned from the fight — the Warden comes off the thing that took a hero out of
+the fight and dared the rest to hurry.
 
 Two rules decide when a trophy is yours:
 
-- **The kill is the achievement, not the extraction.** Bosses are hard enough
+- **The kill is the achievement, not the extraction.** These are hard enough
   that dying on the way out with the trophy already earned is a fair trade —
   you still lose everything you were carrying, which is punishment enough.
-- **Only your own kills count.** Rival squads kill far more bosses than you
-  do: across a dozen farming raids roughly forty die and about one of them is
-  yours. Crediting every boss death to the player would hand over most of the
-  roster for work somebody else did.
+- **Only your own kills count.** Rival squads kill far more of them than you
+  do: across a dozen farming raids roughly ten die and none of them are yours.
+  Crediting every death to the player would hand over most of the roster for
+  work somebody else did.
 
 Rival squads field the classes a player of their level plausibly has — the
-unlockable ones only once they are deep enough to have killed the boss that
-grants them. Seeing a Paladin means somebody put the Warden down.
+unlockable ones only once they are deep enough to have killed the creature that
+grants them. Seeing a Paladin means somebody put a Bastionback down.
 
 ## Tactics are the game
 
@@ -138,41 +264,43 @@ Your input during a raid is deliberately narrow: navigation, an extract order,
 the speed control, your squad's packs, and the standing loot orders. Everything
 else was decided in camp.
 
-**Navigate** gives eight compass headings plus the core, the nearest boss
-arena, and the nearest extraction. A heading is open-ended — the squad marches
+**Navigate** gives eight compass headings plus the core, the nearest hunting
+ground, and the nearest extraction. A heading is open-ended — the squad marches
 that way until the map runs out — while the landmarks are a single trip, after
 which the raid plan resumes. Clicking the map still works too.
 
 Packs are managed from the **Bags** panel mid-raid — equip what you find,
 destroy what you don't want, hand something to a squadmate standing nearby,
-and move looted potions onto a hero's belt so they will actually drink them.
+and move found potions onto a hero's belt so they will actually drink them.
 Discarding destroys outright rather than dropping — a hero standing over the
 pile would only pick it straight back up — so it takes two taps to confirm. The
 clock keeps running while it is open, so the panel carries its own pause.
 
-The same panel carries the squad's **loot orders**: a minimum rarity and a
-toggle for consumables. Both are live — the squad obeys the new order on its
-next pickup, not the next raid — because what is worth stopping for changes
-once bags are filling and the walk to an exit is what is left. The floor sits
-on top of each hero's own loot policy and the stricter of the two wins, so an
-order can tighten a greedy hero but never loosens a picky one.
+The same panel carries the squad's **carve orders**: a minimum grade — anything
+from *Keep everything* up to *Mythic only* — and a toggle for consumables. Both
+are live, so the squad obeys the new order on its next carve rather than the
+next raid, which matters because what is worth stopping for changes once bags
+are filling and the walk to an exit is what is left. Late in a raid a squad
+that will only stop for pristine cuts walks past most of the map. The floor
+sits on top of each hero's own carve policy and the stricter of the two wins,
+so an order can tighten a greedy hero but never loosens a picky one.
 
 **Extract now** is a committed run. The squad walks through whatever is in the
 way and takes the hits rather than stopping to fight, swinging at anything in
 reach on the way past. It outranks retreating, regrouping and chasing, all of
 which otherwise pull heroes off the door.
 
-Loot on the ground is colour-coded by rarity, and anything your squad will
-refuse — filtered out by policy, or simply no room — is drawn faded, so what
-still glows is what they are going to collect. The **Legend** button explains
-the map's markings.
+Corpses waiting to be carved are drawn in their species' colour, and anything
+your squad will refuse — below the grade floor, or simply no room — is drawn
+faded, so what still glows is what they are going to stop for. The **Legend**
+button explains the map's markings.
 
 **Per hero:** stance (aggressive / balanced / defensive / evasive), target
-priority, loot filter, retreat threshold, potion threshold, focus fire, and a
+priority, carve filter, retreat threshold, potion threshold, focus fire, and a
 per-spell policy (auto / emergency / hold).
 
-**Per squad:** formation, raid plan (farm, boss hunt, event chaser, squad
-hunter), extraction plan, leader, and whether to engage rival squads.
+**Per squad:** formation, raid plan (farm the ring, boss hunt, event chaser,
+squad hunter), extraction plan, leader, and whether to engage rival squads.
 
 Those settings are read directly by `src/sim/ai.js`, which is the interpreter
 for them — there is no second, hidden set of rules.
@@ -184,31 +312,26 @@ piece of gear rather than a constant. Every hero carries eight; the **pouch**
 slot adds to that, and is worth nothing in a fight and everything on the way
 home:
 
-| Pouch | Extra slots | Carried |
+| Pouch grade | Extra slots | Carried |
 |---|---|---|
 | None | — | 8 |
-| Common | +4 | 12 |
-| Uncommon | +8 | 16 |
-| Rare | +12 | 20 |
-| Epic | +16 | 24 |
-| Legendary | +20 | 28 |
+| Ragged | +4 | 12 |
+| Sound | +8 | 16 |
+| Fine | +12 | 20 |
+| Pristine | +16 | 24 |
+| Mythic | +20 | 28 |
 
-Every hero starts in a common pouch, and nobody is ever left unable to loot.
-A legendary more than triples the base, which makes it the single most
-valuable drop in the game and the most painful thing to die wearing.
+Pouches are forged like everything else, from hide or membrane, so a bigger bag
+is a hunt rather than a drop. Every hero starts in a ragged one, and nobody is
+ever left unable to carve.
 
 Because a pouch has no stat block, the AI's item scoring counts its capacity
 directly; otherwise the best item in the game would score zero and squads would
 walk straight past it. Swapping down into a smaller pouch than the pack is
 holding is refused rather than silently binning the overflow.
 
-Bigger bags are worth a lot: at matched seeds a level-5 farming run brings home
-20.8 items on the starting common pouch against 11.2 on the old fixed pack of
-eight. The stash holds 120, so about six farming runs fill it — which is what
-salvage is for.
-
 Consumables are carried separately, on a three-slot **belt**, and that is the
-only place the tactics AI will drink from. So a potion picked up off the floor
+only place the tactics AI will drink from. So a potion found in a supply cache
 goes to the belt first and falls back to the pack only when the belt is full.
 Belt stacks are capped per consumable: treating a matching stack as infinite
 room made every potion on the map look takeable and pushed squads from 3.2% of
@@ -220,16 +343,21 @@ not hold.
 14000×14000 units, three concentric danger rings, twelve landing zones on the
 outer ring, and three extraction points on staggered windows (opening at 3, 7
 and 11 minutes; closing at 26, 28 and 30). Enemy camps stream in around
-whichever squads are nearby. Seven boss arenas are fixed, one per ring band
-from 5200 units out down to 1200; an apex boss wakes at the centre at 18
-minutes. Arenas are placed at least 1500 units apart and well clear of every
-landing zone, so pulling one is never pulling two and nobody is greeted by a
-boss on the drop. From 25 minutes the map collapses inward — the final safe
-circle still contains every exit, so it squeezes you toward them rather than
-deleting them.
+whichever squads are nearby, each one a named species in a pack of a known
+size.
 
-A boss only spawns once a squad comes within 1500 units of its arena, so a
-raid you spend in the outer ring never pays for the core's population.
+Nine solo hunting grounds are fixed, at radii from 5200 units out down to 1000,
+and Nightfell wakes at the exact centre at 18 minutes. The radii double as
+difficulty signposting: Bastionback at 5200 is the one a fresh squad can take,
+and Skyrender at 1000 is the end of a long raid. Grounds are placed at least
+1500 units apart and well clear of every landing zone, so pulling one is never
+pulling two and nobody is greeted by a large creature on the drop. From 25
+minutes the map collapses inward — the final safe circle still contains every
+exit, so it squeezes you toward them rather than deleting them.
+
+A large creature only spawns once a squad comes within 1500 units of its
+ground, so a raid you spend in the outer ring never pays for the core's
+population.
 
 **The map currently generates no obstacles.** Rocks and ruins are switched off
 at `OBSTACLE_CLUSTERS` in `src/sim/map.js` — everything that reads them still
@@ -248,11 +376,11 @@ spawn-camped out of a raid.
 ```
 src/
   core/      seeded rng, vector maths
-  data/      classes, gear, spells, skill trees, consumables, enemies,
-             loot tables, tactics — all plain data
+  data/      classes, spells, skill trees, consumables, tactics, and the
+             hunt: creatures, behaviours, parts, gear, sets — all plain data
   sim/       stats, combat, entities, map generation, the tactics AI,
              hero records, bot squads, and the Match instance
-  game/      the persistent player profile
+  game/      the persistent player profile and the blacksmith
   ui/        canvas renderer, DOM helpers, and the screens
 tools/       headless harnesses (see below)
 ```
@@ -267,14 +395,15 @@ node tools/simulate.js 5 --plan boss --level 14 --verbose
 node tools/test-progression.js
 node tools/test-loot.js
 node tools/test-movement.js
+node tools/test-bestiary.js
+node tools/test-smith.js
+node tools/test-extraction.js
+node tools/test-achievements.js
 node tools/test-bags.mjs        # needs Playwright; skips if absent
 node tools/test-navigation.mjs  # needs Playwright; skips if absent
-node tools/test-extraction.js
 node tools/test-layout.mjs      # needs Playwright; skips if absent
-node tools/test-salvage.mjs     # needs Playwright; skips if absent
-node tools/test-achievements.js
 node tools/test-unlocks.mjs     # needs Playwright; skips if absent
-node tools/test-pouches.js
+node tools/test-forge.mjs       # needs Playwright; skips if absent
 ```
 
 `simulate.js` runs whole raids headless and reports outcomes — the fastest way
@@ -304,12 +433,20 @@ it. That order is fragile — putting retreat, regrouping or chasing ahead of it
 takes a squad from 77 seconds to reach a door to 306, or leaves them milling
 outside one for twenty minutes.
 
-`test-pouches.js` covers pack capacity, the squad loot filter and where a
-found potion ends up. Most of it is edges: no pouch at all, swapping down into
-a smaller one with a full pack, a handover that has to ask the *receiver's*
-pouch, and the belt-then-pack fallback chain. It also proves the mid-raid loot
-orders are a live reference — tightening the floor stops the squad on the next
-pickup — and that doing so does not write back into what you set in camp.
+`test-bestiary.js` covers the fifty species as data: every one has a behaviour
+the AI implements, parts that map to slots, and a set whose modifiers are the
+shape its blurb claims. It also checks that threat rises with ring depth, and
+it measures threat as health × damage per second rather than damage per hit —
+the first version compared damage alone and failed on Thornback, which
+deliberately hits for less than a tier-0 Sandlurker and survives far longer.
+
+`test-smith.js` covers the forge arithmetic, and the rule it exists for is that
+a piece comes out at the grade of the *worst* part in it. That is the one thing
+a player is told before spending something they cannot get back, so the test
+asserts it from both ends: a mixed pile comes out at its weakest, and one great
+carve among poor ones does not lift the piece. It also proves the two set
+thresholds are a ladder — the full bonus is exactly twice the half — and that
+the squad aura arrives only at five.
 
 `test-bags.mjs` drives the in-raid pack panel against a live match, because
 equipping mid-raid has to rebuild a hero's stat block — gear feeds `baseMods`,
@@ -326,14 +463,13 @@ then cannot be equipped is worse than one that stays locked.
 unlocked class surviving the screens — eighteen tree nodes, its own starting
 spells, gear it can actually wear, added to the squad, deployed.
 
-`test-salvage.mjs` drives stash salvaging against a seeded stash holding one
-piece of every rarity. Salvaging cannot be undone, so most of what it checks
-are the guard rails rather than the arithmetic: the first tap only arms a
-button, an armed button that is never confirmed keeps the item, consumables
-are not offered at all, and the balance moves by exactly the number the row
-promised. The bulk filters are asserted in Node before the browser starts,
-because "unusable" and "outclassed" are judgements about the whole roster and
-a count on a button cannot say whether the right items were counted.
+`test-forge.mjs` is the browser half of the smith. Forging cannot be undone, so
+most of what it checks are the guard rails rather than the arithmetic: a recipe
+quotes its grade and its cost before anything is spent, the first tap only arms
+the button, an armed button that is never confirmed — including one abandoned
+by leaving the screen — keeps the parts, and a recipe that can no longer be
+afforded stops being offered instead of lying. Both bugs it is written against
+were injected and confirmed to fail it.
 
 `test-layout.mjs` serves the game and checks it at eleven viewport sizes, from
 a small phone up to a desktop. The game runs a fixed-height shell on desktop
@@ -358,63 +494,55 @@ reproduced exactly.
 
 ## Current balance
 
-Measured with `tools/simulate.js`, both sides fully built — level-appropriate
-gear and a spent skill tree — against five rival squads:
+Measured with `tools/simulate.js` at seed 300, both sides fully built —
+level-appropriate gear and a spent skill tree — against five rival squads:
 
-| Raid plan | Level | Runs | Clean | Partial | Wiped | Avg items kept | Boss kills |
+| Raid plan | Level | Runs | Clean | Partial | Wiped | Avg parts kept | Solo kills |
 |---|---|---|---|---|---|---|---|
-| Farm the ring | 5 | 12 | 11 | 1 | 0 | 25.4 | 0.83 |
-| Boss hunt | 5 | 8 | 0 | 1 | 7 | 0.5 | 0.00 |
-| Boss hunt | 14 | 8 | 0 | 4 | 4 | 6.4 | 4.00 |
-| Squad hunter | 10 | 8 | 4 | 1 | 3 | 22.4 | 3.38 |
+| Farm the ring | 5 | 12 | 8 | 3 | 1 | 29.0 | 0.33 |
+| Solo hunt | 5 | 8 | 1 | 2 | 5 | 7.5 | 0.38 |
+| Solo hunt | 14 | 8 | 0 | 5 | 3 | 11.6 | 2.13 |
+| Squad hunter | 10 | 8 | 6 | 2 | 0 | 42.0 | 1.75 |
 
-That spread is the intent: farming is a reliable income, and the core is a
-place you earn the right to visit. Boss hunting at level 5 is close to
-hopeless and turns into the best source of trophies in the game once you are
-geared for it.
+That spread is the intent: farming packs is a reliable income, and the solo
+monsters are a place you earn the right to visit. A level-5 solo hunt wipes
+five times in eight and brings home 7.5 parts; the same plan at 14 kills 2.13
+of them a raid.
 
-Clearing the obstacles pushed both ends further apart. Farming is now close to
-risk-free — eleven clean runs in twelve, and 25.4 items home — because nothing
-snags a squad on the way anywhere. Boss hunting got *harder*, because open
-ground cuts both ways: with no scenery to break up a charge, everything that
-aggros arrives at once.
+The carve economy reads differently from the old loot economy, and better. A
+farming run now comes home with 29 parts rather than 25 items, but those parts
+are a handful of species — enough to forge two or three pieces of one set
+rather than a stash of unrelated singles. Hunting rival squads pays best of all
+at 42, because a squad you kill is a squad that was already carrying.
 
-The old known soft spot — boss kills were rare, 0.1–0.6 a raid even on the
-boss plan, because squads died to core trash on the way in — is fixed, and by
-the class unlocks rather than by tuning. Seven arenas instead of two put a boss
-within reach of the ring you are actually in, and a boss hunt now walks to the
-deepest arena the squad is *ready* for rather than the deepest arena there is.
-A geared boss hunt kills 4.4 a raid, up from 1.6 at the same seeds.
-
-Adding five bosses and eight classes made the whole game harder, and the
-numbers above are against a squad of the three starters — the classes you are
-meant to be replacing by the time you can reach the core. At matched seeds
-farming went from 10/1/1 to 7/4/1 and level-14 boss hunting from 0/5/3 to
-1/3/4. Heroes also travel slower, 66.0 units per second alive to 57.4: four of
-the eight new classes are melee, so squads crowd and jam each other more, and
-there is more on the map worth stopping to fight.
-
-Items kept now tracks the pouch rather than a fixed pack, which is the point of
-the slot: the level-5 squad on a common pouch (12 slots) brings home 20.8, the
-level-10 squad on an uncommon one (16) manages 26.0, and the level-14 boss hunt
-on a rare one (20) gets 8.3 — low only because five runs in eight end in a
-wipe, which is what boss hunting is for.
+Solo kills are lower across the board than boss kills used to be, and that is
+the pivot working: a large creature is a fight you commit to rather than
+something you walk past on the way to an exit.
 
 ## Status
 
 Everything above is implemented and playable. Rival squads are bots built from
 the same hero records and driven by the same tactics AI as the player's squad,
-which is what makes looting one meaningful — they are wearing real gear.
+which is what makes robbing one meaningful — they are wearing gear somebody
+forged.
 
-Scrap accumulates but has nothing to spend it on yet: item repair is the next
-thing to build on it.
+Two things the hunt loop still owes the player:
 
-The known weak spot is steering, and it is currently dormant rather than
-fixed: the map generates no obstacles, so there is nothing to wedge against.
-With rocks on the map heroes still jam — two of them from opposing squads
-caught in the same notch, each at the exact separation distance, neither able
-to leave. The escape machinery widens its detour on every failed attempt,
-which took the worst observed case over ninety raids from 995 seconds pinned
-to 40, but the real fix is a proper character controller rather than steering
-forces plus collision resolution. That is the work to do before the obstacles
-come back. See the note above `obstaclesNear` in `src/sim/map.js`.
+- **Choosing the hunt is not yet an order.** The map already stores a
+  `speciesId` and a `packKind` on every camp, so a squad *is* fighting a named
+  species in a fight of a known size — but there is no way to say "go and hunt
+  a pack of Sicklejaw" and have the squad route to one. That is the next thing
+  to build, and the data is in place for it.
+- **Sets are easier to talk about than to assemble.** Five pieces of one
+  species means five parts of the right types off the same creature, and
+  nothing yet helps a player see how close they are from inside a raid.
+
+The known weak spot is steering, and it is currently dormant rather than fixed:
+the map generates no obstacles, so there is nothing to wedge against. With
+rocks on the map heroes still jam — two of them from opposing squads caught in
+the same notch, each at the exact separation distance, neither able to leave.
+The escape machinery widens its detour on every failed attempt, which took the
+worst observed case over ninety raids from 995 seconds pinned to 40, but the
+real fix is a proper character controller rather than steering forces plus
+collision resolution. That is the work to do before the obstacles come back.
+See the note above `obstaclesNear` in `src/sim/map.js`.

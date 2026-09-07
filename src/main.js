@@ -6,6 +6,7 @@ import { hubScreen } from './ui/screens/hub.js';
 import { heroScreen } from './ui/screens/hero.js';
 import { matchScreen } from './ui/screens/match.js';
 import { resultsScreen } from './ui/screens/results.js';
+import { smithScreen } from './ui/screens/smith.js';
 import { newProfile, sanitizeProfile, squadHeroes, heroById, applyMatchResult } from './game/profile.js';
 import { loadSave, writeSave, clearSave } from './persist.js';
 import { Match } from './sim/match.js';
@@ -77,6 +78,9 @@ function render(screen, params) {
       node = resultsScreen(app, params.result, summary);
       break;
     }
+    case 'smith':
+      node = smithScreen(app);
+      break;
     case 'hub':
     default:
       node = hubScreen(app);

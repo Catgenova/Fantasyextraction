@@ -11,6 +11,7 @@ import { WORLD_EVENTS, MATCH_SECONDS } from '../data/enemies.js';
 import { QUALITIES, CARVE_PROFILE, QUALITY_ORDER, makePart } from '../data/parts.js';
 import { CREATURES } from '../data/creatures.js';
 import { treeMods, addMods, emptyMods } from './stats.js';
+import { setAuras } from '../data/sets.js';
 import { READY_FOR_BOSS_TIER } from '../data/tactics.js';
 
 export const TICK = 1 / 30;           // fixed sim step
@@ -154,13 +155,18 @@ export class Match {
     return picked;
   }
 
-  /** Skill-tree auras are squad-wide and static, so fold them in once. */
+  /**
+   * Squad-wide auras, folded in once. Two sources: skill-tree nodes, and the
+   * full armour sets — a Screelwing set is worth more to the squad than to the
+   * wearer, which is exactly what a Screelwing is.
+   */
   #applyAuras(squad) {
     const members = squad.memberIds.map((id) => this.byId(id));
     const aura = emptyMods();
     for (const m of members) {
       const { aura: a } = treeMods(m.classId, this.config.allocFor?.(m) ?? this.#allocOf(m));
       addMods(aura, a);
+      addMods(aura, setAuras(m.equipped));
     }
     for (const m of members) {
       m.auraMods = { ...aura };

@@ -90,12 +90,12 @@ for (const [label, opts] of [
   const lockedPills = () => trophies.locator('.pill').filter({ hasText: /^Locked$/ });
 
   // --- Locked ---------------------------------------------------------------
-  check(`${label}: the camp lists every trophy`, (await rows().count()) === 8,
+  check(`${label}: the camp lists every trophy`, (await rows().count()) === 10,
     String(await rows().count()));
-  check(`${label}: all eight start locked`,
-    (await lockedPills().count()) === 8, String(await lockedPills().count()));
+  check(`${label}: all ten start locked`,
+    (await lockedPills().count()) === 10, String(await lockedPills().count()));
   check(`${label}: the count agrees`,
-    /0 \/ 8 classes unlocked/.test(await trophies.locator('.panel-head').innerText()));
+    /0 \/ 10 classes unlocked/.test(await trophies.locator('.panel-head').innerText()));
   // A locked row has to say what to kill and what it pays, or it is just a
   // greyed-out box the player cannot act on.
   const lockedText = await rows().first().innerText();
@@ -114,9 +114,9 @@ for (const [label, opts] of [
     (await trophies.locator('.trophy.got').count()) === 2,
     String(await trophies.locator('.trophy.got').count()));
   check(`${label}: and the rest stay locked`,
-    (await lockedPills().count()) === 6, String(await lockedPills().count()));
+    (await lockedPills().count()) === 8, String(await lockedPills().count()));
   check(`${label}: the count follows`,
-    /2 \/ 8 classes unlocked/.test(await trophies.locator('.panel-head').innerText()));
+    /2 \/ 10 classes unlocked/.test(await trophies.locator('.panel-head').innerText()));
   check(`${label}: an earned row is titled by the trophy, not the boss`,
     /Something That Would Not Fall/.test(await rows().first().innerText()));
   check(`${label}: the unlocked heroes joined the roster`,

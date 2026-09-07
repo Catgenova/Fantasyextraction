@@ -58,13 +58,11 @@ const result = (over = {}) => ({
 
 console.log('=== the mapping ===');
 
-// Ten solo hunts, eight unlockable classes: two great hunts grant no class at
-// all, and that is the roster having a shape rather than a gap.
 check('every trophy names a real solo hunt',
   ACHIEVEMENTS.every((a) => BOSSES[a.bossId]),
   `${ACHIEVEMENTS.length} achievements against ${Object.keys(BOSSES).length} solo species`);
-check('some solo hunts are worth taking for the parts alone',
-  Object.keys(BOSSES).filter((id) => !achievementForBoss(id)).length === 2,
+check('every solo hunt grants a class',
+  Object.keys(BOSSES).every((id) => achievementForBoss(id)),
   Object.keys(BOSSES).filter((id) => !achievementForBoss(id)).join(','));
 
 const unlockable = CLASS_IDS.filter((id) => !STARTER_CLASS_IDS.includes(id));
@@ -232,11 +230,7 @@ function equipForRaid(profile, seed, level) {
   if (sawKill) {
     const p = newProfile(9);
     applyMatchResult(p, result({ bossesKilled: [...killed] }));
-    // Not every solo hunt grants a class — two of the ten are worth taking for
-    // their parts alone — so count the ones that do.
-    const granting = [...killed].filter((id) => achievementForBoss(id)).length;
-    check('and the profile turns the granting ones into classes',
-      p.roster.length === 3 + granting,
+    check('and the profile turns them into classes', p.roster.length === 3 + killed.size,
       `${[...killed].join(',')} -> ${p.roster.map((h) => h.classId).join(',')}`);
   }
 }

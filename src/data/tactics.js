@@ -149,6 +149,8 @@ export function defaultHeroTactics(classId) {
     ice_mage: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.38, potionHpPct: 0.55 },
     fire_mage: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.45, potionHpPct: 0.6 },
     lightning_mage: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.4, potionHpPct: 0.55 },
+    warden: { stance: 'defensive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.2, potionHpPct: 0.5 },
+    lancer: { stance: 'balanced', priority: 'elites_first', lootPolicy: 'valuable', retreatHpPct: 0.3, potionHpPct: 0.5 },
   }[classId];
   return { ...byClass, focusFire: true, spellPolicy: {} };
 }

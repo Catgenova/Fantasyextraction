@@ -4,6 +4,7 @@
 import { CLASSES } from '../data/classes.js';
 import { CREATURES } from '../data/creatures.js';
 import { CARVE_PROFILE } from '../data/parts.js';
+import { setMods } from '../data/sets.js';
 import { emptyMods, addMods, gearMods, treeMods, deriveStats } from './stats.js';
 import { STANCES } from '../data/tactics.js';
 
@@ -33,6 +34,7 @@ export function rebuildHeroMods(e) {
   mods.armor += cls.baseArmor;
   mods.resist += cls.baseResist;
   addMods(mods, gearMods(e.equipped));
+  addMods(mods, setMods(e.equipped));
   addMods(mods, passive);
 
   const stance = STANCES[e.tactics?.stance ?? 'balanced'];

@@ -1,9 +1,4 @@
-// Trophies. Eight solo hunts, and each one is the only way to unlock a class.
-//
-// There are ten solo species and eight unlockable classes, so two of the great
-// hunts — Mirethane and Skyrender — grant no class at all. They are worth
-// taking for their parts, and a roster where every hunt hands out a class
-// would make the choice of which to attempt meaningless.
+// Trophies. Ten solo hunts, and each one is the only way to unlock a class.
 //
 // These are the game's progression spine: the three launch classes get you
 // through the outer ring, the outer-ring boss pays for a fourth, and each
@@ -82,6 +77,22 @@ export const ACHIEVEMENTS = [
     unlocks: 'slayer',
     blurb: 'Take Nightfell alone at the centre of the map.',
     flavour: 'It did everything the others do, in an order that seemed to be about you. Whatever was doing the choosing, you have it now.',
+  },
+  {
+    id: 'mirethane',
+    bossId: 'mirethane',
+    name: 'It Would Not Let Go',
+    unlocks: 'warden',
+    blurb: 'Take a Mirethane alone in the mid ring.',
+    flavour: 'It took one of you out of the fight and dared the rest to hurry. Deciding where a fight happens turns out to be worth more than winning it quickly.',
+  },
+  {
+    id: 'skyrender',
+    bossId: 'skyrender',
+    name: 'It Came Back Down',
+    unlocks: 'lancer',
+    blurb: 'Take a Skyrender alone in the core.',
+    flavour: 'It spent half the fight out of reach and the other half arriving. Reach, and knowing when to close it, is the whole lesson.',
   },
 ];
 
