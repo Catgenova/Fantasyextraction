@@ -3,7 +3,7 @@
 // everywhere in the game.
 
 import { el, tooltip, titleCase } from './dom.js';
-import { RARITIES, SLOT_NAMES, itemScore, BASES_BY_ID, pouchSlots } from '../data/gear.js';
+import { RARITIES, SLOT_NAMES, itemScore, BASES_BY_ID, pouchSlots, BASE_PACK_SLOTS } from '../data/gear.js';
 import { CONSUMABLES } from '../data/consumables.js';
 
 const PCT_STATS = new Set([
@@ -49,8 +49,9 @@ export function modSummary(item, limit = 3) {
     .slice(0, limit)
     .map(([stat, value]) => `${formatStat(stat, value)} ${statLabel(stat).toLowerCase()}`);
   const slots = pouchSlots(item);
-  // A pouch's capacity is the only reason to wear it, so it leads.
-  if (slots) parts.unshift(`${slots} pack slots`);
+  // A pouch's capacity is the only reason to wear it, so it leads. It is a
+  // bonus on the eight slots every hero has, so it reads as one.
+  if (slots) parts.unshift(`+${slots} pack slots`);
   return parts.join(', ');
 }
 
@@ -79,7 +80,8 @@ export function itemTooltip(item, opts = {}) {
 
   const slots = pouchSlots(item);
   if (slots) {
-    nodes.push(el('div.t-mod', null, `Carries ${slots} items`));
+    nodes.push(el('div.t-mod', null,
+      `+${slots} pack slots (${BASE_PACK_SLOTS + slots} carried in total)`));
   }
 
   for (const [stat, value] of Object.entries(item.mods ?? {})) {

@@ -20,7 +20,7 @@ import { generateBotSquads } from '../src/sim/bots.js';
 import { autoAllocate, sanitizeHero } from '../src/sim/heroes.js';
 import {
   rollItem, SLOTS, canEquip, packCapacity, pouchSlots, POUCH_SLOTS,
-  BARE_PACK_SLOTS, RARITY_ORDER, itemScore, startingLoadout,
+  BASE_PACK_SLOTS, RARITY_ORDER, itemScore, startingLoadout,
 } from '../src/data/gear.js';
 import { makeRng } from '../src/core/rng.js';
 import { CLASS_IDS } from '../src/data/classes.js';
@@ -43,14 +43,16 @@ const gear = (rarity) => rollItem(rng, { slot: 'hands', rarity, ilvl: 5 });
 
 console.log('=== capacity ===');
 
-check('a pouch is worth its rarity in slots',
+check('a pouch is worth its rarity in extra slots',
   RARITY_ORDER.every((r) => pouchSlots(pouch(r)) === POUCH_SLOTS[r]),
-  RARITY_ORDER.map((r) => `${r} ${POUCH_SLOTS[r]}`).join(', '));
-check('common carries 4 and legendary carries 20',
-  POUCH_SLOTS.common === 4 && POUCH_SLOTS.legendary === 20);
-check('a hero with no pouch can barely carry anything',
-  packCapacity({}) === BARE_PACK_SLOTS && BARE_PACK_SLOTS < POUCH_SLOTS.common,
-  `${BARE_PACK_SLOTS} slots`);
+  RARITY_ORDER.map((r) => `${r} +${POUCH_SLOTS[r]}`).join(', '));
+check('an empty pouch slot still carries eight',
+  packCapacity({}) === 8, `${packCapacity({})} slots`);
+check('a pouch adds to that rather than replacing it',
+  RARITY_ORDER.every((r) => packCapacity({ pouch: pouch(r) }) === BASE_PACK_SLOTS + POUCH_SLOTS[r]),
+  RARITY_ORDER.map((r) => `${r} ${packCapacity({ pouch: pouch(r) })}`).join(', '));
+check('a legendary takes a hero from 8 to 28',
+  packCapacity({ pouch: pouch('legendary') }) === 28);
 check('wearing one is always an upgrade on wearing none',
   RARITY_ORDER.every((r) => packCapacity({ pouch: pouch(r) }) > packCapacity({})));
 check('nothing else counts as a pouch',
@@ -82,12 +84,14 @@ console.log('\n=== swapping pouches mid-raid ===');
     team: 'player', squadId: 'player', isPlayer: true, pos: { x: 0, y: 0 },
   });
   hero.equipped.pouch = big;
-  for (let i = 0; i < 10; i++) hero.inventory.push(gear('common'));
+  // More than a common pouch could hold, but well within a legendary's.
+  const overflowing = BASE_PACK_SLOTS + POUCH_SLOTS.common + 3;
+  for (let i = 0; i < overflowing; i++) hero.inventory.push(gear('common'));
   hero.inventory.push(small);
 
   check('a full pack refuses a smaller pouch',
     equipFromBackpack(match, hero, hero.inventory.length - 1) === false);
-  check('and keeps every item it was holding', hero.inventory.length === 11,
+  check('and keeps every item it was holding', hero.inventory.length === overflowing + 1,
     `${hero.inventory.length} items`);
 
   hero.inventory.length = 3;
@@ -95,7 +99,7 @@ console.log('\n=== swapping pouches mid-raid ===');
   check('with room to spare the swap goes through',
     equipFromBackpack(match, hero, hero.inventory.length - 1) === true);
   check('and capacity follows the new pouch',
-    packCapacity(hero.equipped) === POUCH_SLOTS.common,
+    packCapacity(hero.equipped) === BASE_PACK_SLOTS + POUCH_SLOTS.common,
     `${packCapacity(hero.equipped)} slots`);
 }
 
@@ -108,13 +112,14 @@ console.log('\n=== swapping pouches mid-raid ===');
     inventory: Array.from({ length: held }, () => gear('common')),
     consumables: [],
   });
+  const held = BASE_PACK_SLOTS + POUCH_SLOTS.common;
   const giver = mk('legendary', 5);
-  const fullSmall = mk('common', POUCH_SLOTS.common);
-  const roomyBig = mk('legendary', POUCH_SLOTS.common);
+  const fullSmall = mk('common', held);
+  const roomyBig = mk('legendary', held);
   check("a handover checks the receiver's own pouch, not a fixed number",
     transferBlocker(giver, fullSmall, giver.inventory[0]) !== null
     && transferBlocker(giver, roomyBig, giver.inventory[0]) === null,
-    `${POUCH_SLOTS.common} items is full for a common pouch, roomy for a legendary`);
+    `${held} items is full for a common pouch, roomy for a legendary`);
 }
 
 console.log('\n=== the squad loot filter ===');

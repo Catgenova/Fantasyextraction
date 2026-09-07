@@ -130,9 +130,10 @@ for (const [label, opts] of [
   await page.getByRole('button', { name: '1×' }).click();
   await page.getByRole('button', { name: '2×' }).click();
   // Polls wall-clock time for the AI to loot something, so it is sensitive to
-  // how much CPU the page is getting. A generous budget beats a flake.
+  // how much CPU the page is getting. In practice a pack item appears within a
+  // few seconds; the budget is slack, not an expectation.
   let found = false;
-  for (let i = 0; i < 90 && !found; i++) {
+  for (let i = 0; i < 60 && !found; i++) {
     await page.waitForTimeout(1000);
     for (const tab of await page.locator('.bags-tabs button').all()) {
       const m = ((await tab.textContent()) ?? '').match(/(\d+)\/(\d+)/);
@@ -152,7 +153,13 @@ for (const [label, opts] of [
       return Number((t.match(/(\d+)\/(\d+)/) ?? [0, 0])[1]);
     };
 
-    const equip = page.getByRole('button', { name: 'Equip' }).first();
+    // Scope every action to the pack. Consumables live on the belt and worn
+    // gear in its own list, both with buttons of the same name — an unscoped
+    // "Destroy" quietly binned a belt potion and then asked why the pack count
+    // had not moved.
+    const packSection = page.locator('.bags-pack');
+
+    const equip = packSection.getByRole('button', { name: 'Equip' }).first();
     if (await equip.count()) {
       const before = await packCount();
       await equip.click();
@@ -163,14 +170,25 @@ for (const [label, opts] of [
     }
 
     // Destroying is permanent, so it takes two taps. One tap must not.
-    const destroy = page.getByRole('button', { name: 'Destroy' }).first();
+    // Equipping above may have emptied the pack, so wait for another drop
+    // rather than reaching for whatever Destroy button happens to exist.
+    for (let i = 0; i < 30 && (await packCount()) === 0; i++) {
+      await page.locator('.bags-head').getByRole('button', { name: 'Resume' }).click();
+      await page.waitForTimeout(1000);
+      await page.locator('.bags-head').getByRole('button', { name: 'Pause' }).click();
+      await page.waitForTimeout(150);
+    }
+    check(`${label}: the pack has something to destroy`, (await packCount()) > 0,
+      `${await packCount()} items`);
+
+    const destroy = packSection.getByRole('button', { name: 'Destroy' }).first();
     if (await destroy.count()) {
       const before = await packCount();
       await destroy.click();
       await page.waitForTimeout(350);
       check(`${label}: one tap only arms the destroy`, (await packCount()) === before,
         `${before} -> ${await packCount()}`);
-      const confirm = page.getByRole('button', { name: 'Sure?' }).first();
+      const confirm = packSection.getByRole('button', { name: 'Sure?' }).first();
       check(`${label}: it asks for confirmation`, (await confirm.count()) === 1);
       await confirm.click();
       await page.waitForTimeout(400);
@@ -184,7 +202,7 @@ for (const [label, opts] of [
 
     // Handing an item to a squadmate. Only offered while they are close
     // enough to take it, so an enabled button is the precondition.
-    const give = page.locator('.bags-body button:not([disabled])')
+    const give = packSection.locator('button:not([disabled])')
       .filter({ hasText: /^→/ }).first();
     if (await give.count()) {
       const before = await packCount();
@@ -209,7 +227,7 @@ for (const [label, opts] of [
 
     // Remove is refused outright when the pack is full, rather than binning
     // the gear, so only an enabled one is actionable.
-    const remove = page.locator('.bags-body button:not([disabled])')
+    const remove = page.locator('.bags-worn button:not([disabled])')
       .filter({ hasText: /^Remove$/ }).first();
     if (await remove.count()) {
       const before = await packCount();

@@ -103,9 +103,7 @@ export function hubScreen(app) {
         ]),
         el('div.statline', null, [
           el('span.muted', null, 'Carries'),
-          el('b', {
-            style: { color: hero.equipped.pouch ? 'inherit' : 'var(--danger)' },
-          }, hero.equipped.pouch
+          el('b', null, hero.equipped.pouch
             ? `${packCapacity(hero.equipped)} items`
             : `${packCapacity(hero.equipped)} — no pouch`),
         ]),

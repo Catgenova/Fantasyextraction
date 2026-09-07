@@ -162,27 +162,32 @@ for them — there is no second, hidden set of rules.
 ## Carrying it out
 
 An extraction game is decided by how much you can carry, so pack size is a
-piece of gear rather than a constant. The **pouch** slot is worth nothing in a
-fight and everything on the way home:
+piece of gear rather than a constant. Every hero carries eight; the **pouch**
+slot adds to that, and is worth nothing in a fight and everything on the way
+home:
 
-| Pouch | Pack slots |
-|---|---|
-| None | 2 |
-| Common | 4 |
-| Uncommon | 8 |
-| Rare | 12 |
-| Epic | 16 |
-| Legendary | 20 |
+| Pouch | Extra slots | Carried |
+|---|---|---|
+| None | — | 8 |
+| Common | +4 | 12 |
+| Uncommon | +8 | 16 |
+| Rare | +12 | 20 |
+| Epic | +16 | 24 |
+| Legendary | +20 | 28 |
 
-Every hero starts in a common pouch. A legendary one is five times the haul,
-which makes it the single most valuable drop in the game and the most painful
-thing to die wearing — the sim bears that out, with a level-14 boss hunt
-bringing home 5.0 items on the old fixed pack and 9.0 on a rare pouch.
+Every hero starts in a common pouch, and nobody is ever left unable to loot.
+A legendary more than triples the base, which makes it the single most
+valuable drop in the game and the most painful thing to die wearing.
 
 Because a pouch has no stat block, the AI's item scoring counts its capacity
 directly; otherwise the best item in the game would score zero and squads would
 walk straight past it. Swapping down into a smaller pouch than the pack is
 holding is refused rather than silently binning the overflow.
+
+Bigger bags are worth a lot: at matched seeds a level-5 farming run brings home
+20.8 items on the starting common pouch against 11.2 on the old fixed pack of
+eight. The stash holds 120, so about six farming runs fill it — which is what
+salvage is for.
 
 Consumables are carried separately, on a three-slot **belt**, and that is the
 only place the tactics AI will drink from. So a potion picked up off the floor
@@ -329,10 +334,10 @@ gear and a spent skill tree — against five rival squads:
 
 | Raid plan | Level | Runs | Clean | Partial | Wiped | Avg items kept | Boss kills |
 |---|---|---|---|---|---|---|---|
-| Farm the ring | 5 | 12 | 7 | 4 | 1 | 7.9 | 0.75 |
-| Boss hunt | 5 | 8 | 0 | 4 | 4 | 1.6 | 0.13 |
-| Boss hunt | 14 | 8 | 1 | 3 | 4 | 9.0 | 4.63 |
-| Squad hunter | 10 | 8 | 4 | 2 | 2 | 15.0 | 3.00 |
+| Farm the ring | 5 | 12 | 9 | 3 | 0 | 20.8 | 0.75 |
+| Boss hunt | 5 | 8 | 0 | 3 | 5 | 1.1 | 0.25 |
+| Boss hunt | 14 | 8 | 0 | 5 | 3 | 8.3 | 4.00 |
+| Squad hunter | 10 | 8 | 3 | 2 | 3 | 26.0 | 3.38 |
 
 That spread is the intent: farming is a reliable income, and the core is a
 place you earn the right to visit. Boss hunting at level 5 is close to
@@ -355,9 +360,10 @@ the eight new classes are melee, so squads crowd and jam each other more, and
 there is more on the map worth stopping to fight.
 
 Items kept now tracks the pouch rather than a fixed pack, which is the point of
-the slot: the level-5 squad on a common pouch brings home 7.9, the level-10
-squad on an uncommon one 15.0, and the level-14 boss hunt on a rare one 9.0
-against the 5.0 it managed on the old fixed pack of eight.
+the slot: the level-5 squad on a common pouch (12 slots) brings home 20.8, the
+level-10 squad on an uncommon one (16) manages 26.0, and the level-14 boss hunt
+on a rare one (20) gets 8.3 — low only because five runs in eight end in a
+wipe, which is what boss hunting is for.
 
 ## Status
 

@@ -155,13 +155,18 @@ export function createRunBags(match, controls = null) {
     ]));
 
     // --- Backpack ---------------------------------------------------------
-    body.appendChild(el('h3', { style: { margin: '10px 0 6px' } },
+    // Each section is wrapped so that "the Equip button" or "the Destroy
+    // button" means something: pack, worn and belt rows are otherwise flat
+    // siblings and only a heading tells them apart.
+    const pack = el('div.bags-pack');
+    body.appendChild(pack);
+    pack.appendChild(el('h3', { style: { margin: '10px 0 6px' } },
       `Pack — ${hero.inventory.length} / ${packCapacity(hero.equipped)}`));
 
     if (!hero.inventory.length) {
-      body.appendChild(el('div.item.empty', null, 'Nothing picked up yet.'));
+      pack.appendChild(el('div.item.empty', null, 'Nothing picked up yet.'));
     } else {
-      body.appendChild(el('div.col', { style: { gap: '6px' } }, hero.inventory.map((item, i) => {
+      pack.appendChild(el('div.col', { style: { gap: '6px' } }, hero.inventory.map((item, i) => {
         const equippable = canEquipItem(hero, item);
         const packable = canPackConsumable(hero, item);
         return itemRow(item, {
@@ -189,8 +194,10 @@ export function createRunBags(match, controls = null) {
     }
 
     // --- Worn -------------------------------------------------------------
-    body.appendChild(el('h3', { style: { margin: '14px 0 6px' } }, 'Worn'));
-    body.appendChild(el('div.col', { style: { gap: '6px' } }, SLOTS.map((slot) => {
+    const worn = el('div.bags-worn');
+    body.appendChild(worn);
+    worn.appendChild(el('h3', { style: { margin: '14px 0 6px' } }, 'Worn'));
+    worn.appendChild(el('div.col', { style: { gap: '6px' } }, SLOTS.map((slot) => {
       const item = hero.equipped[slot];
       return itemRow(item, {
         slotLabel: SLOT_NAMES[slot],
@@ -207,13 +214,15 @@ export function createRunBags(match, controls = null) {
     })));
 
     // --- Consumables ------------------------------------------------------
-    body.appendChild(el('h3', { style: { margin: '14px 0 6px' } },
+    const belt = el('div.bags-belt');
+    body.appendChild(belt);
+    belt.appendChild(el('h3', { style: { margin: '14px 0 6px' } },
       `Belt — ${hero.consumables.length} / ${CONSUMABLE_SLOTS}`));
     if (!hero.consumables.length) {
-      body.appendChild(el('div.item.empty', null,
+      belt.appendChild(el('div.item.empty', null,
         'Nothing on the belt — heroes only drink what is here.'));
     } else {
-      body.appendChild(el('div.col', { style: { gap: '6px' } }, hero.consumables.map((stack, i) =>
+      belt.appendChild(el('div.col', { style: { gap: '6px' } }, hero.consumables.map((stack, i) =>
         itemRow(stack, {
           right: destroyButton(`belt:${stack.id}`, () => destroyConsumable(match, hero, i)),
         }))));

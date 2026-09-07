@@ -21,28 +21,30 @@ export const SLOT_NAMES = {
 // ---------------------------------------------------------------------------
 // The pouch is the only slot whose value is not a stat: it decides how much a
 // hero can carry out. That makes it the one piece of gear an extraction game
-// can hang a whole progression on — a legendary pouch is five times the haul
-// of a common one, and losing it costs the run's capacity rather than a few
-// points of armour.
+// can hang a whole progression on. It adds to the eight slots everyone has
+// anyway, so nobody is ever left unable to loot, and a legendary takes a hero
+// from 8 to 28 — losing it costs the run's capacity rather than a few points
+// of armour.
 
+/** Extra slots a pouch grants, on top of what every hero can carry anyway. */
 export const POUCH_SLOTS = {
   common: 4, uncommon: 8, rare: 12, epic: 16, legendary: 20,
 };
 
-/** Carrying capacity of a hero wearing nothing on their belt. */
-export const BARE_PACK_SLOTS = 2;
+/** What a hero carries with an empty pouch slot. */
+export const BASE_PACK_SLOTS = 8;
 
 /** Pack slots this item grants, or 0 if it is not a pouch. */
 export const pouchSlots = (item) =>
   item?.slot === 'pouch' && item.kind === 'gear' ? (POUCH_SLOTS[item.rarity] ?? 0) : 0;
 
 /**
- * How many pack slots a hero has. Takes the equipped map, so it works on both
+ * How many pack slots a hero has: the base eight plus whatever the pouch
+ * adds, so a legendary carries 28. Takes the equipped map, so it works on both
  * a persisted hero record and a live raid entity.
  */
 export function packCapacity(equipped) {
-  const worn = equipped?.pouch;
-  return worn ? pouchSlots(worn) : BARE_PACK_SLOTS;
+  return BASE_PACK_SLOTS + pouchSlots(equipped?.pouch);
 }
 
 export const RARITIES = {

@@ -34,7 +34,9 @@ export function equipFromBackpack(match, e, index) {
   // A pouch decides how much the pack holds, so swapping down into a smaller
   // one can leave a hero over capacity. Refuse rather than silently binning
   // the overflow — the player can destroy or hand over the difference first.
-  if (pouchSlots(item) && e.inventory.length - 1 > pouchSlots(item)) return false;
+  // The incoming pouch leaves the pack as it is equipped, hence the -1.
+  if (item.slot === 'pouch'
+      && e.inventory.length - 1 > packCapacity({ ...e.equipped, pouch: item })) return false;
 
   const previous = e.equipped[item.slot] ?? null;
   e.inventory.splice(index, 1);
