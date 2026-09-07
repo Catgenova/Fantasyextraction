@@ -104,6 +104,12 @@ grants them. Seeing a Paladin means somebody put the Warden down.
 
 ## Tactics are the game
 
+Swapping a hero in from the roster asks who they are replacing rather than
+guessing. The guess used to be "whoever shares their class, else the last
+slot", which with eleven classes meant every newcomer silently evicted
+whoever stood in slot three. Replacing the leader clears the role, because who
+walks point is a decision rather than something to inherit.
+
 Before a raid you must name one hero **Leader**. It is not a default, because
 everything about how the squad moves hangs off it: the leader walks the
 navigation and the other two stay with the leader, closing in whenever they
@@ -301,6 +307,17 @@ a small phone up to a desktop. The game runs a fixed-height shell on desktop
 everywhere else; putting the boundary between those in the wrong place makes
 the bottom of a screen silently unreachable, which no unit test would catch.
 It also asserts the raid stays pinned and that no two HUD panels overlap.
+
+It scrolls with a synthesized touch drag, and that detail is the whole point.
+`overflow: hidden` still permits `scrollTo` and `scrollIntoView` — it refuses
+only the user — so an earlier version of this test scrolled a camp screen that
+no finger could move and reported it healthy three times running. The root
+element had kept an `overflow: hidden` from the desktop shell, which meant the
+viewport never took the body's `auto` and roughly 2000px of camp sat below an
+unreachable fold. Scroll the way a player does, or the check proves nothing.
+Playwright has no swipe and its `Input.synthesizeScrollGesture` moved nothing
+in this headless build (verified against a plain 5000px page), so the touch
+stream is dispatched by hand over CDP.
 
 Raids are deterministic from their seed, so any run the harness reports can be
 reproduced exactly.

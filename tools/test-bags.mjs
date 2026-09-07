@@ -129,8 +129,10 @@ for (const [label, opts] of [
   // Run until somebody has loot to manipulate.
   await page.getByRole('button', { name: '1×' }).click();
   await page.getByRole('button', { name: '2×' }).click();
+  // Polls wall-clock time for the AI to loot something, so it is sensitive to
+  // how much CPU the page is getting. A generous budget beats a flake.
   let found = false;
-  for (let i = 0; i < 40 && !found; i++) {
+  for (let i = 0; i < 90 && !found; i++) {
     await page.waitForTimeout(1000);
     for (const tab of await page.locator('.bags-tabs button').all()) {
       const m = ((await tab.textContent()) ?? '').match(/(\d+)\/(\d+)/);

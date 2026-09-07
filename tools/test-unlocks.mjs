@@ -156,13 +156,32 @@ for (const [label, opts] of [
   // --- It can actually be deployed -----------------------------------------
   await page.getByRole('button', { name: 'Camp', exact: true }).click();
   await page.waitForTimeout(400);
-  await page.locator('.hero-card').filter({ hasText: 'Rogue' }).first()
-    .locator('xpath=following-sibling::button').first().click();
-  await page.waitForTimeout(400);
+
   const squadPanel = page.locator('.panel').filter({ has: page.getByRole('heading', { name: 'Your squad' }) });
+  const benched = page.locator('.panel').filter({ has: page.getByRole('heading', { name: 'Roster' }) })
+    .locator('.squad-grid > div').filter({ hasText: 'Rogue' }).first();
+
+  // A full squad has to be told who is leaving. One button had to guess, and
+  // its guess always fell on the same slot.
+  const picker = benched.locator('.swap-pick button');
+  check(`${label}: a full squad asks who the newcomer replaces`,
+    (await picker.count()) === 3, `${await picker.count()} choices`);
+
+  // Replace the second member specifically — the old behaviour always took
+  // the third, so picking the middle one is what actually proves the choice.
+  const squadNames = await squadPanel.locator('.hero-card .nm').allInnerTexts();
+  const target = squadNames[1];
+  await picker.nth(1).click();
+  await page.waitForTimeout(400);
+
+  const after = await squadPanel.locator('.hero-card .nm').allInnerTexts();
   check(`${label}: it can be added to the squad`,
     (await squadPanel.locator('.hero-card').filter({ hasText: 'Rogue' }).count()) === 1);
+  check(`${label}: the hero the player chose is the one who left`,
+    !after.includes(target) && after.includes(squadNames[2]),
+    `${squadNames.join(', ')} -> ${after.join(', ')}`);
 
+  // Swapping out the leader clears the role, so it has to be named again.
   await page.locator('.leader-pick button').first().click();
   await page.waitForTimeout(250);
   await page.getByRole('button', { name: /Deploy to the raid/ }).click();

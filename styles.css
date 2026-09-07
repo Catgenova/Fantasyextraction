@@ -195,6 +195,9 @@ button.sm { padding: 4px 9px; font-size: 12px; }
 .item .slot-label { font-size: 10px; letter-spacing: .1em; text-transform: uppercase; color: var(--dim); }
 .item .mods { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
+.swap-pick { margin-top: 6px; display: flex; flex-direction: column; gap: 4px; }
+.swap-pick button { border-left: 3px solid var(--cls, var(--line)); }
+
 .loot-orders {
   display: flex; flex-direction: column; gap: 5px;
   padding: 7px 9px; margin-bottom: 9px;
@@ -474,8 +477,22 @@ input[type=range] { padding: 0; accent-color: var(--accent); }
    think to look. Panels now size to their contents and the page scrolls.
    ========================================================================== */
 
-/* html keeps a real height so the raid below can still fill it. */
-html { height: 100%; }
+/* html keeps a real height so the raid below can still fill it, and must give
+   its overflow back.
+
+   This is the bug that survived three rounds of "the camp will not scroll on
+   mobile". The shell at the top of this file sets `html, body { overflow:
+   hidden }`, and the line below only ever reset body's. Overflow propagates to
+   the viewport from the root element unless the root is `visible`, so the
+   viewport kept html's `hidden`, body's `auto` never reached it, and body's
+   own height is `auto` so body never scrolled either — the page was simply
+   clipped at one screen with ~2000px of camp below the fold.
+
+   It went unnoticed because every check used `scrollTo` or `scrollIntoView`,
+   and `overflow: hidden` is still *programmatically* scrollable: it only
+   refuses the user. The tests scrolled a page no finger could move. That is
+   why tools/test-layout.mjs now scrolls with a synthesized touch gesture. */
+html { height: 100%; overflow: visible; }
 body { height: auto; min-height: 100%; overflow-y: auto; overflow-x: hidden; }
 #app { height: auto; min-height: 100%; }
 

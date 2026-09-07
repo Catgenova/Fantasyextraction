@@ -8,7 +8,7 @@ import { XP_PER_LEVEL, MAX_LEVEL } from '../../data/classes.js';
 import { FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, LOOT_FLOORS } from '../../data/tactics.js';
 import { computeStats } from '../../sim/stats.js';
 import { availablePoints } from '../../sim/heroes.js';
-import { heroById, squadHeroes, STASH_LIMIT, salvageFromStash, salvageAllUpTo, achievementProgress } from '../../game/profile.js';
+import { squadHeroes, STASH_LIMIT, salvageFromStash, salvageAllUpTo, achievementProgress } from '../../game/profile.js';
 import { bossForAchievement } from '../../data/achievements.js';
 import { salvageValue, canSalvage, salvageTable } from '../../data/economy.js';
 import { itemScore, SLOTS, packCapacity } from '../../data/gear.js';
@@ -121,6 +121,7 @@ export function hubScreen(app) {
     // --------------------------------------------------------------- roster
     function rosterPanel() {
       const bench = profile.roster.filter((h) => !profile.squad.includes(h.id));
+      const squad = squadHeroes(profile);
       return el('div.panel.grow.scroll', { style: { minHeight: '0' } }, [
         el('div.panel-head', null, [
           el('h2', null, 'Roster'),
@@ -130,20 +131,47 @@ export function hubScreen(app) {
           bench.length
             ? el('div.squad-grid', null, bench.map((hero) => el('div', null, [
               heroCard(hero, false),
-              el('button.sm', {
-                style: { width: '100%', marginTop: '6px' },
-                onclick: (e) => { e.stopPropagation(); swapIn(hero); },
-              }, 'Add to squad'),
+              squad.length < 3
+                ? el('button.sm', {
+                  style: { width: '100%', marginTop: '6px' },
+                  onclick: (e) => { e.stopPropagation(); swapIn(hero); },
+                }, 'Add to squad')
+                // Naming who leaves is the player's call. A single button had
+                // to guess, and its guess — same class, else the last slot —
+                // meant every one of the eight unlockable classes silently
+                // evicted whoever was standing in slot three.
+                : el('div.swap-pick', null, [
+                  el('div.tiny.dim', null, 'Deploy in place of'),
+                  el('div.row', { style: { gap: '4px', flexWrap: 'wrap' } },
+                    squad.map((m) => el('button.sm', {
+                      style: { '--cls': CLASSES[m.classId].color, flex: '1 1 0' },
+                      title: `${hero.name} replaces ${m.name} (${CLASSES[m.classId].name})`,
+                      onclick: (e) => { e.stopPropagation(); swapIn(hero, m.id); },
+                    }, m.name.split(' ').pop()))),
+                ]),
             ])))
             : el('div.small.muted', null, 'Every hero you own is already deployed.'),
         ]),
       ]);
     }
 
-    function swapIn(hero) {
-      // Replace whichever squad member shares this hero's class, else the last.
-      const idx = profile.squad.findIndex((id) => heroById(profile, id)?.classId === hero.classId);
-      profile.squad[idx >= 0 ? idx : profile.squad.length - 1] = hero.id;
+    /**
+     * Put a bench hero into the squad. With a free slot they simply join;
+     * otherwise `replaceId` names who they are replacing.
+     */
+    function swapIn(hero, replaceId = null) {
+      if (profile.squad.length < 3 && !replaceId) {
+        profile.squad.push(hero.id);
+      } else {
+        const idx = profile.squad.indexOf(replaceId);
+        profile.squad[idx >= 0 ? idx : profile.squad.length - 1] = hero.id;
+      }
+      // Replacing the leader leaves nobody walking point, and that is a
+      // decision rather than something to guess at — Deploy stays disabled
+      // until the player names one.
+      if (!profile.squad.includes(profile.squadTactics.leaderId)) {
+        profile.squadTactics.leaderId = null;
+      }
       app.save();
       render();
     }
