@@ -1,0 +1,194 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Ashenveil — sprite lab</title>
+<style>
+  body { margin: 0; background: #100e0c; color: #ebe3d6;
+         font: 13px/1.5 ui-sans-serif, system-ui, sans-serif; padding: 18px; }
+  h1 { font: 600 20px/1.2 ui-serif, Georgia, serif; margin: 0 0 4px; letter-spacing: .02em; }
+  .hint { color: #9b9084; margin-bottom: 16px; }
+  .cls { margin-bottom: 22px; }
+  .cls h2 { font: 600 15px/1.2 ui-serif, Georgia, serif; margin: 0 0 8px;
+            letter-spacing: .06em; text-transform: uppercase; }
+  .row { display: flex; gap: 14px; flex-wrap: wrap; align-items: flex-end; }
+  .cell { text-align: center; }
+  .cell canvas { background: #1a1714; border: 1px solid #37312a; border-radius: 5px;
+                 display: block; image-rendering: auto; }
+  .cell .lbl { font-size: 10px; letter-spacing: .1em; text-transform: uppercase;
+               color: #6e675e; margin-top: 4px; }
+  .sizes { display: flex; gap: 10px; align-items: flex-end; margin-top: 6px; }
+  .sizes canvas { background: #48503c; border-radius: 4px; display: block; }
+</style>
+<h1>Sprite lab</h1>
+<div class="hint">Live preview of the class art. Each row plays its animations at
+  the real rate; the small row underneath is the same figure at the sizes it is
+  actually seen in a raid.</div>
+<div id="out"></div>
+<script type="module">
+import { drawFigure, FRAME_UNITS } from '/src/art/rig.js';
+import { ANIMATIONS, ANIMATION_IDS, poseAt, poseForFrame } from '/src/art/anim.js';
+import { KITS, KIT_IDS, kitFor } from '/src/art/kits.js';
+
+const PREVIEW = 108;          // preview cell size in CSS px
+const RAID_SIZES = [28, 44, 72];
+
+// One figure, centred in a square of `size`, at the given animation time.
+function paint(ctx, kit, animId, seconds, size, facing = 0) {
+  ctx.save();
+  ctx.clearRect(0, 0, size, size);
+  ctx.translate(size / 2, size / 2);
+  ctx.rotate(facing);
+  ctx.scale(size / FRAME_UNITS, size / FRAME_UNITS);
+  drawFigure(ctx, kit, poseAt(animId, kit, seconds));
+  ctx.restore();
+}
+
+/** Bake one class to a sheet. Returned as a data URL for the harness. */
+window.bakeClass = function bakeClass(classId, cell = 128) {
+  const kit = kitFor(classId);
+  const cols = Math.max(...ANIMATION_IDS.map((a) => ANIMATIONS[a].frames));
+  const rows = ANIMATION_IDS.length;
+  const c = document.createElement('canvas');
+  c.width = cols * cell;
+  c.height = rows * cell;
+  const ctx = c.getContext('2d');
+
+  const frames = {};
+  ANIMATION_IDS.forEach((animId, row) => {
+    const anim = ANIMATIONS[animId];
+    frames[animId] = { row, frames: anim.frames, seconds: anim.seconds, loop: !!anim.loop };
+    for (let f = 0; f < anim.frames; f++) {
+      ctx.save();
+      ctx.translate(f * cell + cell / 2, row * cell + cell / 2);
+      ctx.scale(cell / FRAME_UNITS, cell / FRAME_UNITS);
+      drawFigure(ctx, kit, poseForFrame(animId, kit, f));
+      ctx.restore();
+    }
+  });
+
+  return { png: c.toDataURL('image/png'), cell, cols, rows, animations: frames };
+};
+
+/**
+ * A contact sheet: a handful of named frames, large. Iterating on a 128px cell
+ * means judging anatomy from a thumbnail, which is how a figure ends up with
+ * its head in the wrong place for three rounds running.
+ */
+window.bakeContact = function bakeContact(classId, picks, cell = 300) {
+  const kit = kitFor(classId);
+  const c = document.createElement('canvas');
+  c.width = picks.length * cell;
+  c.height = cell;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#f4efe6';
+  ctx.fillRect(0, 0, c.width, c.height);
+  picks.forEach(([animId, frame], i) => {
+    ctx.save();
+    ctx.strokeStyle = '#c9bfae';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(i * cell + 0.5, 0.5, cell - 1, cell - 1);
+    // A cross at the origin and an arrow along +x, so the figure's own axes
+    // are visible and "the head is on the wrong side" is a thing you can see.
+    ctx.translate(i * cell + cell / 2, cell / 2);
+    ctx.strokeStyle = '#d8ccb8';
+    ctx.beginPath();
+    ctx.moveTo(-cell / 2, 0); ctx.lineTo(cell / 2, 0);
+    ctx.moveTo(0, -cell / 2); ctx.lineTo(0, cell / 2);
+    ctx.stroke();
+    ctx.strokeStyle = '#b8452f';
+    ctx.beginPath();
+    ctx.moveTo(cell * 0.34, 0); ctx.lineTo(cell * 0.44, 0);
+    ctx.moveTo(cell * 0.41, -cell * 0.02); ctx.lineTo(cell * 0.44, 0);
+    ctx.lineTo(cell * 0.41, cell * 0.02);
+    ctx.stroke();
+    ctx.scale(cell / FRAME_UNITS, cell / FRAME_UNITS);
+    drawFigure(ctx, kit, poseForFrame(animId, kit, frame));
+    ctx.restore();
+    ctx.fillStyle = '#6e675e';
+    ctx.font = '13px ui-sans-serif, sans-serif';
+    ctx.fillText(`${animId} ${frame}`, i * cell + 8, 18);
+  });
+  return c.toDataURL('image/png');
+};
+
+/**
+ * Every class in one pose, side by side, at a chosen size. This is the only
+ * view that answers the question the art actually has to pass: can you tell
+ * them apart? Judging kits one at a time says nothing about it.
+ */
+window.bakeLineup = function bakeLineup(animId, frame, cell = 220, ground = '#f4efe6') {
+  const ids = KIT_IDS;
+  const c = document.createElement('canvas');
+  c.width = ids.length * cell;
+  c.height = cell + 28;
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = ground;
+  ctx.fillRect(0, 0, c.width, c.height);
+  ids.forEach((id, i) => {
+    const kit = kitFor(id);
+    ctx.save();
+    ctx.translate(i * cell + cell / 2, cell / 2);
+    ctx.scale(cell / FRAME_UNITS, cell / FRAME_UNITS);
+    drawFigure(ctx, kit, poseForFrame(animId, kit, frame));
+    ctx.restore();
+    ctx.fillStyle = '#4a443c';
+    ctx.font = '12px ui-sans-serif, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText(kit.name, i * cell + cell / 2, cell + 18);
+  });
+  return c.toDataURL('image/png');
+};
+
+window.KIT_IDS = KIT_IDS;
+
+// --- Live preview -----------------------------------------------------------
+const out = document.getElementById('out');
+const cells = [];
+
+for (const classId of KIT_IDS) {
+  const kit = kitFor(classId);
+  const wrap = document.createElement('div');
+  wrap.className = 'cls';
+  wrap.innerHTML = `<h2 style="color:${kit.body}">${kit.name}</h2>`;
+  const row = document.createElement('div');
+  row.className = 'row';
+
+  for (const animId of ANIMATION_IDS) {
+    const cell = document.createElement('div');
+    cell.className = 'cell';
+    const canvas = document.createElement('canvas');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = PREVIEW * dpr; canvas.height = PREVIEW * dpr;
+    canvas.style.width = canvas.style.height = `${PREVIEW}px`;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    cell.appendChild(canvas);
+    cell.insertAdjacentHTML('beforeend', `<div class="lbl">${animId}</div>`);
+    row.appendChild(cell);
+    cells.push({ ctx, kit, animId, size: PREVIEW });
+  }
+
+  const sizes = document.createElement('div');
+  sizes.className = 'sizes';
+  for (const s of RAID_SIZES) {
+    const canvas = document.createElement('canvas');
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width = s * dpr; canvas.height = s * dpr;
+    canvas.style.width = canvas.style.height = `${s}px`;
+    const ctx = canvas.getContext('2d');
+    ctx.scale(dpr, dpr);
+    sizes.appendChild(canvas);
+    cells.push({ ctx, kit, animId: 'walk', size: s, facing: 0.6 });
+  }
+  wrap.appendChild(row);
+  wrap.appendChild(sizes);
+  out.appendChild(wrap);
+}
+
+let t0 = performance.now();
+function frame(now) {
+  const seconds = (now - t0) / 1000;
+  for (const c of cells) paint(c.ctx, c.kit, c.animId, seconds, c.size, c.facing ?? 0);
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+</script>

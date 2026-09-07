@@ -4,3 +4,6 @@ dist/
 *.log
 .vscode/
 .idea/
+
+# Contact sheets are for looking at while the art is wrong, not for keeping.
+contact-*.png

@@ -288,11 +288,15 @@ export class Match {
   }
 
   pushCast(e, spell) {
+    // Stamped for the renderer: the sim is the only thing that knows a cast
+    // happened, and the sprite layer has to pick an animation from something.
+    e.lastCastAt = this.time;
     this.pushFloat({ x: e.pos.x, y: e.pos.y - 22 }, spell.name, '#cbb9ff');
     if (e.isPlayer) this.log(`${e.name} casts ${spell.name}`, 'cast');
   }
 
   pushSwing(e, target) {
+    e.lastSwingAt = this.time;
     this.swings.push({ from: { ...e.pos }, to: { ...target.pos }, life: 0.12, color: e.kind === 'hero' ? '#ffe6a8' : '#ff9d8a' });
   }
 

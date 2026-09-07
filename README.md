@@ -273,6 +273,88 @@ Silhouettes are shared by role rather than unique per class — thirteen shapes
 would be unreadable at raid zoom — so colour and the name label separate
 classes within a role.
 
+## The art
+
+Every hero on the field is a drawn figure rather than a coloured shape, and
+none of it is a painted asset: the art is **code**, in `src/art/`, and
+`tools/bake-sprites.mjs` renders it into sprite sheets through headless
+Chromium. That means the sheets can never disagree with the game — both sides
+call the same `drawFigure` and the same animation curves — and a change to a
+silhouette is a number, not a hundred repainted images.
+
+```
+src/art/rig.js      the top-down humanoid, and what a pose is
+src/art/anim.js     six animations as functions of normalised time
+src/art/gear.js     weapons, shields, foci, helms — the held vocabulary
+src/art/kits.js     the thirteen classes, as proportions + palette + kit
+```
+
+Six animations, baked one row per sheet: **idle**, **walk**, **attack**,
+**cast**, **hurt**, **die** — 44 frames a class, 13 classes, at 128px a cell.
+Only one facing is baked; the renderer rotates. Eight baked directions would be
+eight times the art for something a `ctx.rotate` does for free.
+
+### Drawing a person from directly above
+
+Top-down is a specific problem. There are no faces, no chests, and legs barely
+exist — the readable information is the width across the shoulders, the angle
+of the arms, and the weapon. Three things had to be got wrong before that
+sank in:
+
+- **The head cannot be big.** The first rig gave it half the torso's width and
+  the figure read as a beetle. It is now a fifth, and *lighter* than the body
+  rather than darker: a dark head disappears into the outline, and the eye
+  reads the brightest mass as the top of a form.
+- **Depth is a ratio, not a constant.** With torso depth fixed, the narrow
+  classes came out circular — a rogue was as deep as it was wide, which is the
+  opposite of what a narrow silhouette is for. It is now 0.62 of the shoulder
+  width, so every class keeps the same across-to-deep proportion.
+- **An axe has a blade on one side.** Drawn symmetrically around the haft it is
+  a white balloon on a stick that reads as neither an axe nor a weapon.
+
+### Telling thirteen apart at twenty-six pixels
+
+That is the size a hero actually is in a raid — smaller than a line of this
+text. Only three levers survive it, so each class is built from them
+deliberately rather than decorated:
+
+| Lever | What it does |
+|---|---|
+| **Width** | How far the shoulders and pauldrons spread |
+| **Reach** | How far past the body the weapon projects, and in what shape |
+| **Grip** | One hand with something in the other, or both on one haft |
+
+So the Knight is wide with a shield, the Berserker is narrow with both hands on
+a long axe, the Rogue is the smallest figure with a blade in each hand, and the
+Archer is the only one whose weapon *widens* the silhouette instead of
+extending it. The four mages would otherwise differ by hue alone — the worst
+thing to rely on against a dark map at speed — so each staff carries a
+different focus: a plain stone, a skull, a shard, a flame, a bolt.
+
+`tools/test-sprites.mjs` asserts no two classes share a silhouette, comparing
+width, what is in each hand, and the grip. Everything else — helms, cloaks,
+trim — exists for the camp screens, where the same figure is drawn five times
+larger.
+
+### Looking at it
+
+```bash
+node tools/bake-sprites.mjs              # rebuild every sheet
+node tools/bake-sprites.mjs --class rogue
+node tools/lineup.mjs idle 0 170         # all thirteen in one pose
+node tools/lineup.mjs walk 2 74          # ...at the size a raid draws them
+node tools/contact-sheet.mjs knight idle:0 attack:5
+```
+Then open `tools/sprite-lab.html` for the live version, which plays every
+animation at its real rate with a row underneath at raid sizes. The lineup is
+the view that matters: judging kits one at a time says nothing about whether
+you can tell them apart, which is the only question the art has to pass.
+
+Sprites are a progressive enhancement. The renderer draws the old shapes until
+the sheets have loaded and falls back to them permanently if an image fails —
+`test-sprites.mjs` blocks the whole asset directory and checks the raid still
+runs. A missing asset costs the art and nothing else.
+
 ## Trophies
 
 Ten solo monsters, ten trophies, one hero class each. It is the only way to get
@@ -468,8 +550,10 @@ src/
   sim/       stats, combat, entities, map generation, the tactics AI,
              hero records, bot squads, and the Match instance
   game/      the persistent player profile and the blacksmith
-  ui/        canvas renderer, DOM helpers, and the screens
-tools/       headless harnesses (see below)
+  art/       the class figures: rig, animations, held gear, per-class kits
+  ui/        canvas renderer, sprite blitting, DOM helpers, and the screens
+assets/      baked sprite sheets and their atlas
+tools/       headless harnesses and the art bakery (see below)
 ```
 
 The simulation has no dependency on the DOM. `tools/` drives it directly.
@@ -493,6 +577,7 @@ node tools/test-layout.mjs      # needs Playwright; skips if absent
 node tools/test-unlocks.mjs     # needs Playwright; skips if absent
 node tools/test-forge.mjs       # needs Playwright; skips if absent
 node tools/test-huntpad.mjs     # needs Playwright; skips if absent
+node tools/test-sprites.mjs     # browser half needs Playwright
 ```
 
 `simulate.js` runs whole raids headless and reports outcomes — the fastest way
@@ -577,6 +662,16 @@ offers both sizes and a solo creature offers neither, and an order given from
 the in-raid panel reaches the squad rather than only lighting up a button. It
 reads the live squad through `window.__ashenveil`, because a DOM-only check can
 tell that a button turned gold and not that anything happened.
+
+`test-sprites.mjs` covers the class art. Most of it is about the atlas being
+complete, because the failure it guards is silent and it already happened: a
+partial bake rewrote `atlas.json` with only the classes in that run, the other
+twelve PNGs stayed on disk, every one of them stopped being drawable, and the
+raid quietly fell back to shapes with nothing in the console to explain it. It
+also asserts the animation priority — death outranks a swing, or a hero killed
+mid-swing keeps swinging on the ground — that no two classes share a
+silhouette, and that blocking the asset directory entirely costs the art and
+leaves the raid running.
 
 `test-forge.mjs` is the browser half of the smith. Forging cannot be undone, so
 most of what it checks are the guard rails rather than the arithmetic: a recipe

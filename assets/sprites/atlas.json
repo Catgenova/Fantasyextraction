@@ -1,0 +1,577 @@
+{
+  "cell": 128,
+  "classes": {
+    "lightning_mage": {
+      "file": "lightning_mage.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "knight": {
+      "file": "knight.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "paladin": {
+      "file": "paladin.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "warden": {
+      "file": "warden.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "berserker": {
+      "file": "berserker.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "slayer": {
+      "file": "slayer.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "lancer": {
+      "file": "lancer.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "rogue": {
+      "file": "rogue.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "archer": {
+      "file": "archer.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "priest": {
+      "file": "priest.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "necromancer": {
+      "file": "necromancer.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "ice_mage": {
+      "file": "ice_mage.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "fire_mage": {
+      "file": "fire_mage.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    }
+  }
+}

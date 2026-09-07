@@ -6,6 +6,7 @@ import { WORLD_SIZE, RING_CORE, RING_MID, CENTER, BIOMES, extractIsOpen } from '
 import { QUALITIES } from '../data/parts.js';
 import { CLASSES } from '../data/classes.js';
 import { CREATURES } from '../data/creatures.js';
+import { loadSprites, drawHeroSprite, spritesReady } from './sprites.js';
 import { hpFrac, manaFrac } from '../sim/entity.js';
 import { canTake } from '../sim/ai.js';
 import { dist } from '../core/vec.js';
@@ -15,6 +16,11 @@ const MIN_ZOOM = 0.28;
 const MAX_ZOOM = 2.2;
 
 export function createRenderer(canvas, minimapCanvas) {
+  // Started here rather than at boot so the sheets are fetched when a raid is
+  // actually about to be drawn. Nothing waits on it: the first frames use the
+  // shape fallback and swap over when the images arrive.
+  loadSprites();
+
   const ctx = canvas.getContext('2d');
   const mmCtx = minimapCanvas?.getContext('2d') ?? null;
 
@@ -553,7 +559,15 @@ export function createRenderer(canvas, minimapCanvas) {
       ctx.setLineDash([]);
     }
 
-    // Body.
+    // Body. Heroes are sprites when the sheets have loaded and shapes when
+    // they have not — the fallback is not a courtesy, it is what keeps a
+    // missing asset from taking the raid view with it.
+    if (e.kind === 'hero' && spritesReady()
+        && drawHeroSprite(ctx, e, match.time, r)) {
+      drawHeroDecorations(match, e, ui, r, isPlayerSquad);
+      return;
+    }
+
     ctx.fillStyle = e.color;
     ctx.strokeStyle = 'rgba(0,0,0,.55)';
     ctx.lineWidth = 2;
@@ -593,6 +607,19 @@ export function createRenderer(canvas, minimapCanvas) {
     ctx.lineTo(e.pos.x + Math.cos(e.facing) * (r + 5), e.pos.y + Math.sin(e.facing) * (r + 5));
     ctx.stroke();
 
+    drawHeroDecorations(match, e, ui, r, isPlayerSquad);
+  }
+
+  /**
+   * Everything drawn around a body rather than as one: the absorb ring, bars,
+   * the extraction arc, the name and status pips.
+   *
+   * Shared by the sprite path and the shape fallback. Duplicating it was the
+   * obvious way to add sprites and the wrong one — the two copies drift, and
+   * the first thing to go missing is a health bar on exactly the heroes the
+   * player is watching.
+   */
+  function drawHeroDecorations(match, e, ui, r, isPlayerSquad) {
     // Absorb shield.
     if (e.shield > 0) {
       ctx.strokeStyle = 'rgba(143,214,255,.85)';

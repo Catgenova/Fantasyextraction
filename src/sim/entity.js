@@ -79,6 +79,8 @@ export function makeHeroEntity(hero, { team, squadId, isPlayer = false, pos = { 
     threat: new Map(),
     lastHitBy: null,
     lastDamageAt: -999,
+    lastSwingAt: -999,
+    lastCastAt: -999,
     lastCombatAt: -999,
     // What this hero brought in and what they have picked up. Both are lost
     // to the killer if they die before extracting.
@@ -147,6 +149,8 @@ export function makeEnemyEntity(defId, { pos, tierScale = 1, level = 1, ownerPoi
     threat: new Map(),
     lastHitBy: null,
     lastDamageAt: -999,
+    lastSwingAt: -999,
+    lastCastAt: -999,
     // A corpse is carved, not looted. `carvesLeft` is set the moment it dies.
     carve: CARVE_PROFILE[solo ? 'large' : 'small'],
     carvesLeft: 0,
