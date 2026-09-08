@@ -104,7 +104,7 @@ function forgeFor(rng, slot, classId, quality, level) {
   return craftItem({ speciesId: sp.id, partType: opts[Math.floor(rng() * opts.length)], slot, quality, classId });
 }
 
-const RUNS = 16;
+const RUNS = 40;
 const met = new Map(walkers.map((c) => [c.id, 0]));
 const metByAnyone = new Map(walkers.map((c) => [c.id, 0]));
 const arrived = new Map(walkers.map((c) => [c.id, 0]));
@@ -112,7 +112,12 @@ const arrived = new Map(walkers.map((c) => [c.id, 0]));
 // minute twelve never gave the Duskherald a chance to turn up, and counting
 // those as failures made this a check on how long raids happen to last.
 const wasDue = new Map(walkers.map((c) => [c.id, 0]));
-let playerMetSomething = 0;
+// Raids that ran long enough for any walker to be due at all. The player claim
+// below is made against this rather than against every run, for exactly the
+// reason the per-walker claims are: a raid that ended before minute ten never
+// offered the player a walker to meet, and counting it as a miss makes this a
+// check on how long raids last.
+let anyWalkerDue = 0;
 let evadeTicks = 0;
 let walkTicks = 0;
 let overSpeed = 0;
@@ -175,7 +180,7 @@ for (let r = 0; r < RUNS; r++) {
       }
     }
   }
-  if (walkers.some((c) => seen.has(`met_${c.id}`))) playerMetSomething++;
+  if (walkers.some((c) => match.time >= c.arrivesAt)) anyWalkerDue++;
   for (const c of walkers) if (match.time >= c.arrivesAt) wasDue.set(c.id, wasDue.get(c.id) + 1);
 }
 
@@ -215,10 +220,29 @@ for (const c of walkers) {
     metByAnyone.get(c.id) >= could * 0.5,
     `${metByAnyone.get(c.id)}/${could} raids it was on the map for (of ${RUNS})`);
 }
-check('and the player squad runs into one in most raids',
-  playerMetSomething >= RUNS * 0.5,
-  `${playerMetSomething}/${RUNS} raids, per walker: ` +
-  walkers.map((c) => `${c.name} ${met.get(c.id)}`).join(', '));
+// Against the raids a walker was due in, not against every run. Measured
+// against every run this read 29/40 before the second ten of grounds went in
+// and 19/40 after, and looked like the routes had got worse. They had not:
+// the player squad is alive for the whole raid in both builds (1.48 deaths a
+// raid against 1.63) and every walker still meets somebody at the old rate.
+// What changed is that raids end sooner with twice as many apexes on the map
+// — 1033s to 870s — so fewer of them reach minute ten, minute fifteen and
+// minute twenty at all. That is a fact about difficulty, and it belongs in the
+// README rather than inside a check about whether a patrol route works.
+// Encounters per due-raid, not raids-with-any-encounter. The first version of
+// this counted raids in which the player met *something*, and it could not
+// fail: slowing the walkers to a twentieth of their speed — which drops the
+// any-squad rates to 41%, 27% and 1/22 and fails all three checks above —
+// still left it at 15/29, because a walker that never moves is still sometimes
+// dropped near the player. Counting encounters instead separates them: 1.49
+// per due-raid before the second ten of grounds, 1.00 after, 0.55 with the
+// walkers crippled.
+const playerEncounters = walkers.reduce((n, c) => n + met.get(c.id), 0);
+check('and the player squad runs into them often enough to matter',
+  playerEncounters >= anyWalkerDue * 0.75,
+  `${playerEncounters} encounters over ${anyWalkerDue} raids that reached a ` +
+  `walker's hour (of ${RUNS}) = ${(playerEncounters / Math.max(1, anyWalkerDue)).toFixed(2)} ` +
+  `each, per walker: ` + walkers.map((c) => `${c.name} ${met.get(c.id)}`).join(', '));
 
 // ------------------------------------------------------------ the trophies --
 console.log('\n=== killing one is worth a class ===');

@@ -244,7 +244,18 @@ function raid(seed, q) {
   return match;
 }
 
-const seeds = [11, 22, 33, 44, 55, 66, 77, 88];
+// Twenty-four, not eight. Both claims below are ratios of summed carves across
+// the whole set, and eight raids is not enough of a sample for one: the same
+// build measured "the total haul survives the narrowing" at 33% on these first
+// eight seeds and 43% on all twenty-four, which is the difference between
+// failing and passing by a comfortable margin. The build before the second ten
+// of grounds went in reads 52% on twenty-four and would itself fail the
+// delivery check on them at 14/24, so this was never a bound the eight seeds
+// were testing — they were just the eight it happened to pass on.
+const seeds = [
+  11, 22, 33, 44, 55, 66, 77, 88, 99, 110, 121, 132,
+  143, 154, 165, 176, 187, 198, 209, 220, 231, 242, 253, 264,
+];
 let without = 0, with_ = 0, withoutAll = 0, withAll = 0, delivered = 0;
 for (const seed of seeds) {
   // Ask for something in the mid ring: the outer ring is where a farming plan

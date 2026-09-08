@@ -187,7 +187,7 @@ the two creatures its starting parts came off and nothing else.
 and marked with the distance to the nearest site. Every row on it is a hunt the
 squad can actually walk to.
 
-The two lists differ because a raid draws about a dozen of the fifty species,
+The two lists differ because a raid draws about a dozen of the sixty-three species,
 so a camp order can name something this map does not hold. When that happens it
 is dropped as you land, with a line in the raid log saying so, and you pick
 again from what is actually out there.
@@ -586,7 +586,7 @@ Growing the world to fit them was measured too, and costs reach instead: at
 against seven, because a thirty-minute raid crosses a fixed distance. Drawing
 nine puts the load back exactly where every number on this page was measured.
 
-The thing that makes fifty species distinguishable without fifty special cases
+The thing that makes sixty-three species distinguishable without sixty-three special cases
 is `src/data/behaviours.js`: thirty-six behaviour archetypes — swarm, harry,
 flank, pounce, spitter, ambusher, burrower, screamer, bulwark, tailwhip, leech,
 bomber, stalker, venomous, frenzy, retaliate, grapple, deathcloud, charger,
@@ -651,7 +651,7 @@ nothing at the moment they are cast. The **Warlord** is the only class whose
 identity is squad-wide numbers: alone it is a mediocre frontliner, and with two
 people to spend it on it is the reason they are still standing.
 
-Silhouettes are shared by role rather than unique per class — sixteen shapes
+Silhouettes are shared by role rather than unique per class — twenty-six shapes
 would be unreadable at raid zoom — so colour and the name label separate
 classes within a role. The Monk is the one figure that carries nothing, which
 is the most distinctive read available at that size and cost nothing to draw.
@@ -669,7 +669,7 @@ silhouette is a number, not a hundred repainted images.
 src/art/rig.js      the top-down humanoid, and what a pose is
 src/art/anim.js     six animations as functions of normalised time
 src/art/gear.js     weapons, shields, foci, helms — the held vocabulary
-src/art/kits.js     the thirteen classes, as proportions + palette + kit
+src/art/kits.js     the twenty-six classes, as proportions + palette + kit
 src/art/beast.js    the top-down creature, which is a different animal
 src/art/beastanim.js  four creature animations
 src/art/plans.js    seven family body plans, varied per species
@@ -677,7 +677,7 @@ src/ui/portrait.js  the same figures, drawn live on the DOM screens
 ```
 
 Six animations, baked one row per sheet: **idle**, **walk**, **attack**,
-**cast**, **hurt**, **die** — 44 frames a class, 13 classes, at 128px a cell.
+**cast**, **hurt**, **die** — 44 frames a class, 26 classes, at 128px a cell.
 Only one facing is baked; the renderer rotates. Eight baked directions would be
 eight times the art for something a `ctx.rotate` does for free.
 
@@ -699,7 +699,7 @@ sank in:
 - **An axe has a blade on one side.** Drawn symmetrically around the haft it is
   a white balloon on a stick that reads as neither an axe nor a weapon.
 
-### Telling thirteen apart at twenty-six pixels
+### Telling twenty-six apart at twenty-six pixels
 
 That is the size a hero actually is in a raid — smaller than a line of this
 text. Only three levers survive it, so each class is built from them
@@ -725,16 +725,16 @@ larger.
 
 ### The creatures
 
-Fifty species get the same treatment, with a different rig. A person from above
+Sixty-three species get the same treatment, with a different rig. A person from above
 is a wide shallow oval with the head in the middle; a beast is the opposite —
 long along its facing, head at one end, tail at the other, legs out to the
 sides. That is a separate anatomy, so `src/art/beast.js` is a separate file.
 
 Four animations rather than six: **idle**, **walk**, **attack**, **hurt**,
-**die**. A beast has no cast, and fifty species times two extra rows is a great
+**die**. A beast has no cast, and sixty-three species times two extra rows is a great
 deal of PNG for something nobody would look at.
 
-Fifty creatures cannot each be drawn by hand and should not be. The **family**
+Sixty-three creatures cannot each be drawn by hand and should not be. The **family**
 owns the anatomy and the **species** varies it, and every per-species number is
 derived from data that already exists — colour is the creature's colour, size
 is its radius, and the small variations are hashed from its own id, so they are
@@ -750,7 +750,7 @@ stable, distinct and free. The seven pack families are seven different animals:
 | Mireborn | Broad and squat, limbs planted well outside the body |
 | Carrionkin | A small body under a half-spread wing, neck reaching |
 
-The ten solo monsters are hand-shaped instead. There are few enough to be worth
+The twenty-three solo monsters are hand-shaped instead. There are few enough to be worth
 it, and each one is a trophy — a player who takes a Nightfell should not find it
 was a big Sicklejaw.
 
@@ -765,7 +765,7 @@ is compact, big-headed and short-tailed.
 
 Creatures bake at 72px a cell against a hero's 128, and the solo monsters at
 120. They are drawn smaller than heroes — a pack creature is nine to eighteen
-world units — and there are fifty of them; at the hero's cell size the creature
+world units — and there are sixty-three of them; at the hero's cell size the creature
 sheets alone would be most of the repository.
 
 ### On the camp screens
@@ -779,7 +779,7 @@ These draw the rig **live** rather than blitting a sheet, which is the opposite
 of what the raid does and deliberate. A portrait is 54 to 176px — above the
 128px the sheets are baked at — so blitting would upscale and go soft exactly
 where the art is most visible, and the camp would have to load sixty-three
-sprite sheets to show thirteen small pictures. The raid has the opposite
+sprite sheets to show twenty-six small pictures. The raid has the opposite
 problem: two hundred and forty entities, each needing to cost one `drawImage`.
 Same `drawFigure`, same curves, different delivery, and the reason each way
 round is the reason.
@@ -797,7 +797,7 @@ running.
 ```bash
 node tools/bake-sprites.mjs              # rebuild every sheet
 node tools/bake-sprites.mjs --class rogue
-node tools/lineup.mjs idle 0 170         # all thirteen classes in one pose
+node tools/lineup.mjs idle 0 170         # all twenty-six classes in one pose
 node tools/lineup.mjs walk 2 74          # ...at the size a raid draws them
 node tools/lineup.mjs idle 0 155 sicklejaw plateback screelwing   # creatures
 node tools/contact-sheet.mjs knight idle:0 attack:5
@@ -814,27 +814,44 @@ runs. A missing asset costs the art and nothing else.
 
 ## Trophies
 
-Thirteen solo monsters, thirteen trophies, one hero class each. It is the only
+Twenty-three solo monsters, twenty-three trophies, one hero class each. It is the only
 way to get a class: nothing here is bought, rolled for, or dropped, so a roster
 is a readable record of what its owner has actually killed. The camp lists all
-thirteen, and a locked row names the creature and the ring it is in, because a
+twenty-three, and a locked row names the creature and the ring it is in, because a
 player who wants a Necromancer needs to know what to go and kill for it.
 
 | Ring | Creature | Trophy | Unlocks |
 |---|---|---|---|
+| Outer | Thornmother | Where It Decided | Druid |
 | Outer | Bastionback | Something That Would Not Fall | Paladin |
+| Outer | Broodsire | It Was Never Alone | Beastmaster |
+| Mid | Snatchwing | It Only Wanted The One Thing | Marauder |
 | Mid | Tyrannoclast | The Line It Chose | Berserker |
+| Mid | Standhorn | What It Left Standing | Shaman |
 | Mid | Deepdelver | What Was Underneath | Necromancer |
+| Mid | Mirrorscale | Everything You Gave It | Duelist |
 | Mid | Glaciermaw | The Cold It Kept | Ice Mage |
+| Mid | Sinkjaw | It Took The Floor | Sapper |
 | Mid | Mirethane | It Would Not Let Go | Warden |
+| Core | Hexmaw | What You Brought With You | Inquisitor |
 | Core | Pyroclast | The Ground It Ruined | Fire Mage |
+| Core | Sigilborn | It Was Already Written | Runesmith |
 | Core | Stormcrest | It Never Once Landed | Lightning Mage |
+| Core | Doomcrier | The Count, Not The Blow | Harbinger |
 | Core | Venomcoil | Patience, Applied | Rogue |
+| Core | Everstand | It Did Not Move | Sentinel |
 | Core | Skyrender | It Came Back Down | Lancer |
 | Centre | Nightfell | The One That Was Choosing | Slayer |
 | Walks, 20m left | Cairnwalker | It Did Not Stop | Monk |
 | Walks, 15m left | Sablemarch | What It Left Behind | Alchemist |
 | Walks, 10m left | Duskherald | Everyone Heard It | Warlord |
+
+The table is ordered outward-in, which is also the order the grounds sit on the
+map: `ARENA_SPEC` seats them at fixed fractions of the world radius so the
+ladder and the geography are the same list. Each radius carries a margin wider
+than the ±11% the placer jitters it by, so a ground is always inside the ring
+its trophy claims — the older ladder did not, and Mirethane at 0.186 against a
+`RING_CORE` of 0.185 landed in the core on any seed that jittered it inward.
 
 The tiering doubles as the progression ladder. Bastionback is the one a fresh
 squad can realistically take, and it pays for a fourth class; each deeper kill
@@ -1230,6 +1247,20 @@ stand on it for the rest of the raid. Nothing crashed; the squad just stopped
 playing. So the test measures behaviour: how long is spent in loot mode, and
 whether that time produces pickups.
 
+Its share check was rewritten when the second ten of grounds went in, and not
+because the new number was inconvenient. The old check capped the *worst* of
+six raids at 25% — and measured over twenty-four raids, the build it was
+written against peaks at 29.9%, above its own limit. Six raids had simply never
+drawn the tail. Maxima on a heavy tail do not converge, which is the same
+lesson as the worst-pin check in `test-movement.js`. So the claim is a rate now
+— at most a quarter of raids over 25% — with a genuine ceiling at 35% for a
+single raid, and a floor of 34 pickups per loot-minute underneath both. That
+floor is the one that actually separates carving from waste, and the one that
+does not move when the map simply has more worth carving on it. Pointing the
+squad at the farthest reachable pile instead of the nearest fails all three:
+20 of 24 raids over a quarter, a worst raid of 85.5%, and productivity down to
+14.9.
+
 `test-heroai.js` covers the ten combat behaviours, each against a real match
 with the situation built by hand — "does a frontliner peel" is not a property
 of a function, it is a property of a knight standing near an archer that is
@@ -1322,6 +1353,16 @@ is made in aggregate. And "arrives in every raid" was failing on raids that
 ended before the walker was due, so it counts raids that actually reached the
 arrival time and asserts against that instead.
 
+The same denominator was still wrong in one last place, and the second ten of
+grounds found it. The player claim was made against every run, so when raids
+started ending sooner it read 29 of 40 before and 19 of 40 after, which looks
+like the routes decaying. They had not: every walker still met somebody at the
+old rate, and the player squad is alive for the whole raid in both builds. Only
+the clock had moved. Against the raids that reached a walker's hour at all it
+is 19 of 25, and it was 29 of 35. `RUNS` went from 16 to 40 at the same time,
+for the reason the file already knew about — at 16 the Duskherald's denominator
+was six raids, and a rate measured over six trials is not a rate.
+
 Every check in it was verified by injecting the bug it guards: put the leash
 back under the notice radius and the walkers spend a tenth of the raid running
 home; pin the circuits to one radius and two of the three bands stop reaching
@@ -1332,7 +1373,7 @@ it. That order is fragile — putting retreat, regrouping or chasing ahead of it
 takes a squad from 77 seconds to reach a door to 306, or leaves them milling
 outside one for twenty minutes.
 
-`test-bestiary.js` covers the fifty species as data: every one has a behaviour
+`test-bestiary.js` covers the sixty-three species as data: every one has a behaviour
 the AI implements, parts that map to slots, and a set whose modifiers are the
 shape its blurb claims. It also checks that threat rises with ring depth, and
 it measures threat as health × damage per second rather than damage per hit —
@@ -1373,6 +1414,16 @@ species only falls below two camps on about one map in a hundred, that check
 would pass whether or not the filter behind it exists, so the file injects the
 bug too — advertise a species off a single camp and the list stops being
 answerable.
+
+Those with-and-without comparisons run on twenty-four seeds rather than eight,
+and the second ten of grounds is what showed why they had to. Both are ratios
+of carves summed over the whole set, and on eight seeds "the total haul
+survives the narrowing" read 33% — a failure — against 43% on twenty-four, a
+comfortable pass. The build before the grounds went in reads 52% on the same
+twenty-four and would itself fail the delivery check on them at 14 of 24. So
+the eight seeds were never testing the bound they named; they were the eight
+the numbers happened to clear. A ratio of sums needs a sample, and eight raids
+is not one.
 
 `test-huntpad.mjs` is the browser half: the camp's picker offers exactly what
 the journal remembers and grows as the squad meets things, a pack species
@@ -1460,6 +1511,41 @@ to draw a harsh outer ring — over eight seeds at 500 the same change went 2/3/
 to 5/1/2 and the haul from 16.5 parts to 24.0. A map now has a character, which
 means some maps are harder than others; that is the point of the change rather
 than a cost of it.
+
+### What the second ten of grounds cost
+
+Doubling the solo grounds — nine to nineteen, plus Nightfell and the three
+walkers — is a difficulty change, and it should be read as one rather than as
+a content drop with no price. Measured over forty raids against the build
+before it:
+
+| | before | after |
+|---|---|---|
+| Mean raid length | 1033s | 870s |
+| Player deaths per raid | 1.48 | 1.63 |
+| Solo kills per raid | 3.20 | 3.63 |
+| Heroes extracted per raid | 0.50 | 0.38 |
+| Loot as a share of the raid | 9.3% | 12.1% |
+| Pickups per loot-minute | 53.9 | 45.6 |
+
+The interesting one is the first. The player squad is not dying much more
+often — it is alive for the whole raid in both builds — but raids *end* sooner,
+because all six squads are resolving faster with twice as many apexes between
+them. That has a knock-on nothing was watching: the three walkers arrive on the
+clock at minutes ten, fifteen and twenty, so a shorter raid is a raid that
+reaches fewer of them. The Duskherald, at minute twenty, is now due in sixteen
+raids in forty rather than twenty.
+
+The walkers themselves are unaffected — each still meets somebody in
+92%, 86% and 63% of the raids it walks in, against 94%, 84% and 70% before. It
+is the clock that moved, not the routes, and `test-walkers.js` says so now
+rather than blaming the routes for it.
+
+Looting rose for the plainest possible reason: a squad meets three times as
+many apexes (0.29 boss kills a raid to 1.08 at level 5) and an apex is the
+biggest carve on the map. That is time well spent, which is why the check that
+guards it is now a floor on pickups per loot-minute rather than a ceiling on
+the worst raid — see **Tools**.
 
 The carve economy still reads better than the old loot economy. A farming run
 comes home with 22 parts, but those parts are a handful of species — enough to
