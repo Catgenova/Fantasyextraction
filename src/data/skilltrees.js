@@ -488,6 +488,311 @@ export const TREES = {
       node({ id: 'l_lancehead', branch: 'thrust', tier: 3, name: 'Lancehead', maxRank: 1, mods: { damagePct: 0.16, armorPen: 90 }, desc: '+16% damage and 90 armour penetration.' }),
     ],
   },
+
+  // ---- The second ten -------------------------------------------------------
+  // Three branches and eighteen nodes each, same as the first sixteen. Every
+  // spell a class owns is unlockable from its own tree, including the two it
+  // starts with — test-achievements.js checks that directly.
+
+  druid: {
+    branches: [
+      { id: 'grove', name: 'Grove', blurb: 'The ground, and what you make of it.' },
+      { id: 'wild', name: 'Wild', blurb: 'What grows back.' },
+      { id: 'bark', name: 'Bark', blurb: 'What does not come apart.' },
+    ],
+    nodes: [
+      node({ id: 'd_thorns', branch: 'grove', tier: 0, name: 'Thorns', maxRank: 3, mods: { spirit: 3 }, desc: '+3 spirit per rank.' }),
+      node({ id: 'd_bramble', branch: 'grove', tier: 1, name: 'Bramble', unlocks: 'bramble', desc: 'Unlocks Bramble.' }),
+      node({ id: 'd_spread', branch: 'grove', tier: 1, name: 'Spreading', maxRank: 2, mods: { aoeRadiusPct: 0.09 }, desc: '+9% area radius per rank.' }),
+      node({ id: 'd_thicket', branch: 'grove', tier: 2, name: 'Thicket', unlocks: 'thicket', desc: 'Unlocks Thicket.' }),
+      node({ id: 'd_overgrowth', branch: 'grove', tier: 2, name: 'Overgrowth', unlocks: 'overgrowth', desc: 'Unlocks Overgrowth.' }),
+      node({ id: 'd_holdfast', branch: 'grove', tier: 3, name: 'Holdfast', mods: { dotPct: 0.2, aoeRadiusPct: 0.14 }, desc: '+20% damage-over-time and +14% area radius.' }),
+
+      node({ id: 'd_green', branch: 'wild', tier: 0, name: 'Green', maxRank: 3, mods: { healPower: 0.07 }, desc: '+7% healing per rank.' }),
+      node({ id: 'd_regrowth', branch: 'wild', tier: 1, name: 'Regrowth', unlocks: 'regrowth', desc: 'Unlocks Regrowth.' }),
+      node({ id: 'd_patience', branch: 'wild', tier: 1, name: 'Patience', maxRank: 2, mods: { spirit: 3, manaRegen: 1.2 }, desc: '+3 spirit and mana regen per rank.' }),
+      node({ id: 'd_wildgrowth', branch: 'wild', tier: 2, name: 'Wildgrowth', unlocks: 'wildgrowth', desc: 'Unlocks Wildgrowth.' }),
+      node({ id: 'd_season', branch: 'wild', tier: 2, name: 'Season', maxRank: 2, mods: { cooldownPct: 0.06 }, desc: '+6% cooldown reduction per rank.' }),
+      node({ id: 'd_longgreen', branch: 'wild', tier: 3, name: 'The Long Green', unlocks: 'the_long_green', desc: 'Unlocks The Long Green.' }),
+
+      node({ id: 'd_bark', branch: 'bark', tier: 0, name: 'Bark', maxRank: 3, mods: { armor: 26, vitality: 1 }, desc: '+26 armour and +1 vitality per rank.' }),
+      node({ id: 'd_barkskin', branch: 'bark', tier: 1, name: 'Barkskin', unlocks: 'barkskin', desc: 'Unlocks Barkskin.' }),
+      node({ id: 'd_heartwood', branch: 'bark', tier: 1, name: 'Heartwood', maxRank: 2, mods: { maxHpFlat: 50 }, desc: '+50 max health per rank.' }),
+      node({ id: 'd_rooted', branch: 'bark', tier: 2, name: 'Deep Roots', maxRank: 2, mods: { resist: 30 }, desc: '+30 resist per rank.' }),
+      node({ id: 'd_shelter', branch: 'bark', tier: 2, name: 'Shelter', maxRank: 2, aura: { resist: 22 }, desc: 'Squad aura: +22 resist per rank.' }),
+      node({ id: 'd_evergreen', branch: 'bark', tier: 3, name: 'Evergreen', mods: { damageTakenPct: -0.12, healPower: 0.15 }, desc: '-12% damage taken and +15% healing.' }),
+    ],
+  },
+
+  beastmaster: {
+    branches: [
+      { id: 'range', name: 'Range', blurb: 'Being further away than they can answer.' },
+      { id: 'wound', name: 'Wound', blurb: 'What keeps working after the shot.' },
+      { id: 'field', name: 'Field', blurb: 'Reading the ground the way they do.' },
+    ],
+    nodes: [
+      node({ id: 'b_eye', branch: 'range', tier: 0, name: 'Eye', maxRank: 3, mods: { agility: 3 }, desc: '+3 agility per rank.' }),
+      node({ id: 'b_loose', branch: 'range', tier: 1, name: 'Loose', unlocks: 'loose', desc: 'Unlocks Loose.' }),
+      node({ id: 'b_reach', branch: 'range', tier: 1, name: 'Reach', maxRank: 2, mods: { rangeBonus: 35 }, desc: '+35 attack range per rank.' }),
+      node({ id: 'b_sense', branch: 'range', tier: 2, name: 'Beast Sense', unlocks: 'beast_sense', desc: 'Unlocks Beast Sense.' }),
+      node({ id: 'b_lethal', branch: 'range', tier: 2, name: 'Lethality', maxRank: 2, mods: { critDamage: 0.16 }, desc: '+16% crit damage per rank.' }),
+      node({ id: 'b_longshot', branch: 'range', tier: 3, name: 'The Long Shot', unlocks: 'the_long_shot', desc: 'Unlocks The Long Shot.' }),
+
+      node({ id: 'b_edge', branch: 'wound', tier: 0, name: 'Edge', maxRank: 3, mods: { dotPct: 0.11 }, desc: '+11% damage-over-time per rank.' }),
+      node({ id: 'b_hamstring', branch: 'wound', tier: 1, name: 'Hamstring', unlocks: 'hamstring', desc: 'Unlocks Hamstring.' }),
+      node({ id: 'b_barbs', branch: 'wound', tier: 1, name: 'Barbs', maxRank: 2, mods: { critChance: 0.05 }, desc: '+5% crit chance per rank.' }),
+      node({ id: 'b_bleed', branch: 'wound', tier: 2, name: 'Bleed Shot', unlocks: 'bleed_shot', desc: 'Unlocks Bleed Shot.' }),
+      node({ id: 'b_deep', branch: 'wound', tier: 2, name: 'Deep Cuts', maxRank: 2, mods: { armorPen: 60 }, desc: 'Ignore 60 enemy armour per rank.' }),
+      node({ id: 'b_exsang', branch: 'wound', tier: 3, name: 'Exsanguination', mods: { dotPct: 0.3, damagePct: 0.1 }, desc: '+30% damage-over-time and +10% damage.' }),
+
+      node({ id: 'b_tracks', branch: 'field', tier: 0, name: 'Tracks', maxRank: 3, mods: { moveSpeedPct: 0.04, agility: 1 }, desc: '+4% move speed and +1 agility per rank.' }),
+      node({ id: 'b_volley', branch: 'field', tier: 1, name: 'Volley', unlocks: 'volley', desc: 'Unlocks Volley.' }),
+      node({ id: 'b_footing', branch: 'field', tier: 1, name: 'Footing', maxRank: 2, mods: { dodge: 0.05 }, desc: '+5% dodge per rank.' }),
+      node({ id: 'b_cripple', branch: 'field', tier: 2, name: 'Cripple', unlocks: 'cripple', desc: 'Unlocks Cripple.' }),
+      node({ id: 'b_pack', branch: 'field', tier: 2, name: 'Pack Sense', maxRank: 2, aura: { critChance: 0.03 }, desc: 'Squad aura: +3% crit per rank.' }),
+      node({ id: 'b_apex', branch: 'field', tier: 3, name: 'Apex', mods: { damagePct: 0.14, rangeBonus: 40 }, desc: '+14% damage and +40 range.' }),
+    ],
+  },
+
+  shaman: {
+    branches: [
+      { id: 'stone', name: 'Stone', blurb: 'What you put down and leave.' },
+      { id: 'water', name: 'Water', blurb: 'What keeps them upright.' },
+      { id: 'storm', name: 'Storm', blurb: 'What the squad does with it.' },
+    ],
+    nodes: [
+      node({ id: 's_stone', branch: 'stone', tier: 0, name: 'Stonework', maxRank: 3, mods: { armor: 24, resist: 16 }, desc: '+24 armour and +16 resist per rank.' }),
+      node({ id: 's_totem', branch: 'stone', tier: 1, name: 'Totem', unlocks: 'totem', desc: 'Unlocks Totem.' }),
+      node({ id: 's_set', branch: 'stone', tier: 1, name: 'Setting', maxRank: 2, mods: { spirit: 3 }, desc: '+3 spirit per rank.' }),
+      node({ id: 's_earth', branch: 'stone', tier: 2, name: 'Earth Totem', unlocks: 'earth_totem', desc: 'Unlocks Earth Totem.' }),
+      node({ id: 's_standing', branch: 'stone', tier: 2, name: 'Standing', maxRank: 2, aura: { armor: 20, resist: 20 }, desc: 'Squad aura: +20 armour and resist per rank.' }),
+      node({ id: 's_bedrock', branch: 'stone', tier: 3, name: 'Bedrock', mods: { damageTakenPct: -0.1, armor: 110 }, desc: '-10% damage taken and +110 armour.' }),
+
+      node({ id: 's_flow', branch: 'water', tier: 0, name: 'Flow', maxRank: 3, mods: { healPower: 0.08 }, desc: '+8% healing per rank.' }),
+      node({ id: 's_mend', branch: 'water', tier: 1, name: 'Mend', unlocks: 'mend', desc: 'Unlocks Mend.' }),
+      node({ id: 's_spring', branch: 'water', tier: 1, name: 'Spring', maxRank: 2, mods: { manaRegen: 1.4 }, desc: '+1.4 mana regen per rank.' }),
+      node({ id: 's_link', branch: 'water', tier: 2, name: 'Spirit Link', unlocks: 'spirit_link', desc: 'Unlocks Spirit Link.' }),
+      node({ id: 's_flowing', branch: 'water', tier: 2, name: 'Flowing Water', unlocks: 'flowing', desc: 'Unlocks Flowing Water.' }),
+      node({ id: 's_circle', branch: 'water', tier: 3, name: 'The Circle', unlocks: 'the_circle', desc: 'Unlocks The Circle.' }),
+
+      node({ id: 's_spark', branch: 'storm', tier: 0, name: 'Spark', maxRank: 3, mods: { spirit: 2, damagePct: 0.04 }, desc: '+2 spirit and +4% damage per rank.' }),
+      node({ id: 's_storm', branch: 'storm', tier: 1, name: 'Storm Totem', unlocks: 'storm_totem', desc: 'Unlocks Storm Totem.' }),
+      node({ id: 's_carry', branch: 'storm', tier: 1, name: 'Carry', maxRank: 2, aura: { damagePct: 0.04 }, desc: 'Squad aura: +4% damage per rank.' }),
+      node({ id: 's_quicken', branch: 'storm', tier: 2, name: 'Quicken', maxRank: 2, mods: { cooldownPct: 0.07 }, desc: '+7% cooldown reduction per rank.' }),
+      node({ id: 's_gale', branch: 'storm', tier: 2, name: 'Gale', maxRank: 2, aura: { moveSpeedPct: 0.04 }, desc: 'Squad aura: +4% move speed per rank.' }),
+      node({ id: 's_conduit', branch: 'storm', tier: 3, name: 'Conduit', aura: { damagePct: 0.1, healPower: 0.12 }, desc: 'Squad aura: +10% damage and +12% healing.' }),
+    ],
+  },
+
+  duelist: {
+    branches: [
+      { id: 'answer', name: 'Answer', blurb: 'What happens after they commit.' },
+      { id: 'point', name: 'Point', blurb: 'What lands when it is your turn.' },
+      { id: 'footwork', name: 'Footwork', blurb: 'Being close enough and no closer.' },
+    ],
+    nodes: [
+      node({ id: 'u_answer', branch: 'answer', tier: 0, name: 'Timing', maxRank: 3, mods: { blockChance: 0.05, agility: 1 }, desc: '+5% block and +1 agility per rank.' }),
+      node({ id: 'u_riposte', branch: 'answer', tier: 1, name: 'Riposte', unlocks: 'riposte', desc: 'Unlocks Riposte.' }),
+      node({ id: 'u_parry', branch: 'answer', tier: 1, name: 'Parry', unlocks: 'parry', desc: 'Unlocks Parry.' }),
+      node({ id: 'u_feint', branch: 'answer', tier: 2, name: 'Feint', unlocks: 'feint', desc: 'Unlocks Feint.' }),
+      node({ id: 'u_counter', branch: 'answer', tier: 2, name: 'Counter', maxRank: 2, mods: { damagePct: 0.07 }, desc: '+7% damage per rank.' }),
+      node({ id: 'u_lastword', branch: 'answer', tier: 3, name: 'The Last Word', unlocks: 'the_last_word', desc: 'Unlocks The Last Word.' }),
+
+      node({ id: 'u_point', branch: 'point', tier: 0, name: 'Point', maxRank: 3, mods: { agility: 3 }, desc: '+3 agility per rank.' }),
+      node({ id: 'u_lunge', branch: 'point', tier: 1, name: 'Lunge', unlocks: 'lunge', desc: 'Unlocks Lunge.' }),
+      node({ id: 'u_edge', branch: 'point', tier: 1, name: 'Edge', maxRank: 2, mods: { critChance: 0.06 }, desc: '+6% crit chance per rank.' }),
+      node({ id: 'u_second', branch: 'point', tier: 2, name: 'Second Intention', unlocks: 'second_intention', desc: 'Unlocks Second Intention.' }),
+      node({ id: 'u_quick', branch: 'point', tier: 2, name: 'Quickness', maxRank: 2, mods: { attackSpeedPct: 0.08 }, desc: '+8% attack speed per rank.' }),
+      node({ id: 'u_perfect', branch: 'point', tier: 3, name: 'Perfect Form', mods: { critDamage: 0.35, critChance: 0.08 }, desc: '+35% crit damage and +8% crit.' }),
+
+      node({ id: 'u_step', branch: 'footwork', tier: 0, name: 'Step', maxRank: 3, mods: { moveSpeedPct: 0.05 }, desc: '+5% move speed per rank.' }),
+      node({ id: 'u_engage', branch: 'footwork', tier: 1, name: 'Engage', unlocks: 'engage', desc: 'Unlocks Engage.' }),
+      node({ id: 'u_evasion', branch: 'footwork', tier: 1, name: 'Evasion', maxRank: 2, mods: { dodge: 0.05 }, desc: '+5% dodge per rank.' }),
+      node({ id: 'u_distance', branch: 'footwork', tier: 2, name: 'Distance', maxRank: 2, mods: { damageTakenPct: -0.05 }, desc: '-5% damage taken per rank.' }),
+      node({ id: 'u_poise', branch: 'footwork', tier: 2, name: 'Poise', maxRank: 2, mods: { resist: 26 }, desc: '+26 resist per rank.' }),
+      node({ id: 'u_unhurried', branch: 'footwork', tier: 3, name: 'Unhurried', mods: { dodge: 0.1, blockChance: 0.12 }, desc: '+10% dodge and +12% block.' }),
+    ],
+  },
+
+  inquisitor: {
+    branches: [
+      { id: 'creed', name: 'Creed', blurb: 'What you take off them.' },
+      { id: 'writ', name: 'Writ', blurb: 'What you hand down.' },
+      { id: 'mail', name: 'Mail', blurb: 'What you walk in wearing.' },
+    ],
+    nodes: [
+      node({ id: 'q_creed', branch: 'creed', tier: 0, name: 'Creed', maxRank: 3, mods: { spirit: 3 }, desc: '+3 spirit per rank.' }),
+      node({ id: 'q_sunder', branch: 'creed', tier: 1, name: 'Sunder Ward', unlocks: 'sunder_ward', desc: 'Unlocks Sunder Ward.' }),
+      node({ id: 'q_silence', branch: 'creed', tier: 1, name: 'Silence', unlocks: 'silence', desc: 'Unlocks Silence.' }),
+      node({ id: 'q_condemn', branch: 'creed', tier: 2, name: 'Condemn', unlocks: 'condemn', desc: 'Unlocks Condemn.' }),
+      node({ id: 'q_doubt', branch: 'creed', tier: 2, name: 'Doubt', maxRank: 2, mods: { armorPen: 70 }, desc: 'Ignore 70 enemy armour per rank.' }),
+      node({ id: 'q_verdict', branch: 'creed', tier: 3, name: 'The Verdict', unlocks: 'the_verdict', desc: 'Unlocks The Verdict.' }),
+
+      node({ id: 'q_writ', branch: 'writ', tier: 0, name: 'Writ', maxRank: 3, mods: { damagePct: 0.05 }, desc: '+5% damage per rank.' }),
+      node({ id: 'q_judgement', branch: 'writ', tier: 1, name: 'Judgement', unlocks: 'judgement', desc: 'Unlocks Judgement.' }),
+      node({ id: 'q_consecrate', branch: 'writ', tier: 1, name: 'Consecrate', unlocks: 'consecrate', desc: 'Unlocks Consecrate.' }),
+      node({ id: 'q_absolution', branch: 'writ', tier: 2, name: 'Absolution', unlocks: 'absolution', desc: 'Unlocks Absolution.' }),
+      node({ id: 'q_zeal', branch: 'writ', tier: 2, name: 'Zeal', maxRank: 2, mods: { critChance: 0.05 }, desc: '+5% crit chance per rank.' }),
+      node({ id: 'q_sentence', branch: 'writ', tier: 3, name: 'Sentence', mods: { damagePct: 0.16, armorPen: 120 }, desc: '+16% damage and 120 armour ignored.' }),
+
+      node({ id: 'q_mail', branch: 'mail', tier: 0, name: 'Mail', maxRank: 3, mods: { armor: 26, resist: 20 }, desc: '+26 armour and +20 resist per rank.' }),
+      node({ id: 'q_faith', branch: 'mail', tier: 1, name: 'Faith', maxRank: 2, mods: { maxHpFlat: 48 }, desc: '+48 max health per rank.' }),
+      node({ id: 'q_ward', branch: 'mail', tier: 1, name: 'Warding', maxRank: 2, mods: { resist: 30 }, desc: '+30 resist per rank.' }),
+      node({ id: 'q_temper', branch: 'mail', tier: 2, name: 'Temperance', maxRank: 2, mods: { damageTakenPct: -0.05 }, desc: '-5% damage taken per rank.' }),
+      node({ id: 'q_procession', branch: 'mail', tier: 2, name: 'Procession', maxRank: 2, aura: { resist: 24 }, desc: 'Squad aura: +24 resist per rank.' }),
+      node({ id: 'q_unshaken', branch: 'mail', tier: 3, name: 'Unshaken', mods: { damageTakenPct: -0.12, resist: 120 }, desc: '-12% damage taken and +120 resist.' }),
+    ],
+  },
+
+  runesmith: {
+    branches: [
+      { id: 'ward', name: 'Ward', blurb: 'Work done before it is needed.' },
+      { id: 'sear', name: 'Sear', blurb: 'Work spent all at once.' },
+      { id: 'script', name: 'Script', blurb: 'How fast you can write.' },
+    ],
+    nodes: [
+      node({ id: 'n_ward', branch: 'ward', tier: 0, name: 'Warding', maxRank: 3, mods: { shieldPct: 0.1 }, desc: '+10% shield strength per rank.' }),
+      node({ id: 'n_wardrune', branch: 'ward', tier: 1, name: 'Ward Rune', unlocks: 'ward_rune', desc: 'Unlocks Ward Rune.' }),
+      node({ id: 'n_iron', branch: 'ward', tier: 1, name: 'Iron', maxRank: 2, mods: { armor: 28 }, desc: '+28 armour per rank.' }),
+      node({ id: 'n_ironrune', branch: 'ward', tier: 2, name: 'Rune of Iron', unlocks: 'rune_of_iron', desc: 'Unlocks Rune of Iron.' }),
+      node({ id: 'n_binding', branch: 'ward', tier: 2, name: 'Binding Rune', unlocks: 'binding_rune', desc: 'Unlocks Binding Rune.' }),
+      node({ id: 'n_unbroken', branch: 'ward', tier: 3, name: 'Unbroken Line', mods: { shieldPct: 0.3, damageTakenPct: -0.1 }, desc: '+30% shield strength and -10% damage taken.' }),
+
+      node({ id: 'n_sear', branch: 'sear', tier: 0, name: 'Sear', maxRank: 3, mods: { spirit: 3 }, desc: '+3 spirit per rank.' }),
+      node({ id: 'n_searrune', branch: 'sear', tier: 1, name: 'Sear Rune', unlocks: 'sear_rune', desc: 'Unlocks Sear Rune.' }),
+      node({ id: 'n_burn', branch: 'sear', tier: 1, name: 'Burn', maxRank: 2, mods: { dotPct: 0.12 }, desc: '+12% damage-over-time per rank.' }),
+      node({ id: 'n_detonate', branch: 'sear', tier: 2, name: 'Detonate', unlocks: 'detonate', desc: 'Unlocks Detonate.' }),
+      node({ id: 'n_wide', branch: 'sear', tier: 2, name: 'Wide Script', maxRank: 2, mods: { aoeRadiusPct: 0.1 }, desc: '+10% area radius per rank.' }),
+      node({ id: 'n_wholepage', branch: 'sear', tier: 3, name: 'The Whole Page', unlocks: 'the_whole_page', desc: 'Unlocks The Whole Page.' }),
+
+      node({ id: 'n_hand', branch: 'script', tier: 0, name: 'Steady Hand', maxRank: 3, mods: { cooldownPct: 0.05 }, desc: '+5% cooldown reduction per rank.' }),
+      node({ id: 'n_haste', branch: 'script', tier: 1, name: 'Rune of Haste', unlocks: 'rune_of_haste', desc: 'Unlocks Rune of Haste.' }),
+      node({ id: 'n_ink', branch: 'script', tier: 1, name: 'Ink', maxRank: 2, mods: { manaRegen: 1.5 }, desc: '+1.5 mana regen per rank.' }),
+      node({ id: 'n_margin', branch: 'script', tier: 2, name: 'Margin', maxRank: 2, mods: { damagePct: 0.06 }, desc: '+6% damage per rank.' }),
+      node({ id: 'n_copy', branch: 'script', tier: 2, name: 'Fair Copy', maxRank: 2, aura: { cooldownPct: 0.04 }, desc: 'Squad aura: +4% cooldown reduction per rank.' }),
+      node({ id: 'n_finished', branch: 'script', tier: 3, name: 'Finished Work', mods: { cooldownPct: 0.15, spirit: 10 }, desc: '+15% cooldown reduction and +10 spirit.' }),
+    ],
+  },
+
+  harbinger: {
+    branches: [
+      { id: 'count', name: 'Count', blurb: 'What is owed, and how fast it grows.' },
+      { id: 'knell', name: 'Knell', blurb: 'Everyone hears it at once.' },
+      { id: 'vigil', name: 'Vigil', blurb: 'Staying alive long enough to collect.' },
+    ],
+    nodes: [
+      node({ id: 'h_count', branch: 'count', tier: 0, name: 'The Ledger', maxRank: 3, mods: { dotPct: 0.12 }, desc: '+12% damage-over-time per rank.' }),
+      node({ id: 'h_toll', branch: 'count', tier: 1, name: 'Toll', unlocks: 'toll', desc: 'Unlocks Toll.' }),
+      node({ id: 'h_arrears', branch: 'count', tier: 1, name: 'Arrears', unlocks: 'arrears', desc: 'Unlocks Arrears.' }),
+      node({ id: 'h_reckoning', branch: 'count', tier: 2, name: 'Reckoning', unlocks: 'reckoning', desc: 'Unlocks Reckoning.' }),
+      node({ id: 'h_thecount', branch: 'count', tier: 2, name: 'The Count', unlocks: 'the_count', desc: 'Unlocks The Count.' }),
+      node({ id: 'h_foreclose', branch: 'count', tier: 3, name: 'Foreclose', unlocks: 'foreclose', desc: 'Unlocks Foreclose.' }),
+
+      node({ id: 'h_knell', branch: 'knell', tier: 0, name: 'Knell', maxRank: 3, mods: { spirit: 3 }, desc: '+3 spirit per rank.' }),
+      node({ id: 'h_wide', branch: 'knell', tier: 1, name: 'Carrying', maxRank: 2, mods: { aoeRadiusPct: 0.1 }, desc: '+10% area radius per rank.' }),
+      node({ id: 'h_toll_a', branch: 'knell', tier: 1, name: 'Knell', unlocks: 'knell', desc: 'Unlocks Knell.' }),
+      node({ id: 'h_dread', branch: 'knell', tier: 2, name: 'Dread', maxRank: 2, mods: { damagePct: 0.07 }, desc: '+7% damage per rank.' }),
+      node({ id: 'h_rites', branch: 'knell', tier: 2, name: 'Last Rites', unlocks: 'last_rites', desc: 'Unlocks Last Rites.' }),
+      node({ id: 'h_inevitable', branch: 'knell', tier: 3, name: 'Inevitable', mods: { dotPct: 0.28, damagePct: 0.12 }, desc: '+28% damage-over-time and +12% damage.' }),
+
+      node({ id: 'h_vigil', branch: 'vigil', tier: 0, name: 'Vigil', maxRank: 3, mods: { maxHpFlat: 42, resist: 18 }, desc: '+42 max health and +18 resist per rank.' }),
+      node({ id: 'h_patience', branch: 'vigil', tier: 1, name: 'Patience', maxRank: 2, mods: { manaRegen: 1.3 }, desc: '+1.3 mana regen per rank.' }),
+      node({ id: 'h_distance', branch: 'vigil', tier: 1, name: 'Distance', maxRank: 2, mods: { moveSpeedPct: 0.05 }, desc: '+5% move speed per rank.' }),
+      node({ id: 'h_shade', branch: 'vigil', tier: 2, name: 'Shade', maxRank: 2, mods: { damageTakenPct: -0.06 }, desc: '-6% damage taken per rank.' }),
+      node({ id: 'h_omen', branch: 'vigil', tier: 2, name: 'Omen', maxRank: 2, aura: { damagePct: 0.04 }, desc: 'Squad aura: +4% damage per rank.' }),
+      node({ id: 'h_long', branch: 'vigil', tier: 3, name: 'The Long Account', mods: { cooldownPct: 0.14, dotPct: 0.2 }, desc: '+14% cooldown reduction and +20% damage-over-time.' }),
+    ],
+  },
+
+  sapper: {
+    branches: [
+      { id: 'breach', name: 'Breach', blurb: 'Getting through the plate.' },
+      { id: 'charge', name: 'Charge', blurb: 'How much you set before you light it.' },
+      { id: 'dig', name: 'Dig', blurb: 'Staying alive next to your own work.' },
+    ],
+    nodes: [
+      node({ id: 'p_breach', branch: 'breach', tier: 0, name: 'Breaching', maxRank: 3, mods: { armorPen: 70 }, desc: 'Ignore 70 enemy armour per rank.' }),
+      node({ id: 'p_breachs', branch: 'breach', tier: 1, name: 'Breach', unlocks: 'breach', desc: 'Unlocks Breach.' }),
+      node({ id: 'p_under', branch: 'breach', tier: 1, name: 'Undermine', unlocks: 'undermine', desc: 'Unlocks Undermine.' }),
+      node({ id: 'p_demo', branch: 'breach', tier: 2, name: 'Demolition', unlocks: 'demolition', desc: 'Unlocks Demolition.' }),
+      node({ id: 'p_wedge', branch: 'breach', tier: 2, name: 'Wedge', maxRank: 2, mods: { critDamage: 0.16 }, desc: '+16% crit damage per rank.' }),
+      node({ id: 'p_bring', branch: 'breach', tier: 3, name: 'Bring It Down', unlocks: 'bring_it_down', desc: 'Unlocks Bring It Down.' }),
+
+      node({ id: 'p_charge', branch: 'charge', tier: 0, name: 'Powder', maxRank: 3, mods: { might: 3 }, desc: '+3 might per rank.' }),
+      node({ id: 'p_set', branch: 'charge', tier: 1, name: 'Set Charge', unlocks: 'charge_set', desc: 'Unlocks Set Charge.' }),
+      node({ id: 'p_shrapnel', branch: 'charge', tier: 1, name: 'Shrapnel', unlocks: 'shrapnel', desc: 'Unlocks Shrapnel.' }),
+      node({ id: 'p_over', branch: 'charge', tier: 2, name: 'Overpressure', unlocks: 'overpressure', desc: 'Unlocks Overpressure.' }),
+      node({ id: 'p_wide', branch: 'charge', tier: 2, name: 'Wide Charge', maxRank: 2, mods: { aoeRadiusPct: 0.1 }, desc: '+10% area radius per rank.' }),
+      node({ id: 'p_ruin', branch: 'charge', tier: 3, name: 'Ruination', mods: { damagePct: 0.18, armorPen: 140 }, desc: '+18% damage and 140 armour ignored.' }),
+
+      node({ id: 'p_dig', branch: 'dig', tier: 0, name: 'Digging In', maxRank: 3, mods: { armor: 26, vitality: 1 }, desc: '+26 armour and +1 vitality per rank.' }),
+      node({ id: 'p_brace', branch: 'dig', tier: 1, name: 'Bracing', maxRank: 2, mods: { maxHpFlat: 50 }, desc: '+50 max health per rank.' }),
+      node({ id: 'p_gloves', branch: 'dig', tier: 1, name: 'Thick Gloves', maxRank: 2, mods: { damageTakenPct: -0.05 }, desc: '-5% damage taken per rank.' }),
+      node({ id: 'p_steady', branch: 'dig', tier: 2, name: 'Steady Work', maxRank: 2, mods: { attackSpeedPct: 0.07 }, desc: '+7% attack speed per rank.' }),
+      node({ id: 'p_crew', branch: 'dig', tier: 2, name: 'Crew', maxRank: 2, aura: { armorPen: 50 }, desc: 'Squad aura: ignore 50 enemy armour per rank.' }),
+      node({ id: 'p_veteran', branch: 'dig', tier: 3, name: 'Veteran Hand', mods: { damageTakenPct: -0.12, might: 10 }, desc: '-12% damage taken and +10 might.' }),
+    ],
+  },
+
+  marauder: {
+    branches: [
+      { id: 'raid', name: 'Raid', blurb: 'The first exchange, which is the only one.' },
+      { id: 'take', name: 'Take', blurb: 'What you leave in them.' },
+      { id: 'gone', name: 'Gone', blurb: 'Not being there for the answer.' },
+    ],
+    nodes: [
+      node({ id: 'r_raid', branch: 'raid', tier: 0, name: 'Raiding', maxRank: 3, mods: { might: 2, agility: 2 }, desc: '+2 might and +2 agility per rank.' }),
+      node({ id: 'r_raids', branch: 'raid', tier: 1, name: 'Raid', unlocks: 'raid', desc: 'Unlocks Raid.' }),
+      node({ id: 'r_ambush', branch: 'raid', tier: 1, name: 'Ambush', unlocks: 'ambush', desc: 'Unlocks Ambush.' }),
+      node({ id: 'r_smash', branch: 'raid', tier: 2, name: 'Smash and Grab', unlocks: 'smash_and_grab', desc: 'Unlocks Smash and Grab.' }),
+      node({ id: 'r_first', branch: 'raid', tier: 2, name: 'First Blood', maxRank: 2, mods: { critDamage: 0.18 }, desc: '+18% crit damage per rank.' }),
+      node({ id: 'r_dawn', branch: 'raid', tier: 3, name: 'Gone Before Dawn', unlocks: 'gone_before_dawn', desc: 'Unlocks Gone Before Dawn.' }),
+
+      node({ id: 'r_take', branch: 'take', tier: 0, name: 'Edge', maxRank: 3, mods: { agility: 3 }, desc: '+3 agility per rank.' }),
+      node({ id: 'r_gut', branch: 'take', tier: 1, name: 'Gut', unlocks: 'gut', desc: 'Unlocks Gut.' }),
+      node({ id: 'r_barbs', branch: 'take', tier: 1, name: 'Barbs', maxRank: 2, mods: { dotPct: 0.12 }, desc: '+12% damage-over-time per rank.' }),
+      node({ id: 'r_overrun', branch: 'take', tier: 2, name: 'Overrun', unlocks: 'overrun', desc: 'Unlocks Overrun.' }),
+      node({ id: 'r_deep', branch: 'take', tier: 2, name: 'Deep', maxRank: 2, mods: { armorPen: 60 }, desc: 'Ignore 60 enemy armour per rank.' }),
+      node({ id: 'r_spoils', branch: 'take', tier: 3, name: 'Spoils', mods: { damagePct: 0.16, lifesteal: 0.1 }, desc: '+16% damage and +10% lifesteal.' }),
+
+      node({ id: 'r_gone', branch: 'gone', tier: 0, name: 'Light Feet', maxRank: 3, mods: { moveSpeedPct: 0.05 }, desc: '+5% move speed per rank.' }),
+      node({ id: 'r_withdraw', branch: 'gone', tier: 1, name: 'Withdraw', unlocks: 'withdraw', desc: 'Unlocks Withdraw.' }),
+      node({ id: 'r_evasion', branch: 'gone', tier: 1, name: 'Evasion', maxRank: 2, mods: { dodge: 0.05 }, desc: '+5% dodge per rank.' }),
+      node({ id: 'r_shadow', branch: 'gone', tier: 2, name: 'Shadow', maxRank: 2, mods: { damageTakenPct: -0.05 }, desc: '-5% damage taken per rank.' }),
+      node({ id: 'r_scatter', branch: 'gone', tier: 2, name: 'Scatter', maxRank: 2, aura: { moveSpeedPct: 0.04 }, desc: 'Squad aura: +4% move speed per rank.' }),
+      node({ id: 'r_never', branch: 'gone', tier: 3, name: 'Never There', mods: { dodge: 0.14, moveSpeedPct: 0.12 }, desc: '+14% dodge and +12% move speed.' }),
+    ],
+  },
+
+  sentinel: {
+    branches: [
+      { id: 'root', name: 'Root', blurb: 'Not moving, on purpose.' },
+      { id: 'wall', name: 'Wall', blurb: 'What arrives and stops.' },
+      { id: 'watch', name: 'Watch', blurb: 'Making sure it comes to you.' },
+    ],
+    nodes: [
+      node({ id: 't_root', branch: 'root', tier: 0, name: 'Footing', maxRank: 3, mods: { armor: 32, vitality: 2 }, desc: '+32 armour and +2 vitality per rank.' }),
+      node({ id: 't_plant', branch: 'root', tier: 1, name: 'Plant', unlocks: 'plant', desc: 'Unlocks Plant.' }),
+      node({ id: 't_unmoved', branch: 'root', tier: 1, name: 'Unmoved', unlocks: 'unmoved', desc: 'Unlocks Unmoved.' }),
+      node({ id: 't_rooted', branch: 'root', tier: 2, name: 'Rooted', unlocks: 'rooted', desc: 'Unlocks Rooted.' }),
+      node({ id: 't_settle', branch: 'root', tier: 2, name: 'Settled', maxRank: 2, mods: { damageTakenPct: -0.06 }, desc: '-6% damage taken per rank.' }),
+      node({ id: 't_notone', branch: 'root', tier: 3, name: 'Not One Step', unlocks: 'not_one_step', desc: 'Unlocks Not One Step.' }),
+
+      node({ id: 't_wall', branch: 'wall', tier: 0, name: 'Wall', maxRank: 3, mods: { maxHpFlat: 60 }, desc: '+60 max health per rank.' }),
+      node({ id: 't_stance', branch: 'wall', tier: 1, name: 'Bulwark Stance', unlocks: 'bulwark_stance', desc: 'Unlocks Bulwark Stance.' }),
+      node({ id: 't_shieldwork', branch: 'wall', tier: 1, name: 'Shieldwork', maxRank: 2, mods: { blockChance: 0.07 }, desc: '+7% block chance per rank.' }),
+      node({ id: 't_press', branch: 'wall', tier: 2, name: 'Press Down', unlocks: 'press_down', desc: 'Unlocks Press Down.' }),
+      node({ id: 't_thick', branch: 'wall', tier: 2, name: 'Thickness', maxRank: 2, mods: { resist: 30 }, desc: '+30 resist per rank.' }),
+      node({ id: 't_immovable', branch: 'wall', tier: 3, name: 'Immovable', mods: { armor: 180, blockChance: 0.14 }, desc: '+180 armour and +14% block chance.' }),
+
+      node({ id: 't_watch', branch: 'watch', tier: 0, name: 'Watch', maxRank: 3, mods: { might: 2, resist: 16 }, desc: '+2 might and +16 resist per rank.' }),
+      node({ id: 't_hold', branch: 'watch', tier: 1, name: 'Hold', unlocks: 'hold', desc: 'Unlocks Hold.' }),
+      node({ id: 't_weight', branch: 'watch', tier: 1, name: 'Weight', maxRank: 2, mods: { damagePct: 0.06 }, desc: '+6% damage per rank.' }),
+      node({ id: 't_shelter', branch: 'watch', tier: 2, name: 'Shelter', maxRank: 2, aura: { armor: 26 }, desc: 'Squad aura: +26 armour per rank.' }),
+      node({ id: 't_relief', branch: 'watch', tier: 2, name: 'Relief', maxRank: 2, aura: { damageTakenPct: -0.03 }, desc: 'Squad aura: -3% damage taken per rank.' }),
+      node({ id: 't_line', branch: 'watch', tier: 3, name: 'The Line', aura: { armor: 60, resist: 60 }, desc: 'Squad aura: +60 armour and resist.' }),
+    ],
+  },
 };
 
 export const nodesForClass = (classId) => TREES[classId].nodes;

@@ -169,6 +169,32 @@ export const CLASS_TACTICS = {
   // where the squad has to be anyway, holds the thing hitting hardest, and
   // is the last one to leave.
   warlord: { stance: 'defensive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.18, potionHpPct: 0.5 },
+  // ---- The second ten ------------------------------------------------------
+  // Written to the class rather than to a template. The two that matter most
+  // are retreatHpPct and potionHpPct: a class that never leaves and a class
+  // that leaves early are different classes even with the same spell list.
+  //
+  // A Druid holds ground it has prepared, so it leaves late for a caster.
+  druid: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.36, potionHpPct: 0.55 },
+  // Longest range in the game, thinnest armour to go with it.
+  beastmaster: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.42, potionHpPct: 0.55 },
+  // Worth more standing than fighting: it drinks early and goes late.
+  shaman: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.4, potionHpPct: 0.6 },
+  // Wants to be hit, briefly and on purpose, so it stays in longer than its
+  // armour says it should.
+  duelist: { stance: 'aggressive', priority: 'closest', lootPolicy: 'greedy', retreatHpPct: 0.3, potionHpPct: 0.5 },
+  // Goes for whatever is holding the advantage, which is rarely the nearest.
+  inquisitor: { stance: 'balanced', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.25, potionHpPct: 0.5 },
+  // Spends its opening on preparation, so it needs to survive the opening.
+  runesmith: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.4, potionHpPct: 0.58 },
+  // Everything it does pays late, so dying early wastes all of it.
+  harbinger: { stance: 'evasive', priority: 'highest_threat', lootPolicy: 'valuable', retreatHpPct: 0.45, potionHpPct: 0.6 },
+  // Built for the heaviest thing on the field and nothing else.
+  sapper: { stance: 'aggressive', priority: 'elites_first', lootPolicy: 'greedy', retreatHpPct: 0.28, potionHpPct: 0.5 },
+  // Treats a second exchange as a mistake, and leaves before it happens.
+  marauder: { stance: 'aggressive', priority: 'lowest_hp', lootPolicy: 'greedy', retreatHpPct: 0.45, potionHpPct: 0.5 },
+  // Does not leave. The lowest retreat threshold in the game, by design.
+  sentinel: { stance: 'defensive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.15, potionHpPct: 0.5 },
 };
 
 /**

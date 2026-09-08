@@ -787,6 +787,233 @@ export const LARGE_CREATURES = {
       aura: { damagePct: 0.1, damageTakenPct: -0.06 },
     },
   },
+  // ---- The second ten -----------------------------------------------------
+  //
+  // Ten more solo hunts, and every one of them is the only way to a class.
+  // They were written to the same rule as the first ten: the fight has to
+  // teach the thing the trophy hands you, or the unlock is a lottery ticket
+  // rather than a lesson.
+  //
+  // Their abilities stay inside `ground`, `summon` and `buff`, which are the
+  // three the sim actually resolves. The older entries name `cone`, `charge`,
+  // `dive` and `grab` as statements of intent, and those are inert until the
+  // monster brain catches up — which is defensible for a species that already
+  // reads as itself from its stat line, and not defensible for ten new ones
+  // whose whole job is to feel different from each other. So these fight with
+  // what works.
+  thornmother: {
+    id: 'thornmother', name: 'Thornmother', family: 'mireborn', tier: 0, hunt: 'solo',
+    prey: ['mireborn', 'venomite', 'carrionkin'],
+    behaviour: 'entangle', color: '#6f8f5c',
+    blurb: 'Does not come to you. Decides, instead, that you are not going anywhere, '
+      + 'and lets the ground it has been growing for years do the rest.',
+    hp: 6400, armor: 190, resist: 160, damage: 88, attackInterval: 2.3, range: 96,
+    cleave: 70, moveSpeed: 48, radius: 31, aggroRange: 460, xp: 460,
+    abilities: [
+      // Two overlapping patches on a short timer: the ground is the fight.
+      { id: 'thicket', kind: 'ground', cooldown: 7, radius: 240, damage: 90, telegraph: 1.5 },
+      { id: 'briarfall', kind: 'ground', cooldown: 13, radius: 320, damage: 130, telegraph: 2.0 },
+      { id: 'rootfast', kind: 'buff', cooldown: 34, duration: 10, mods: { armor: 150, resist: 150 } },
+    ],
+    parts: { hide: 4, gland: 4, sinew: 4, marrow: 2, tail: 2 },
+    set: {
+      name: 'Thornmother', echoes: 'entangle',
+      desc: 'Ground you have chosen is worth more than ground you have taken.',
+      mods: { aoeRadiusPct: 0.2, resist: 120, spirit: 8, healPower: 0.12 },
+    },
+  },
+  broodsire: {
+    id: 'broodsire', name: 'Broodsire', family: 'raptorial', tier: 0, hunt: 'solo',
+    prey: ['raptorial', 'carrionkin', 'wyverling'],
+    behaviour: 'brood', color: '#a8724a',
+    blurb: 'Barely fights. It does not have to — everything it has ever raised is '
+      + 'somewhere on this ring, and all of it is listening.',
+    hp: 5200, armor: 150, resist: 110, damage: 84, attackInterval: 1.5, range: 44,
+    moveSpeed: 108, radius: 27, aggroRange: 520, xp: 440,
+    abilities: [
+      { id: 'clutch', kind: 'summon', cooldown: 14, spawn: 'duskrunner', count: 3, maxAlive: 6,
+        lifespan: 90, telegraph: 1.0 },
+      { id: 'callback', kind: 'summon', cooldown: 22, spawn: 'sicklejaw', count: 2, maxAlive: 6,
+        lifespan: 90, telegraph: 1.0 },
+      { id: 'sire', kind: 'buff', cooldown: 28, duration: 12, mods: { attackSpeedPct: 0.3, moveSpeedPct: 0.2 } },
+    ],
+    parts: { hide: 4, fang: 4, claw: 3, sinew: 3, marrow: 2 },
+    set: {
+      name: 'Broodsire', echoes: 'brood',
+      desc: 'Nothing you bring to a fight fights alone.',
+      mods: { attackSpeedPct: 0.14, agility: 8, critChance: 0.05 },
+      aura: { damagePct: 0.06 },
+    },
+  },
+  snatchwing: {
+    id: 'snatchwing', name: 'Snatchwing', family: 'carrionkin', tier: 1, hunt: 'solo',
+    prey: ['wyverling', 'carrionkin', 'raptorial'],
+    behaviour: 'pilfer', color: '#8d7f9c',
+    blurb: 'Fights exactly as long as it takes to get something off you, then leaves '
+      + 'with it. Killing it is a decision about whether you want that back.',
+    hp: 7200, armor: 140, resist: 150, damage: 138, attackInterval: 1.1, range: 52,
+    moveSpeed: 126, radius: 29, aggroRange: 620, xp: 700,
+    abilities: [
+      { id: 'snatch', kind: 'ground', cooldown: 8, radius: 170, damage: 155, telegraph: 0.9 },
+      { id: 'away', kind: 'buff', cooldown: 20, duration: 7, mods: { moveSpeedPct: 0.5, dodge: 0.25 } },
+      { id: 'scavengers', kind: 'summon', cooldown: 26, spawn: 'bonepicker', count: 3, maxAlive: 5,
+        lifespan: 60, telegraph: 1.0 },
+    ],
+    parts: { membrane: 4, claw: 4, hide: 3, sinew: 3, marrow: 2 },
+    set: {
+      name: 'Snatchwing', echoes: 'pilfer',
+      desc: 'Take it and be elsewhere. Nothing about this set expects a second exchange.',
+      mods: { moveSpeedPct: 0.12, critDamage: 0.3, agility: 9, dodge: 0.06 },
+    },
+  },
+  standhorn: {
+    id: 'standhorn', name: 'Standhorn', family: 'carapace', tier: 1, hunt: 'solo',
+    prey: ['carapace', 'delver', 'mireborn'],
+    behaviour: 'totemic', color: '#9a8f6a',
+    blurb: 'Drives its horns into the ground and the ground answers. Kill it and the '
+      + 'answers keep coming for a while, which is the part worth learning.',
+    hp: 9000, armor: 240, resist: 190, damage: 128, attackInterval: 2.4, range: 80,
+    cleave: 100, moveSpeed: 64, radius: 34, aggroRange: 480, xp: 790,
+    abilities: [
+      { id: 'planting', kind: 'ground', cooldown: 9, radius: 260, damage: 145, telegraph: 1.7 },
+      { id: 'standing_stone', kind: 'buff', cooldown: 26, duration: 14,
+        mods: { armor: 180, resist: 180, damagePct: 0.2 } },
+      { id: 'the_ground_answers', kind: 'ground', cooldown: 15, radius: 340, damage: 175, telegraph: 2.1 },
+    ],
+    parts: { plate: 5, horn: 4, marrow: 3, scale: 2, sinew: 3 },
+    set: {
+      name: 'Standhorn', echoes: 'totemic',
+      desc: 'What you put down keeps working. Everything here is a squad-wide number.',
+      mods: { armor: 140, spirit: 9, healPower: 0.14 },
+      aura: { armor: 60, resist: 60 },
+    },
+  },
+  mirrorscale: {
+    id: 'mirrorscale', name: 'Mirrorscale', family: 'wyrm', tier: 1, hunt: 'solo',
+    prey: ['carapace', 'raptorial', 'delver'],
+    behaviour: 'riposte', color: '#8fa8bd',
+    blurb: 'Gives back precisely what it is given, a beat late. The squads that lose '
+      + 'to it are the ones that hit it hardest.',
+    hp: 8200, armor: 220, resist: 220, damage: 120, attackInterval: 2.0, range: 76,
+    cleave: 80, moveSpeed: 82, radius: 32, aggroRange: 500, xp: 780,
+    abilities: [
+      { id: 'return', kind: 'ground', cooldown: 7, radius: 200, damage: 165, telegraph: 1.1 },
+      { id: 'answering', kind: 'buff', cooldown: 22, duration: 9,
+        mods: { damagePct: 0.35, damageTakenPct: -0.2 } },
+      { id: 'facet', kind: 'ground', cooldown: 14, radius: 300, damage: 150, school: 'magic', telegraph: 1.8 },
+    ],
+    parts: { scale: 5, plate: 3, horn: 3, marrow: 2, sinew: 3 },
+    set: {
+      name: 'Mirrorscale', echoes: 'riposte',
+      desc: 'Standing still and being hit is a way of dealing damage, if you are wearing this.',
+      mods: { blockChance: 0.14, armor: 130, resist: 130, might: 8 },
+    },
+  },
+  sinkjaw: {
+    id: 'sinkjaw', name: 'Sinkjaw', family: 'delver', tier: 1, hunt: 'solo',
+    prey: ['delver', 'venomite', 'carapace'],
+    behaviour: 'collapse', color: '#7d6a55',
+    blurb: 'Takes the floor out rather than the squad. Whatever you were standing on '
+      + 'was the plan, and it goes first.',
+    hp: 8600, armor: 200, resist: 130, damage: 145, attackInterval: 2.1, range: 72,
+    cleave: 90, moveSpeed: 88, radius: 33, aggroRange: 520, xp: 800,
+    abilities: [
+      { id: 'undermine', kind: 'ground', cooldown: 6, radius: 210, damage: 150, telegraph: 1.2 },
+      { id: 'sinkhole', kind: 'ground', cooldown: 12, radius: 380, damage: 210, telegraph: 2.2 },
+      { id: 'set_charge', kind: 'buff', cooldown: 30, duration: 8, mods: { armorPen: 220, damagePct: 0.25 } },
+    ],
+    parts: { hide: 4, claw: 4, plate: 3, marrow: 3, sinew: 3 },
+    set: {
+      name: 'Sinkjaw', echoes: 'collapse',
+      desc: 'Armour is a surface, and surfaces come apart. Nothing here cares how thick it was.',
+      mods: { armorPen: 180, might: 9, damagePct: 0.1 },
+    },
+  },
+  hexmaw: {
+    id: 'hexmaw', name: 'Hexmaw', family: 'venomite', tier: 2, hunt: 'solo',
+    prey: ['venomite', 'mireborn', 'carrionkin'],
+    behaviour: 'unmaking', color: '#a061a8',
+    blurb: 'Eats the advantage rather than the hero. Everything you spent before it '
+      + 'arrived is the first thing to go.',
+    hp: 11800, armor: 170, resist: 250, damage: 168, attackInterval: 1.9, range: 84,
+    moveSpeed: 92, radius: 33, aggroRange: 660, xp: 1220,
+    abilities: [
+      { id: 'unmake', kind: 'ground', cooldown: 8, radius: 250, damage: 230, school: 'magic', telegraph: 1.4 },
+      { id: 'null', kind: 'buff', cooldown: 24, duration: 11, mods: { resist: 220, damagePct: 0.3 } },
+      { id: 'severance', kind: 'ground', cooldown: 14, radius: 360, damage: 250, school: 'magic', telegraph: 2.0 },
+    ],
+    parts: { gland: 5, fang: 4, scale: 3, marrow: 3, sinew: 3 },
+    set: {
+      name: 'Hexmaw', echoes: 'unmaking',
+      desc: 'What the other side is holding matters less than it did.',
+      mods: { armorPen: 200, spirit: 11, damagePct: 0.14, resist: 90 },
+    },
+  },
+  sigilborn: {
+    id: 'sigilborn', name: 'Sigilborn', family: 'elder', tier: 2, hunt: 'solo',
+    prey: ['delver', 'carapace', 'wyverling'],
+    behaviour: 'sigil', color: '#c58f4e',
+    blurb: 'Writes on the ground before it does anything else, and then everything it '
+      + 'does afterwards is already written down.',
+    hp: 12400, armor: 210, resist: 210, damage: 172, attackInterval: 2.1, range: 82,
+    cleave: 110, moveSpeed: 84, radius: 34, aggroRange: 640, xp: 1280,
+    abilities: [
+      // Small, frequent, and everywhere: the marks are the fight, not the bite.
+      { id: 'first_mark', kind: 'ground', cooldown: 5, radius: 180, damage: 175, school: 'magic', telegraph: 1.0 },
+      { id: 'second_mark', kind: 'ground', cooldown: 9, radius: 250, damage: 215, school: 'magic', telegraph: 1.5 },
+      { id: 'closing_mark', kind: 'ground', cooldown: 17, radius: 400, damage: 280, school: 'magic', telegraph: 2.4 },
+      { id: 'inscribed', kind: 'buff', cooldown: 30, duration: 10, mods: { cooldownPct: 0.3, spirit: 20 } },
+    ],
+    parts: { plate: 4, horn: 4, gland: 4, marrow: 3, sinew: 3 },
+    set: {
+      name: 'Sigilborn', echoes: 'sigil',
+      desc: 'Work done before the fight counts double during it.',
+      mods: { cooldownPct: 0.16, spirit: 12, aoeRadiusPct: 0.2 },
+    },
+  },
+  doomcrier: {
+    id: 'doomcrier', name: 'Doomcrier', family: 'harrow', tier: 2, hunt: 'solo',
+    prey: ['raptorial', 'carrionkin', 'wyverling'],
+    behaviour: 'doom', color: '#8f5a6d',
+    blurb: 'Names you early and is in no hurry afterwards. Nothing it does is the thing '
+      + 'that kills you; the thing that kills you is the count.',
+    hp: 13000, armor: 200, resist: 220, damage: 150, attackInterval: 2.3, range: 86,
+    cleave: 120, moveSpeed: 88, radius: 35, aggroRange: 680, xp: 1340,
+    abilities: [
+      { id: 'naming', kind: 'ground', cooldown: 7, radius: 230, damage: 190, school: 'magic', telegraph: 1.3 },
+      { id: 'the_count', kind: 'buff', cooldown: 18, duration: 20,
+        mods: { damagePct: 0.22, attackSpeedPct: 0.15 } },
+      { id: 'arrears', kind: 'ground', cooldown: 15, radius: 330, damage: 300, school: 'magic', telegraph: 2.2 },
+    ],
+    parts: { plate: 4, membrane: 4, horn: 3, gland: 3, marrow: 3, sinew: 3 },
+    set: {
+      name: 'Doomcrier', echoes: 'doom',
+      desc: 'A fight that has gone on is a fight you are winning.',
+      mods: { damagePct: 0.18, critDamage: 0.35, might: 10 },
+    },
+  },
+  everstand: {
+    id: 'everstand', name: 'Everstand', family: 'carapace', tier: 2, hunt: 'solo',
+    prey: ['carapace', 'delver', 'mireborn'],
+    behaviour: 'anchor', color: '#6b7d84',
+    blurb: 'Has not moved in a long time and does not intend to start. The fight '
+      + 'happens where it is standing, on its terms, or it does not happen.',
+    hp: 15000, armor: 320, resist: 260, damage: 185, attackInterval: 2.6, range: 92,
+    cleave: 150, moveSpeed: 54, radius: 37, aggroRange: 560, xp: 1420,
+    abilities: [
+      { id: 'settle', kind: 'buff', cooldown: 22, duration: 14,
+        mods: { armor: 260, resist: 200, damageTakenPct: -0.3 } },
+      { id: 'weight', kind: 'ground', cooldown: 8, radius: 280, damage: 235, telegraph: 1.6 },
+      { id: 'immovable', kind: 'ground', cooldown: 16, radius: 420, damage: 300, telegraph: 2.5 },
+    ],
+    parts: { plate: 6, scale: 4, horn: 3, marrow: 3, sinew: 3 },
+    set: {
+      name: 'Everstand', echoes: 'anchor',
+      desc: 'The heaviest set in the game. It is not for reaching anything.',
+      mods: { armor: 300, resist: 180, vitality: 16, damageTakenPct: -0.14, blockChance: 0.12 },
+      aura: { armor: 50 },
+    },
+  },
 };
 
 /**

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The bestiary is data, and fifty hand-written species is where typos live.
+// The bestiary is data, and sixty-three hand-written species is where typos live.
 //
 // None of this tests behaviour in the sim — nothing is wired yet. It tests that
 // the data says what it claims to: that every species names a behaviour that
@@ -31,7 +31,7 @@ const solo = all.filter((c) => c.hunt === 'solo');
 console.log('=== the roster ===');
 
 check('forty pack species', small.length === 40, String(small.length));
-check('ten solo species in grounds', large.length === 10, String(large.length));
+check('twenty solo species in grounds', large.length === 20, String(large.length));
 check('and three that walk', walking.length === 3, String(walking.length));
 check('no id collides across the three tables',
   Object.keys(CREATURES).length === small.length + large.length + walking.length,
@@ -196,7 +196,7 @@ check('adjacent bands overlap rather than stepping',
   `tier 1 peaks at ${Math.max(...band(1))}, tier 2 starts at ${Math.min(...band(2))}`);
 
 check('speciesFor finds hunts by kind and depth',
-  speciesFor('small', 0).length >= 8 && speciesFor('solo', 0).length === 1
+  speciesFor('small', 0).length >= 8 && speciesFor('solo', 0).length === 3
   && speciesFor('solo', 2).length === large.length + walking.length,
   `${speciesFor('small', 0).length} shallow packs, ${speciesFor('solo', 0).length} shallow solo, ` +
   `${speciesFor('solo', 2).length} solo in all`);

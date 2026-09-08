@@ -704,6 +704,446 @@
           "loop": false
         }
       }
+    },
+    "druid": {
+      "file": "druid.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "beastmaster": {
+      "file": "beastmaster.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "shaman": {
+      "file": "shaman.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "duelist": {
+      "file": "duelist.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "inquisitor": {
+      "file": "inquisitor.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "runesmith": {
+      "file": "runesmith.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "harbinger": {
+      "file": "harbinger.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "sapper": {
+      "file": "sapper.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "marauder": {
+      "file": "marauder.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "sentinel": {
+      "file": "sentinel.png",
+      "cell": 128,
+      "cols": 8,
+      "rows": 6,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 8,
+          "seconds": 2.2,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 8,
+          "seconds": 0.72,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 8,
+          "seconds": 0.55,
+          "loop": false
+        },
+        "cast": {
+          "row": 3,
+          "frames": 8,
+          "seconds": 0.8,
+          "loop": false
+        },
+        "hurt": {
+          "row": 4,
+          "frames": 4,
+          "seconds": 0.28,
+          "loop": false
+        },
+        "die": {
+          "row": 5,
+          "frames": 8,
+          "seconds": 1,
+          "loop": false
+        }
+      }
     }
   },
   "creatures": {
@@ -2685,6 +3125,386 @@
     },
     "duskherald": {
       "file": "creatures/duskherald.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "thornmother": {
+      "file": "creatures/thornmother.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "broodsire": {
+      "file": "creatures/broodsire.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "snatchwing": {
+      "file": "creatures/snatchwing.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "standhorn": {
+      "file": "creatures/standhorn.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "mirrorscale": {
+      "file": "creatures/mirrorscale.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "sinkjaw": {
+      "file": "creatures/sinkjaw.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "hexmaw": {
+      "file": "creatures/hexmaw.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "sigilborn": {
+      "file": "creatures/sigilborn.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "doomcrier": {
+      "file": "creatures/doomcrier.png",
+      "cell": 120,
+      "cols": 6,
+      "rows": 5,
+      "animations": {
+        "idle": {
+          "row": 0,
+          "frames": 6,
+          "seconds": 2.4,
+          "loop": true
+        },
+        "walk": {
+          "row": 1,
+          "frames": 6,
+          "seconds": 0.8,
+          "loop": true
+        },
+        "attack": {
+          "row": 2,
+          "frames": 6,
+          "seconds": 0.5,
+          "loop": false
+        },
+        "hurt": {
+          "row": 3,
+          "frames": 4,
+          "seconds": 0.26,
+          "loop": false
+        },
+        "die": {
+          "row": 4,
+          "frames": 6,
+          "seconds": 1,
+          "loop": false
+        }
+      }
+    },
+    "everstand": {
+      "file": "creatures/everstand.png",
       "cell": 120,
       "cols": 6,
       "rows": 5,

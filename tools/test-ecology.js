@@ -138,23 +138,80 @@ console.log('\n=== 3. the big ones live near what they eat ===');
   check('and the nearest camp to a ground is usually its prey',
     preyIsNearest / total > 0.7, `${(preyIsNearest / total * 100).toFixed(0)}%`);
 
-  // The claim has to be falsifiable: a diet the generator ignored would leave
-  // this at the rate a random assignment gives. A ring draws nine species, so
-  // a boss whose prey were picked at random would land on its own diet about
-  // three times in ten.
-  let blind = 0;
+  // The claim has to be falsifiable, and the null it is measured against has
+  // to be one the generator cannot accidentally satisfy.
+  //
+  // The old null picked a random camp in the ring and asked whether it was on
+  // the boss's diet. That was contaminated: `drawFauna` weights a ring's
+  // species toward the diets of the apexes living in it, so a random camp is
+  // already biased toward being edible. As the roster grew from thirteen
+  // apexes to twenty-three the null rose on its own — 45% to 54% — with no
+  // change to placement at all, and would eventually have swallowed the
+  // signal it exists to prove.
+  //
+  // A permutation instead: same ground, same prey, a different apex standing
+  // on it. That breaks the link between placement and diet and leaves
+  // everything else — the fauna draw included — exactly as it was, so it sits
+  // still while the roster changes. It read 47% on the thirteen-apex map and
+  // 49% now.
+  let permuted = 0;
   const rng = makeRng(99);
   for (const map of maps) {
-    const camps = map.pois.filter((p) => p.kind === 'camp');
-    for (const b of map.pois) {
-      if (b.kind !== 'boss') continue;
-      const here = camps.filter((c) => c.tier === b.tier);
-      const pick = (here.length ? here : camps)[Math.floor(rng() * (here.length || camps.length))];
-      if ((CREATURES[b.bossId].prey ?? []).includes(CREATURES[pick.speciesId]?.family)) blind++;
+    const grounds = map.pois.filter((p) => p.kind === 'boss');
+    for (const b of grounds) {
+      const others = grounds.filter((o) => o.bossId !== b.bossId);
+      if (!others.length) continue;
+      const other = others[Math.floor(rng() * others.length)];
+      if ((CREATURES[other.bossId].prey ?? []).includes(CREATURES[b.preyId]?.family)) permuted++;
     }
   }
-  check('and choosing prey at random would do markedly worse',
-    onDiet > blind * 1.5, `${onDiet} on diet against ${blind} picking blind`);
+  // Stated as a gap in points rather than a ratio: the ratio moves with the
+  // null's denominator, which is the thing that turned out not to hold still.
+  // The old map ran 28 points clear; drawing four apexes from eight instead of
+  // seating the same complementary four every raid costs some of that, because
+  // a ring that draws two raptorial-eaters can only feed one of them.
+  const gap = (onDiet - permuted) / total;
+  check('and a different apex on the same ground would do markedly worse',
+    gap > 0.15,
+    `${(onDiet / total * 100).toFixed(0)}% on diet against `
+    + `${(permuted / total * 100).toFixed(0)}% permuted, a gap of `
+    + `${(gap * 100).toFixed(0)} points`);
+}
+
+// --------------------------------------------- 3b. grounds keep their room --
+console.log('\n=== 3b. one apex at a time, in the ring it claims ===');
+{
+  // Two things nothing was watching until the roster went from thirteen
+  // grounds to twenty-three, and both broke immediately.
+  //
+  // The first is crowding. A ground carries an aggro range up to 700, so two
+  // of them inside 1400 of each other means a squad that commits to one can
+  // have the other arrive. On the thirteen-ground map that happened to 1.9%
+  // of grounds; doubling the grounds against the same scorer took it to 14%,
+  // which is one in seven and not a rare accident.
+  const PULL = 1400;
+  let crowded = 0;
+  let grounds = 0;
+  // The second is the ring a ground says it is in. The placer jitters the
+  // radius by +/-11%, so a ground seated within that of a ring boundary lands
+  // in the wrong ring on some seeds — and its trophy, its tier scaling and the
+  // hunt list all still call it by the ring it was specified in.
+  let misringed = 0;
+  for (const map of maps) {
+    const bosses = map.pois.filter((p) => p.kind === 'boss');
+    for (const b of bosses) {
+      grounds++;
+      if (tierAt(b) !== b.tier) misringed++;
+      let nearest = Infinity;
+      for (const o of bosses) if (o !== b) nearest = Math.min(nearest, dist(b, o));
+      if (nearest < PULL) crowded++;
+    }
+  }
+  check('grounds are rarely close enough to pull each other',
+    crowded / grounds < 0.03,
+    `${(crowded / grounds * 100).toFixed(1)}% of ${grounds} grounds within ${PULL}`);
+  check('and every ground is in the ring its trophy claims',
+    misringed === 0, `${misringed} of ${grounds} in the wrong ring`);
 }
 
 // ---------------------------------------------------- 4. ring bookkeeping --
@@ -165,7 +222,7 @@ console.log('\n=== 4. the ring budget knows what its grounds cost it ===');
   // baked into a constant, so re-measure them: if a ground moves or the
   // clearance changes and the constants do not, the core over-promises camps
   // to species that cannot be seated and they get pruned off the hunt list.
-  const RING_TAKEN = { 0: 0.03, 1: 0.39, 2: 0.87 };
+  const RING_TAKEN = { 0: 0.03, 1: 0.44, 2: 0.79 };
   const hit = { 0: 0, 1: 0, 2: 0 };
   const all = { 0: 0, 1: 0, 2: 0 };
   const rng = makeRng(7);

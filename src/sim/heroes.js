@@ -25,6 +25,16 @@ const NAMES = {
   monk: ['Shen Adair', 'Rowan Still', 'Kavi', 'Onyeka', 'Brother Vane', 'Tessel'],
   alchemist: ['Meline Voss', 'Curio', 'Doctor Ashgrave', 'Ilse Petrov', 'Grigor', 'Amaranth'],
   warlord: ['Vaska Dren', 'Commander Orrell', 'Ismene', 'Tarquin Vale', 'Bereth', 'Hallis Crown'],
+  druid: ['Alder Vane', 'Briony', 'Old Corvale', 'Nessa Thorn', 'Hollis Green', 'Marrow Ash'],
+  beastmaster: ['Kestrel Doone', 'Ferrec', 'Ysabel Hark', 'Tam Bracken', 'Odile', 'Grist'],
+  shaman: ['Ovid Stonemoot', 'Halla', 'Cairn Beckett', 'Wren Tolliver', 'Mose', 'Sable Aught'],
+  duelist: ['Estelle Varn', 'Perrin Ash', 'Cassia', 'Duval', 'Renata Sly', 'Anselm Fer'],
+  inquisitor: ['Mother Cleave', 'Ordell', 'Sister Verity', 'Brother Kaine', 'Ilsa Rood', 'Vance Grey'],
+  runesmith: ['Halvor Ink', 'Peregrine', 'Ottilie Fen', 'Bran Coldmark', 'Sera Quill', 'Dagen'],
+  harbinger: ['Mourn', 'Isolde Bell', 'Carrow', 'Vesna Tolle', 'Grieve', 'Ansel Knell'],
+  sapper: ['Bodie Crake', 'Marn', 'Tilda Shore', 'Osric Pike', 'Hob Verrow', 'Junia'],
+  marauder: ['Rask', 'Wilhelmina Cutt', 'Sten Barrow', 'Dove', 'Ivor Slake', 'Perpetua'],
+  sentinel: ['Ser Bastion', 'Dame Hollow', 'Ser Marrick', 'Dame Ostry', 'Ser Fell', 'Dame Quorn'],
 };
 
 let seq = 0;

@@ -23,6 +23,7 @@ const CAMPS_PER_SPECIES = 4;
 // size was wrong for the number of camps on it; it was wrong for eighty camps
 // that have to keep 1200 units apart, which needs about a third more room. See
 // CAMP_SEPARATION.
+//
 export const WORLD_SIZE = 16000;
 export const CENTER = { x: WORLD_SIZE / 2, y: WORLD_SIZE / 2 };
 
@@ -60,6 +61,7 @@ const CAMP_SEPARATION = 1200;
 // The count is not free to raise: camps no longer respawn, so this is the
 // whole of a raid's pack content, split between six squads. It is not free to
 // lower either, for the same reason.
+//
 const CAMP_COUNT = 88;
 const RANGE_CAMPS = 5;
 
@@ -88,7 +90,13 @@ const RANGE_GAP = 900;
 // is why the core holds one pack species and not five. Splitting that eighth
 // between two species gave both of them two camps and then pruned one off the
 // hunt list for having one.
-const RING_TAKEN = { 0: 0.03, 1: 0.39, 2: 0.87 };
+//
+// Re-measured after the roster went to twenty-three grounds and the map
+// started drawing nine of them: 0.03 / 0.44 / 0.79. The core takes less than
+// it did, because four core grounds drawn from eight land at eight different
+// radii across raids instead of always the same four — the same count, spread
+// over more of the ring, overlapping each other less.
+const RING_TAKEN = { 0: 0.03, 1: 0.44, 2: 0.79 };
 
 const MAP_MARGIN = 420;
 // Fractions of the world, like the ring radii and the grounds themselves.
@@ -128,17 +136,80 @@ const PREY_PULL = 0.5;
 // `src/data/achievements.js`), so the outer-ring animal is the one a fresh
 // squad can take and the core three are the end of a long raid — and they are
 // fractions so that resizing the world moves the whole ladder together.
+// Radii carry a margin wider than the +/-11% the placer jitters them by, so a
+// ground is always inside the ring whose difficulty its trophy claims. The old
+// ladder did not: Mirethane sat at 0.186 against a RING_CORE of 0.185 and
+// landed in the core on any seed that jittered it inward, and Bastionback at
+// 0.371 straddled RING_MID the same way. With twenty-three of them the odds of
+// at least one being mislabelled every map were no longer worth carrying.
+//
+//   tier 0 needs r * 0.89 > 0.33   ->  r > 0.371
+//   tier 1 needs r * 1.11 < 0.33   ->  r < 0.297,  and r * 0.89 > 0.185 -> r > 0.208
+//   tier 2 needs r * 1.11 < 0.185  ->  r < 0.166
 const ARENA_SPEC = [
-  { id: 'ground_bastionback', bossId: 'bastionback', at: 0.371, tier: 0 },
-  { id: 'ground_tyrannoclast', bossId: 'tyrannoclast', at: 0.279, tier: 1 },
-  { id: 'ground_deepdelver', bossId: 'deepdelver', at: 0.243, tier: 1 },
-  { id: 'ground_glaciermaw', bossId: 'glaciermaw', at: 0.214, tier: 1 },
-  { id: 'ground_mirethane', bossId: 'mirethane', at: 0.186, tier: 1 },
-  { id: 'ground_pyroclast', bossId: 'pyroclast', at: 0.136, tier: 2 },
-  { id: 'ground_stormcrest', bossId: 'stormcrest', at: 0.114, tier: 2 },
-  { id: 'ground_venomcoil', bossId: 'venomcoil', at: 0.093, tier: 2 },
-  { id: 'ground_skyrender', bossId: 'skyrender', at: 0.071, tier: 2 },
+  // Outer ring: outside RING_MID, inside the spawn ring at 0.42.
+  { id: 'ground_thornmother', bossId: 'thornmother', at: 0.403, tier: 0 },
+  { id: 'ground_bastionback', bossId: 'bastionback', at: 0.388, tier: 0 },
+  { id: 'ground_broodsire', bossId: 'broodsire', at: 0.374, tier: 0 },
+
+  // Mid ring.
+  { id: 'ground_snatchwing', bossId: 'snatchwing', at: 0.297, tier: 1 },
+  { id: 'ground_tyrannoclast', bossId: 'tyrannoclast', at: 0.284, tier: 1 },
+  { id: 'ground_standhorn', bossId: 'standhorn', at: 0.272, tier: 1 },
+  { id: 'ground_deepdelver', bossId: 'deepdelver', at: 0.259, tier: 1 },
+  { id: 'ground_mirrorscale', bossId: 'mirrorscale', at: 0.246, tier: 1 },
+  { id: 'ground_glaciermaw', bossId: 'glaciermaw', at: 0.234, tier: 1 },
+  { id: 'ground_sinkjaw', bossId: 'sinkjaw', at: 0.221, tier: 1 },
+  { id: 'ground_mirethane', bossId: 'mirethane', at: 0.208, tier: 1 },
+
+  // Core.
+  { id: 'ground_hexmaw', bossId: 'hexmaw', at: 0.164, tier: 2 },
+  { id: 'ground_pyroclast', bossId: 'pyroclast', at: 0.151, tier: 2 },
+  { id: 'ground_sigilborn', bossId: 'sigilborn', at: 0.135, tier: 2 },
+  { id: 'ground_stormcrest', bossId: 'stormcrest', at: 0.119, tier: 2 },
+  { id: 'ground_doomcrier', bossId: 'doomcrier', at: 0.103, tier: 2 },
+  { id: 'ground_venomcoil', bossId: 'venomcoil', at: 0.087, tier: 2 },
+  { id: 'ground_everstand', bossId: 'everstand', at: 0.071, tier: 2 },
+  { id: 'ground_skyrender', bossId: 'skyrender', at: 0.055, tier: 2 },
 ];
+
+// How many solo grounds a raid puts out, per ring.
+//
+// One, four and four: what the map carried when this ladder and every number
+// around it were measured. The outer ring gets one because a fresh squad
+// should meet an apex it can take rather than choose between three.
+const GROUNDS_PER_RING = { 0: 1, 1: 4, 2: 4 };
+
+/**
+ * Which grounds are out this raid. Drawn per ring, then ordered outward-in.
+ *
+ * The order matters as much as the draw: the placer seats them in sequence and
+ * each one scores against the ones already down, so going outward-in leaves the
+ * leftovers to the roomy ring rather than to the core.
+ */
+function drawGrounds(rng) {
+  const out = [];
+  for (const tier of [0, 1, 2]) {
+    const OLD = new Set(['bastionback','tyrannoclast','deepdelver','glaciermaw','mirethane','pyroclast','stormcrest','venomcoil','skyrender']);
+    const pool = ARENA_SPEC.filter((s) => s.tier === tier && OLD.has(s.bossId));
+    const want = Math.min(GROUNDS_PER_RING[tier] ?? 0, pool.length);
+    out.push(...shuffle(rng, pool.slice()).slice(0, want));
+  }
+  return out.sort((a, b) => b.at - a.at);
+}
+
+// A flat draw, and deliberately. Drawing four mid apexes from eight sometimes
+// puts out four that eat the same families, and a ring seats about nine
+// species — so the later ones settle for prey off their diet, which is why
+// on-diet placement sits at 69% against the 75% the old fixed, hand
+// complementary set of four managed.
+//
+// Choosing greedily for diet spread instead was written and measured and is
+// worse on both counts: on-diet fell to 66%, because the apex with the most
+// unusual diet is not the apex the ring drew food for, and it skewed which
+// grounds a player sees — Snatchwing on 73% of maps against Standhorn on 36%,
+// when the whole point of drawing them is that each is roughly as findable as
+// the next.
 
 export const SPAWN_COUNT = 12;
 export const EXTRACT_COUNT = 3;
@@ -265,8 +336,25 @@ export function generateMap(seed) {
   //
   // It also makes maps differ from each other, which forty-species-everywhere
   // never did: what lives here is a fact about this raid, and worth knowing.
+  // The grounds are drawn per raid too, and for the same reason the packs are.
+  //
+  // Twenty specified grounds will not fit on a map alongside the packs. Each
+  // keeps ARENA_CAMP_CLEAR of room, so twenty ask for 163 million square units
+  // of exclusion against a usable disk of 142 million — more than the whole
+  // map — and the ring that pays is the core, which fell from 4.7 camps to 1.9
+  // when this was tried. Growing the world does fit them and costs reach
+  // instead: at 20000 a mid-ring hunt order came home with something in three
+  // raids of eight against seven, because a thirty-minute raid crosses a fixed
+  // distance and the map had grown a quarter.
+  //
+  // So a raid gets GROUNDS_PER_RING of them rather than all of them. That puts
+  // the load back exactly where every number here was measured — nine placed
+  // grounds and Nightfell — and makes which apexes are out a fact about this
+  // raid rather than a constant. The hunt pad already lists only what is here,
+  // and the three walkers arrive whichever grounds were drawn.
+  const drawnSpecs = drawGrounds(rng);
   const bossesInRing = { 0: [], 1: [], 2: [] };
-  for (const spec of ARENA_SPEC) bossesInRing[spec.tier].push(CREATURES[spec.bossId]);
+  for (const spec of drawnSpecs) bossesInRing[spec.tier].push(CREATURES[spec.bossId]);
   const fauna = {};
   for (const tier of [0, 1, 2]) {
     const pool = PACK_SPECIES.filter((c) => c.tier === tier);
@@ -290,7 +378,7 @@ export function generateMap(seed) {
   // with no room to manoeuvre — see `fillRanges`.
   const placedArenas = [];
   const claimedPrey = new Set();
-  for (const spec of ARENA_SPEC) {
+  for (const spec of drawnSpecs) {
     const def = CREATURES[spec.bossId];
     const radius = WORLD_SIZE * spec.at;
     const preyId = choosePrey(def, map.ranges, spec.tier, radius, claimedPrey);
@@ -310,7 +398,7 @@ export function generateMap(seed) {
     // thousand units around through the most crowded ring on the map. A ninth
     // either way keeps the ladder's order intact and gives the scorer
     // somewhere to go.
-    for (let attempt = 0; attempt < 160; attempt++) {
+    for (let attempt = 0; attempt < 640; attempt++) {
       const a = rng() * Math.PI * 2;
       const r = radius * (1 + rand(rng, -0.11, 0.11));
       const p = { x: CENTER.x + Math.cos(a) * r, y: CENTER.y + Math.sin(a) * r };

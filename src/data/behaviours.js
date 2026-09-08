@@ -143,6 +143,61 @@ export const BEHAVIOURS = {
     desc: 'Coils around whoever is nearest and squeezes until they are let go of.',
     hint: { holdSeconds: 4, crushPerSecond: 0.06, holdCooldown: 20 },
   },
+
+  // ---- The second ten -----------------------------------------------------
+  // One per new solo hunt. A behaviour is what the animal is for, and it is
+  // also what its armour set echoes, so these are written as the lesson the
+  // fight teaches rather than as a list of the abilities it happens to have.
+  entangle: {
+    id: 'entangle', name: 'Entangle',
+    desc: 'Decides where you are standing, then makes standing there the problem.',
+    hint: { groundRadius: 260, groundCooldown: 8 },
+  },
+  brood: {
+    id: 'brood', name: 'Brood',
+    desc: 'Fights through what it has raised. Killing the parent is the short way.',
+    hint: { addCooldown: 14, maxAlive: 6 },
+  },
+  pilfer: {
+    id: 'pilfer', name: 'Pilfer',
+    desc: 'In and out. It wants one thing and it is not your life.',
+    hint: { burstCooldown: 8, disengage: true },
+  },
+  totemic: {
+    id: 'totemic', name: 'Totemic',
+    desc: 'Puts something down and lets it keep working after it has moved on.',
+    hint: { groundRadius: 300, buffCooldown: 26 },
+  },
+  riposte: {
+    id: 'riposte', name: 'Riposte',
+    desc: 'Answers rather than opens. The harder the swing, the worse the reply.',
+    hint: { answerWindow: 1.2 },
+  },
+  collapse: {
+    id: 'collapse', name: 'Collapse',
+    desc: 'Takes the ground out from under the fight instead of taking the fight.',
+    hint: { groundRadius: 380, armorPen: 220 },
+  },
+  unmaking: {
+    id: 'unmaking', name: 'Unmaking',
+    desc: 'Spends its attention on what you brought rather than on what you are.',
+    hint: { stripBuffs: true, school: 'magic' },
+  },
+  sigil: {
+    id: 'sigil', name: 'Sigil',
+    desc: 'Writes first. Everything after that has already been decided.',
+    hint: { groundCooldown: 5, marks: 3 },
+  },
+  doom: {
+    id: 'doom', name: 'Doom',
+    desc: 'Names you and waits. What kills you is the count, not the blow.',
+    hint: { rampDuration: 20 },
+  },
+  anchor: {
+    id: 'anchor', name: 'Anchor',
+    desc: 'Does not come to the fight. The fight is wherever it already is.',
+    hint: { moveSpeed: 54, holdRadius: 420 },
+  },
 };
 
 export const BEHAVIOUR_IDS = Object.keys(BEHAVIOURS);

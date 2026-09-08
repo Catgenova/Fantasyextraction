@@ -169,6 +169,8 @@ function startRaid(seed, quarry, level = 6, gear = false) {
 const probe = startRaid(900, null);
 const fauna = probe.fauna();
 check('the raid reports its own fauna', fauna.length > 0, `${fauna.length} entries`);
+// One per ground in ARENA_SPEC. The walkers are deliberately not on this
+// list — there is nowhere to send a squad to find one.
 check('including the solo grounds',
   fauna.filter((f) => f.hunt === 'solo').length === 10,
   String(fauna.filter((f) => f.hunt === 'solo').length));

@@ -62,7 +62,7 @@ const base = (classId, over = {}) => {
   };
 };
 
-// Sixteen classes have to be told apart at about twenty-six pixels across,
+// Twenty-six classes have to be told apart at about twenty-six pixels across,
 // which is smaller than this sentence's line height. Colour does some of that
 // work and the name label does some, but the silhouette has to carry its share
 // or the roster is a row of identical dots.
@@ -287,6 +287,131 @@ export const KITS = {
     cloak: shade(CLASSES.lightning_mage.color, 0.66),
     weapon: inHand(STAFF_BOLT),
     helm: helmHood(shade(CLASSES.lightning_mage.color, 0.48)),
+  }),
+
+  // ---- The second ten -----------------------------------------------------
+  //
+  // Twenty-six figures now have to be told apart at twenty-six pixels, which
+  // no amount of trim will do. So these were built by re-spending the same
+  // three levers — width, reach, grip — against the sixteen that already
+  // exist, and reusing a weapon only where the class it shares with is a
+  // different width or a different colour family.
+
+  // Widest caster in the game and the only one with a cloak: it holds ground
+  // rather than standing behind someone who does.
+  druid: base('druid', {
+    shoulder: 0.47,
+    restless: 0.7,
+    strideLength: 0.9,
+    cloak: shade(CLASSES.druid.color, 0.6),
+    weapon: inHand(STAFF),
+    helm: helmHood(shade(CLASSES.druid.color, 0.42)),
+  }),
+
+  // The second bow, and deliberately not the archer's shape: broader
+  // shoulders, a quiver, and none of the archer's crouch.
+  beastmaster: base('beastmaster', {
+    shoulder: 0.5,
+    restless: 1.1,
+    strideLength: 1.05,
+    weapon: inHand(BOW),
+    offhand: inHand(QUIVER),
+    helm: helmHood(shade(CLASSES.beastmaster.color, 0.45)),
+  }),
+
+  // A staff in one hand and something set down in the other. Horned rather
+  // than hooded, so it does not read as a fifth robed caster.
+  shaman: base('shaman', {
+    shoulder: 0.46,
+    restless: 0.85,
+    strideLength: 0.95,
+    weapon: inHand(STAFF_SHARD),
+    offhand: inHand(TOME),
+    helm: helmHorns(shade(CLASSES.shaman.color, 0.5)),
+  }),
+
+  // Narrowest melee shape on the roster, one long blade and nothing in the
+  // other hand — the opposite of the rogue's two short ones.
+  duelist: base('duelist', {
+    shoulder: 0.4,
+    lineWidth: 0.08,
+    restless: 1.5,
+    strideLength: 1.15,
+    weapon: inHand(SWORD),
+    helm: helmCrest(shade(CLASSES.duelist.color, 0.4)),
+  }),
+
+  // Armoured like a frontliner and carrying a book: the only figure in the
+  // game with a tome and a shield at the same time.
+  inquisitor: base('inquisitor', {
+    shoulder: 0.56,
+    lineWidth: 0.09,
+    restless: 0.5,
+    strideLength: 0.85,
+    pauldrons: shade(CLASSES.inquisitor.color, 0.4),
+    weapon: inHand(MACE),
+    offhand: inHand(TOME),
+    helm: helmCrest('#7d7a86'),
+  }),
+
+  // Both hands on one haft, which no other caster does. It is carrying its
+  // work rather than pointing with it.
+  runesmith: base('runesmith', {
+    shoulder: 0.45,
+    restless: 0.6,
+    strideLength: 0.88,
+    weapon: inHand(STAFF_BOLT),
+    helm: helmCrest(shade(CLASSES.runesmith.color, 0.42)),
+  }),
+
+  // Hooded, thin, and carrying the skull staff — the necromancer's silhouette
+  // read at a distance, separated by being a much lighter frame and a much
+  // colder colour.
+  harbinger: base('harbinger', {
+    shoulder: 0.41,
+    restless: 1.2,
+    strideLength: 1.0,
+    cloak: shade(CLASSES.harbinger.color, 0.66),
+    weapon: inHand(STAFF_SKULL),
+    helm: helmHood(shade(CLASSES.harbinger.color, 0.48)),
+  }),
+
+  // Short, heavy and blunt. Broad shoulders on a low frame, with the weapon
+  // barely projecting: everything about it is for close work on something big.
+  sapper: base('sapper', {
+    shoulder: 0.54,
+    lineWidth: 0.1,
+    restless: 0.8,
+    strideLength: 0.9,
+    pauldrons: shade(CLASSES.sapper.color, 0.42),
+    weapon: inHand(MACE),
+    offhand: inHand(FLASK),
+    helm: helmCrest('#7a5a30'),
+  }),
+
+  // An axe in one hand and a dagger in the other — the only mismatched grip
+  // on the roster, which is exactly what it is for.
+  marauder: base('marauder', {
+    shoulder: 0.48,
+    restless: 1.55,
+    strideLength: 1.2,
+    cloak: shade(CLASSES.marauder.color, 0.6),
+    weapon: inHand(AXE),
+    offhand: inHand(DAGGER),
+    helm: helmHood(shade(CLASSES.marauder.color, 0.5)),
+  }),
+
+  // The widest figure in the game, now that the paladin has been beaten. A
+  // spear held short and a slab of a shield: it is a doorway.
+  sentinel: base('sentinel', {
+    shoulder: 0.66,
+    lineWidth: 0.1,
+    restless: 0.15,
+    strideLength: 0.7,
+    pauldrons: shade(CLASSES.sentinel.color, 0.38),
+    weapon: inHand(SPEAR),
+    offhand: inHand(SHIELD),
+    helm: helmHorns(shade(CLASSES.sentinel.color, 0.45)),
   }),
 };
 

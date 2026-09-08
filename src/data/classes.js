@@ -2,7 +2,7 @@
 // growth per level, the shape of their auto-attack, and which skill tree /
 // spell pool they draw from.
 //
-// Three classes are available from the first raid. The other thirteen are
+// Three classes are available from the first raid. The other twenty-three are
 // locked behind a solo kill each — see `src/data/achievements.js` for that
 // mapping.
 // `shape` is the silhouette the renderer draws, so roles stay readable from
@@ -444,6 +444,214 @@ export const CLASSES = {
     preferredWeapons: ['tail', 'horn'],
     startingSpells: ['lunge', 'vault'],
   },
+  // ---- The second ten -------------------------------------------------------
+  //
+  // Ten more, one per new solo kill. Each was written against a mechanical hook
+  // the first sixteen did not already own, because a class that plays like one
+  // you have is an unlock that reads as a reward and behaves as a duplicate.
+  // The hooks, in order: ground control, a companion, squad-wide standing
+  // buffs, punishing the swing, stripping the advantage, work done in advance,
+  // damage that pays late, armour removal, hit-and-run, and not moving at all.
+  druid: {
+    id: 'druid',
+    name: 'Druid',
+    role: 'Ground control',
+    color: '#6f9c5e',
+    blurb:
+      'Decides where the fight happens and then makes everywhere else worse. Heals '
+      + 'slowly and continuously rather than in a lump, so it wins long fights.',
+    base: { might: 8, agility: 9, spirit: 15, vitality: 13 },
+    growth: { might: 0.7, agility: 0.9, spirit: 1.8, vitality: 1.4 },
+    powerAttr: 'spirit',
+    shape: 'disc',
+    baseArmor: 50,
+    baseResist: 78,
+    moveSpeed: 100,
+    attack: { kind: 'projectile', range: 230, interval: 1.7, damage: 9, scaling: { attackPower: 0.7 }, school: 'magic', projectileSpeed: 420 },
+    preferredWeapons: ['gland', 'horn'],
+    startingSpells: ['bramble', 'regrowth'],
+  },
+
+  beastmaster: {
+    id: 'beastmaster',
+    name: 'Beastmaster',
+    role: 'Ranged DPS',
+    color: '#b08040',
+    blurb:
+      'Hunts the way the things on this map hunt: from further out than anything '
+      + 'else can answer, and never at full health. Nothing it hits stops bleeding.',
+    base: { might: 10, agility: 14, spirit: 10, vitality: 12 },
+    growth: { might: 1.0, agility: 1.6, spirit: 1.0, vitality: 1.2 },
+    powerAttr: 'agility',
+    shape: 'chevron',
+    baseArmor: 56,
+    baseResist: 54,
+    moveSpeed: 112,
+    attack: { kind: 'projectile', range: 340, interval: 1.4, damage: 10, scaling: { attackPower: 0.78 }, school: 'physical', projectileSpeed: 620 },
+    preferredWeapons: ['fang', 'claw'],
+    startingSpells: ['loose', 'hamstring'],
+  },
+
+  shaman: {
+    id: 'shaman',
+    name: 'Shaman',
+    role: 'Support',
+    color: '#59a39b',
+    blurb:
+      'Puts things down and leaves them working. Worth the least of anyone in a '
+      + 'duel and the most in a fight that has a shape.',
+    base: { might: 9, agility: 8, spirit: 16, vitality: 12 },
+    growth: { might: 0.8, agility: 0.8, spirit: 1.9, vitality: 1.3 },
+    powerAttr: 'spirit',
+    shape: 'disc',
+    baseArmor: 48,
+    baseResist: 82,
+    moveSpeed: 98,
+    attack: { kind: 'projectile', range: 250, interval: 1.8, damage: 8, scaling: { attackPower: 0.68 }, school: 'magic', projectileSpeed: 440 },
+    preferredWeapons: ['horn', 'marrow'],
+    startingSpells: ['totem', 'mend'],
+  },
+
+  duelist: {
+    id: 'duelist',
+    name: 'Duelist',
+    role: 'Melee DPS',
+    color: '#c9748a',
+    blurb:
+      'Wants to be hit, briefly and on purpose. Everything it does best happens '
+      + 'in the half-second after somebody commits to a swing.',
+    base: { might: 12, agility: 15, spirit: 8, vitality: 12 },
+    growth: { might: 1.2, agility: 1.7, spirit: 0.6, vitality: 1.3 },
+    powerAttr: 'agility',
+    shape: 'spike',
+    baseArmor: 62,
+    baseResist: 56,
+    moveSpeed: 118,
+    attack: { kind: 'melee', range: 44, interval: 1.0, damage: 11, scaling: { attackPower: 0.8 }, school: 'physical' },
+    preferredWeapons: ['fang', 'claw'],
+    startingSpells: ['riposte', 'engage'],
+  },
+
+  inquisitor: {
+    id: 'inquisitor',
+    name: 'Inquisitor',
+    role: 'Anti-magic',
+    color: '#b9b3c8',
+    blurb:
+      'Takes the advantage away rather than out-damaging it. Against anything '
+      + 'that relies on being buffed or being resistant, it is the whole answer.',
+    base: { might: 12, agility: 9, spirit: 13, vitality: 13 },
+    growth: { might: 1.2, agility: 0.9, spirit: 1.5, vitality: 1.4 },
+    powerAttr: 'spirit',
+    shape: 'shield',
+    baseArmor: 72,
+    baseResist: 88,
+    moveSpeed: 102,
+    attack: { kind: 'melee', range: 48, interval: 1.4, damage: 11, scaling: { attackPower: 0.82 }, school: 'magic' },
+    preferredWeapons: ['mace', 'horn'],
+    startingSpells: ['sunder_ward', 'judgement'],
+  },
+
+  runesmith: {
+    id: 'runesmith',
+    name: 'Runesmith',
+    role: 'Control caster',
+    color: '#d0a24f',
+    blurb:
+      'Does the work before the fight starts and spends it afterwards. Slow to '
+      + 'open, and then everything lands at once because it was already written.',
+    base: { might: 9, agility: 8, spirit: 15, vitality: 13 },
+    growth: { might: 0.8, agility: 0.8, spirit: 1.8, vitality: 1.4 },
+    powerAttr: 'spirit',
+    shape: 'disc',
+    baseArmor: 54,
+    baseResist: 80,
+    moveSpeed: 96,
+    attack: { kind: 'projectile', range: 260, interval: 1.9, damage: 9, scaling: { attackPower: 0.72 }, school: 'magic', projectileSpeed: 460 },
+    preferredWeapons: ['marrow', 'horn'],
+    startingSpells: ['ward_rune', 'sear_rune'],
+  },
+
+  harbinger: {
+    id: 'harbinger',
+    name: 'Harbinger',
+    role: 'Ranged DPS',
+    color: '#96566f',
+    blurb:
+      'Nothing it does is the thing that kills you. Everything it does makes the '
+      + 'next thing worse, and it is patient about the arithmetic.',
+    base: { might: 9, agility: 11, spirit: 14, vitality: 11 },
+    growth: { might: 0.9, agility: 1.2, spirit: 1.7, vitality: 1.1 },
+    powerAttr: 'spirit',
+    shape: 'disc',
+    baseArmor: 46,
+    baseResist: 74,
+    moveSpeed: 104,
+    attack: { kind: 'projectile', range: 280, interval: 1.6, damage: 9, scaling: { attackPower: 0.74 }, school: 'magic', projectileSpeed: 500 },
+    preferredWeapons: ['gland', 'fang'],
+    startingSpells: ['toll', 'arrears'],
+  },
+
+  sapper: {
+    id: 'sapper',
+    name: 'Sapper',
+    role: 'Melee DPS',
+    color: '#a8763f',
+    blurb:
+      'Goes through armour rather than around it. Against anything thin it is '
+      + 'ordinary; against the heaviest thing on the map it is the shortest way in.',
+    base: { might: 14, agility: 10, spirit: 9, vitality: 13 },
+    growth: { might: 1.6, agility: 1.0, spirit: 0.7, vitality: 1.4 },
+    powerAttr: 'might',
+    shape: 'spike',
+    baseArmor: 68,
+    baseResist: 52,
+    moveSpeed: 104,
+    attack: { kind: 'melee', range: 46, interval: 1.3, damage: 13, scaling: { attackPower: 0.88 }, school: 'physical' },
+    preferredWeapons: ['mace', 'claw'],
+    startingSpells: ['breach', 'charge_set'],
+  },
+
+  marauder: {
+    id: 'marauder',
+    name: 'Marauder',
+    role: 'Melee DPS',
+    color: '#8b7fa8',
+    blurb:
+      'In, once, hard, and gone before the answer arrives. The only class that '
+      + 'treats a second exchange as a mistake it has already made.',
+    base: { might: 13, agility: 14, spirit: 7, vitality: 11 },
+    growth: { might: 1.4, agility: 1.6, spirit: 0.5, vitality: 1.2 },
+    powerAttr: 'might',
+    shape: 'spike',
+    baseArmor: 58,
+    baseResist: 50,
+    moveSpeed: 126,
+    attack: { kind: 'melee', range: 42, interval: 1.1, damage: 12, scaling: { attackPower: 0.84 }, school: 'physical' },
+    preferredWeapons: ['claw', 'fang'],
+    startingSpells: ['raid', 'withdraw'],
+  },
+
+  sentinel: {
+    id: 'sentinel',
+    name: 'Sentinel',
+    role: 'Frontline',
+    color: '#6d8894',
+    blurb:
+      'The Monk read backwards. Gets stronger the longer it has not moved, and '
+      + 'is the hardest thing in the game to shift once it has stopped.',
+    base: { might: 13, agility: 5, spirit: 7, vitality: 18 },
+    growth: { might: 1.4, agility: 0.4, spirit: 0.5, vitality: 2.2 },
+    powerAttr: 'might',
+    shape: 'shield',
+    baseArmor: 104,
+    baseResist: 60,
+    moveSpeed: 88,
+    attack: { kind: 'melee', range: 50, interval: 1.6, damage: 13, scaling: { attackPower: 0.92 }, school: 'physical' },
+    preferredWeapons: ['mace', 'sword'],
+    startingSpells: ['plant', 'bulwark_stance'],
+  },
+
 };
 
 export const CLASS_IDS = Object.keys(CLASSES);

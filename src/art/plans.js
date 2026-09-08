@@ -106,7 +106,7 @@ const FAMILIES = {
 };
 
 /**
- * The thirteen solo monsters, hand-shaped rather than family-derived. There
+ * The twenty-three solo monsters, hand-shaped rather than family-derived. There
  * are few enough of them to be worth it, and each one is a trophy — a player
  * who takes a Nightfell should not find it was a big Sicklejaw.
  *
@@ -145,6 +145,40 @@ const SOLO = {
   // Crowned and upright. The tallest head on the list and the widest horns,
   // and the only walker with wings — half-open, held rather than used.
   duskherald: { bodyLen: 0.68, bodyWide: 0.4, headLen: 0.46, headWide: 0.32, neck: 0.18, tailLen: 0.48, legs: 4, legReach: 0.42, stride: 0.4, wingSpan: 0.66, horns: 0.95, spines: 5, teeth: true, restless: 0.85 },
+  // ---- The second ten ----------------------------------------------------
+  // Shaped the same way as the first: around the one moment that is the fight.
+  // Squat and rooted, or long and low, or all head — read as silhouettes.
+  //
+  // Thornmother barely has legs and is mostly frill and tail: it is a thing
+  // that grew where it is rather than an animal that walked there.
+  thornmother: { bodyLen: 0.58, bodyWide: 0.52, headLen: 0.26, headWide: 0.26, neck: 0.02, tailLen: 0.66, legs: 4, legReach: 0.16, stride: 0.12, frill: 0.95, spines: 9, restless: 0.2 },
+  // Small for a solo and built like the pack it raises, but longer-necked and
+  // horned — the one giving orders rather than the ones taking them.
+  broodsire: { bodyLen: 0.6, bodyWide: 0.26, headLen: 0.32, headWide: 0.2, neck: 0.18, tailLen: 0.64, legs: 2, legReach: 0.3, stride: 0.44, teeth: true, horns: 0.5, spines: 4, restless: 1.5 },
+  // All wing and claw on almost no body: everything it has is for carrying
+  // something away.
+  snatchwing: { bodyLen: 0.4, bodyWide: 0.2, headLen: 0.26, headWide: 0.16, neck: 0.16, tailLen: 0.5, legs: 2, legReach: 0.34, stride: 0.2, wingSpan: 1.1, teeth: true, restless: 1.6 },
+  // Front-heavy and horned, with the shortest legs of anything this wide. It
+  // is a shape for driving something into the ground.
+  standhorn: { bodyLen: 0.64, bodyWide: 0.48, headLen: 0.34, headWide: 0.32, neck: 0.02, tailLen: 0.22, legs: 6, legReach: 0.18, stride: 0.18, shell: true, horns: 1.0, restless: 0.3 },
+  // Flat, plated and symmetrical — the only solo with no tail to speak of and
+  // no asymmetry at all, because it is a surface that answers.
+  mirrorscale: { bodyLen: 0.66, bodyWide: 0.44, headLen: 0.3, headWide: 0.28, neck: 0.04, tailLen: 0.3, legs: 4, legReach: 0.26, stride: 0.24, shell: true, spines: 10, restless: 0.35 },
+  // Head first and nothing else: the widest jaw on the list on the lowest
+  // body, built to go under rather than over.
+  sinkjaw: { bodyLen: 0.7, bodyWide: 0.34, headLen: 0.5, headWide: 0.34, neck: 0.0, tailLen: 0.2, legs: 4, legReach: 0.46, stride: 0.34, teeth: true, horns: 0.4, restless: 0.7 },
+  // Long, thin and many-legged with an oversized head — a venomite grown to
+  // the size where it stops being prey.
+  hexmaw: { bodyLen: 0.72, bodyWide: 0.28, headLen: 0.42, headWide: 0.3, neck: 0.1, tailLen: 0.7, legs: 8, legReach: 0.36, stride: 0.26, teeth: true, spines: 7, restless: 0.9 },
+  // Crowned and upright like Nightfell but wider and wingless, and carrying
+  // the most horns in the game: the marks are on the animal too.
+  sigilborn: { bodyLen: 0.66, bodyWide: 0.42, headLen: 0.42, headWide: 0.34, neck: 0.16, tailLen: 0.52, legs: 4, legReach: 0.36, stride: 0.3, horns: 1.0, spines: 9, frill: 0.5, teeth: true, restless: 0.75 },
+  // A walker's build that does not walk: long, low, many-legged, but with the
+  // longest neck and a half-open wing it uses to be seen rather than to fly.
+  doomcrier: { bodyLen: 0.74, bodyWide: 0.32, headLen: 0.4, headWide: 0.26, neck: 0.24, tailLen: 0.42, legs: 6, legReach: 0.34, stride: 0.3, wingSpan: 0.58, horns: 0.7, spines: 6, teeth: true, restless: 0.6 },
+  // The widest and shortest thing in the game. More shell than animal, almost
+  // no reach, and a stride that barely exists.
+  everstand: { bodyLen: 0.54, bodyWide: 0.62, headLen: 0.22, headWide: 0.24, neck: 0.0, tailLen: 0.14, legs: 8, legReach: 0.14, stride: 0.08, shell: true, horns: 0.75, spines: 6, restless: 0.15 },
   nightfell: { bodyLen: 0.7, bodyWide: 0.38, headLen: 0.44, headWide: 0.3, neck: 0.14, tailLen: 0.8, legs: 4, legReach: 0.4, stride: 0.34, wingSpan: 0.95, teeth: true, spines: 8, horns: 0.8, restless: 1.0 },
 };
 

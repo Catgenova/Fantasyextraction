@@ -551,39 +551,55 @@ pointless.
 
 ## The bestiary
 
-Forty small species that hunt in packs, and thirteen large ones that hunt
-alone — ten of them placed in grounds, three that arrive on the clock and
+Forty small species that hunt in packs, and twenty-three large ones that hunt
+alone — twenty of them placed in grounds, three that arrive on the clock and
 walk.
 
 | Family | Species | What they are |
 |---|---|---|
-| Raptorial | 8 | Fast, light, and they arrive together |
+| Raptorial | 9 | Fast, light, and they arrive together |
 | Wyverling | 6 | Winged; they open from above and disengage |
-| Carapace | 6 | Slow and armoured; they hold ground |
-| Venomite | 6 | Little damage up front and a lot afterwards |
-| Delver | 6 | Burrowers; they are not where you last saw them |
-| Mireborn | 4 | Control — grapples, slows, sticky ground |
-| Carrionkin | 4 | They do better against a squad already hurt |
-| Harrow | 3 | They are not anywhere. They arrive, and then they walk |
+| Carapace | 9 | Slow and armoured; they hold ground |
+| Venomite | 7 | Little damage up front and a lot afterwards |
+| Delver | 8 | Burrowers; they are not where you last saw them |
+| Mireborn | 6 | Control — grapples, slows, sticky ground |
+| Carrionkin | 5 | They do better against a squad already hurt |
+| Wyrm | 4 | Breath and ground denial, on a rhythm you can learn |
+| Wyvern | 2 | They arrive from out of reach |
+| Elder | 2 | They appear to be choosing |
+| Harrow | 4 | They are not anywhere. They arrive, and then they walk |
+| Tyrant | 1 | It picks a line and takes it |
 
-Twelve small species are outer-ring, seventeen mid, eleven core. The ten placed
-large creatures run one outer (Bastionback), four mid, and five core, with
-Nightfell at the centre of the map. The three Harrow have no ring of their own —
+Twelve small species are outer-ring, seventeen mid, eleven core. The twenty
+placed large creatures run three outer, eight mid and nine core, with Nightfell
+at the centre of the map. The three Harrow that walk have no ring of their own —
 see **The three that walk**.
 
+**A raid draws nine of the twenty**, one outer and four in each of the other
+rings, the same way it draws about a dozen of the forty pack species. That is
+not variety for its own sake. Every ground keeps `ARENA_CAMP_CLEAR` of room, so
+twenty of them ask for 163 million square units of exclusion against a usable
+disk of 142 — more than the whole map — and the ring that pays is the core,
+which fell from 4.7 camps a map to 1.9 when all twenty were placed at once.
+Growing the world to fit them was measured too, and costs reach instead: at
+20000 a mid-ring hunt order came home with something in three raids of eight
+against seven, because a thirty-minute raid crosses a fixed distance. Drawing
+nine puts the load back exactly where every number on this page was measured.
+
 The thing that makes fifty species distinguishable without fifty special cases
-is `src/data/behaviours.js`: twenty-six behaviour archetypes — swarm, harry,
+is `src/data/behaviours.js`: thirty-six behaviour archetypes — swarm, harry,
 flank, pounce, spitter, ambusher, burrower, screamer, bulwark, tailwhip, leech,
 bomber, stalker, venomous, frenzy, retaliate, grapple, deathcloud, charger,
-breath, slam, sunder, roar, divebomb, relentless, constrict — each a set of
-`hint` fields
+breath, slam, sunder, roar, divebomb, relentless, constrict, entangle, brood,
+pilfer, totemic, riposte, collapse, unmaking, sigil, doom, anchor — each a set
+of `hint` fields
 the monster AI reads. A species picks one, and the same vocabulary names its
 set bonus, so what a creature does in a fight and what its armour does for you
 are the same word.
 
 ## Classes
 
-Three are yours from the first raid. The other thirteen are earned — see
+Three are yours from the first raid. The other twenty-three are earned — see
 **Trophies** below.
 
 | Class | Role | Power attribute | Shape | Unlocked by |
@@ -604,12 +620,22 @@ Three are yours from the first raid. The other thirteen are earned — see
 | **Monk** | Melee DPS | Agility | Spike | Cairnwalker |
 | **Alchemist** | Ranged control | Spirit | Disc | Sablemarch |
 | **Warlord** | Command | Might | Shield | Duskherald |
+| **Druid** | Ground control | Spirit | Disc | Thornmother |
+| **Beastmaster** | Ranged DPS | Agility | Chevron | Broodsire |
+| **Marauder** | Melee DPS | Might | Spike | Snatchwing |
+| **Shaman** | Support | Spirit | Disc | Standhorn |
+| **Duelist** | Melee DPS | Agility | Spike | Mirrorscale |
+| **Sapper** | Melee DPS | Might | Spike | Sinkjaw |
+| **Inquisitor** | Anti-magic | Spirit | Shield | Hexmaw |
+| **Runesmith** | Control caster | Spirit | Disc | Sigilborn |
+| **Harbinger** | Ranged DPS | Spirit | Disc | Doomcrier |
+| **Sentinel** | Frontline | Might | Shield | Everstand |
 
 Each has seven spells and a three-branch, four-tier skill tree whose nodes
 grant passives, squad-wide auras, or unlock the five spells that are not
 starters. Four spells can be slotted at a time.
 
-None of the thirteen is a straight upgrade on a starter. The Berserker hits harder
+None of the twenty-three is a straight upgrade on a starter. The Berserker hits harder
 than the Knight and dies faster for it; the Paladin mitigates less but heals
 the squad; the Fire Mage does the most damage in the game and has the least
 health to protect it. The Warden gives up damage entirely for snares and
