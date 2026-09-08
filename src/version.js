@@ -3,5 +3,5 @@
 // This is compiled into the running code, so it names the build a player
 // is actually looking at. version.json names the build that is deployed.
 // When the two disagree the page is stale — see src/freshness.js.
-export const VERSION = '2026.09.08-031448';
-export const BUILT_AT = '2026-09-08T03:14:48.201Z';
+export const VERSION = '2026.09.08-032626';
+export const BUILT_AT = '2026-09-08T03:26:26.356Z';

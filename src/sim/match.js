@@ -1197,7 +1197,15 @@ export class Match {
       kept: m.extracted ? [...m.inventory] : [],
       keptEquipped: m.extracted ? { ...m.equipped } : {},
       keptConsumables: m.extracted ? m.consumables.filter((c) => c.count > 0) : [],
-      lost: m.extracted ? [] : (m.lostOnDeath ?? [...m.inventory, ...Object.values(m.equipped).filter(Boolean)]),
+      // A hero who was killed had `lostOnDeath` recorded when they were
+      // stripped. One who simply never reached an exit is still standing
+      // there holding everything, so the same rule is applied to them now.
+      //
+      // `lootableFrom` rather than a second copy of it: the copy that used to
+      // be here had drifted, listing the wooden kit the camp reissues for
+      // free — so a squad that ran out of clock read as having lost eight
+      // things per hero — and omitting the belt, which they do lose.
+      lost: m.extracted ? [] : (m.lostOnDeath ?? lootableFrom(m)),
     }));
 
     const extractedCount = heroes.filter((h) => h.extracted).length;

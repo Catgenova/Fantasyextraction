@@ -4,7 +4,8 @@
 
 import { Match, TICK } from '../src/sim/match.js';
 import { newProfile, squadHeroes, applyMatchResult, STASH_LIMIT } from '../src/game/profile.js';
-import { SLOTS } from '../src/data/gear.js';
+import { SLOTS, craftItem } from '../src/data/gear.js';
+import { makeConsumable } from '../src/data/consumables.js';
 import { generateBotSquads } from '../src/sim/bots.js';
 import { MATCH_SECONDS } from '../src/data/enemies.js';
 
@@ -118,6 +119,62 @@ function runRaid(seed, profile) {
   check('the report lists what was gained',
     summary.gained.length === carried.length, `${summary.gained.length} of ${carried.length}`);
   check('and nothing was reported lost', summary.lost.length === 0, String(summary.lost.length));
+}
+
+// --- What "lost" means for a hero who simply ran out of clock ---------------
+// A hero who is killed has their loss recorded when the corpse is stripped,
+// and that path has always excluded the wooden kit. A hero still standing
+// when the clock stops was going through a second, hand-written copy of the
+// same rule that had drifted: it listed the camp kit — which the camp hands
+// straight back, so a squad that timed out read as having lost eight things
+// each — and it left out the belt, which they do lose.
+//
+// The report is built on a raid stopped early rather than one run to the
+// clock. Whether a seeded squad is alive at 30:00 is the difficulty curve
+// talking, and the first version of this check drew a seed where all three
+// died: `stranded` came out empty and every assertion under it passed on an
+// empty list. Stopping the raid while everyone is standing exercises the
+// path on purpose.
+{
+  const profile = newProfile(2026);
+  const carved = [];
+  for (const hero of profile.roster) {
+    hero.level = 8;
+    // One real piece each, so the check is that wooden is filtered rather
+    // than that the list came out empty.
+    const item = craftItem({
+      speciesId: 'threshclaw', partType: 'hide', slot: 'chest', quality: 'sound',
+    });
+    hero.equipped.chest = item;
+    carved.push(item.id);
+    hero.consumables = [makeConsumable('minor_potion', 2)];
+  }
+
+  const match = new Match({
+    seed: 2026,
+    playerSquad: {
+      id: 'player', name: 'Yours', isPlayer: true,
+      heroes: squadHeroes(profile), tactics: profile.squadTactics,
+    },
+    botSquads: generateBotSquads(2026, 5, 3),
+  });
+  for (let i = 0; i < 60; i++) match.update(TICK);
+  const result = match.buildResult();
+
+  const stranded = result.heroes.filter((h) => !h.extracted && h.alive);
+  check('the fixture leaves heroes on the field, not corpses',
+    stranded.length === 3, `${stranded.length} of ${result.heroes.length} still standing`);
+
+  const wooden = stranded.flatMap((h) => h.lost.filter((i) => i?.wooden));
+  check('a hero who never reached an exit does not "lose" their camp kit',
+    stranded.length > 0 && wooden.length === 0,
+    wooden.map((i) => i.name).join(', ') || 'none listed');
+  check('but the carved piece they were wearing is lost',
+    stranded.length > 0 && stranded.every((h) => h.lost.some((i) => carved.includes(i.id))),
+    stranded.map((h) => `${h.lost.length} items`).join(', '));
+  check('and so is the belt, which the camp does not hand back',
+    stranded.length > 0 && stranded.every((h) => h.lost.some((i) => i?.kind === 'consumable')),
+    stranded.map((h) => h.lost.filter((i) => i?.kind === 'consumable').length).join(','));
 }
 
 // --- Progression across several raids --------------------------------------
