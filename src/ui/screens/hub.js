@@ -10,6 +10,7 @@ import { FORMATIONS, SQUAD_PLANS, EXTRACT_PLANS, LOOT_FLOORS } from '../../data/
 import { computeStats } from '../../sim/stats.js';
 import { availablePoints } from '../../sim/heroes.js';
 import { squadHeroes, STASH_LIMIT, achievementProgress, stashParts, stashGear, knownSpecies } from '../../game/profile.js';
+import { salvage, salvageAllUpTo, salvageLabel, canSalvage } from '../../game/smith.js';
 import { QUALITIES, QUALITY_ORDER, partValue } from '../../data/parts.js';
 import { CREATURES } from '../../data/creatures.js';
 import { bossForAchievement } from '../../data/achievements.js';
@@ -21,6 +22,10 @@ const RING_NAMES = { 0: 'outer ring', 1: 'mid ring', 2: 'core' };
 
 export function hubScreen(app) {
   const root = el('div.screen');
+  // Salvage destroys a piece, so the row arms on the first tap and only breaks
+  // it on the second — the same two taps the forge takes to spend parts, and
+  // the in-raid Destroy button to throw something away.
+  let armedSalvage = null;
   function render() {
     hideTooltip();
     clear(root);
@@ -320,15 +325,19 @@ export function hubScreen(app) {
     }
 
     // ---------------------------------------------------------------- stash
-    // Two things live here now: parts waiting for the smith, and finished
-    // equipment nobody is wearing. Parts are grouped by species, because that
-    // is the unit the blacksmith works in and the unit a player thinks in —
-    // "how close am I to a full Boulderhide set" is the only question that
-    // matters when looking at a pile of carves.
+    // Two things live here, and only one of them has a ceiling. Carves are
+    // grouped by species, because that is the unit the blacksmith works in and
+    // the unit a player thinks in — "how close am I to a full Boulderhide set"
+    // is the only question that matters when looking at a pile of them — and
+    // there is no limit on how many you hold. The shelf of forged gear is what
+    // STASH_LIMIT counts, and salvage is how you get anything off it.
     function stashPanel() {
       const parts = stashParts(profile);
       const gear = stashGear(profile);
       const other = profile.stash.filter((i) => i.kind !== 'part' && i.kind !== 'gear');
+
+      // Ragged is the grade that piles up: everything a fresh carve makes.
+      const sweepable = gear.filter((i) => canSalvage(i) && i.quality === 'ragged');
 
       const bySpecies = new Map();
       for (const part of parts) {
@@ -350,7 +359,7 @@ export function hubScreen(app) {
           el('h2', null, 'Stash'),
           el('div.row', { style: { gap: '8px' } }, [
             el('button.sm', { onclick: () => app.go('smith') }, 'Blacksmith'),
-            el('span.small.muted', null, `${profile.stash.length} / ${STASH_LIMIT}`),
+            el('span.small.muted', null, `${gear.length} / ${STASH_LIMIT} forged`),
           ]),
         ]),
         el('div.panel-body.col', { style: { gap: '8px' } }, [
@@ -373,11 +382,54 @@ export function hubScreen(app) {
               ]);
             }))
             : el('div.item.empty', null, 'No parts. Carve something and bring it home.'),
+          parts.length
+            ? el('div.tiny.dim', null, `${parts.length} carves held — there is no limit on these.`)
+            : null,
 
           gear.length
             ? el('div.col', { style: { gap: '6px' } }, [
-              el('h3', { style: { margin: '6px 0 0' } }, `Forged (${gear.length})`),
-              ...gear.map((item) => itemRow(item, {})),
+              el('div.spread', { style: { marginTop: '6px' } }, [
+                el('h3', { style: { margin: '0' } }, `Forged (${gear.length})`),
+                sweepable.length
+                  ? el('button.sm' + (armedSalvage === 'sweep' ? '.danger.armed' : ''), {
+                    title: armedSalvage === 'sweep'
+                      ? 'Tap again — every ragged piece is broken down'
+                      : 'Break down everything ragged',
+                    onclick: () => {
+                      if (armedSalvage === 'sweep') {
+                        salvageAllUpTo(profile, 'ragged');
+                        armedSalvage = null;
+                        app.save();
+                      } else {
+                        armedSalvage = 'sweep';
+                      }
+                      render();
+                    },
+                  }, armedSalvage === 'sweep'
+                    ? `Break all ${sweepable.length}?`
+                    : `Salvage ragged (${sweepable.length})`)
+                  : null,
+              ]),
+              ...gear.map((item) => itemRow(item, {
+                right: canSalvage(item)
+                  ? el('button.sm' + (armedSalvage === item.id ? '.danger.armed' : ''), {
+                    title: armedSalvage === item.id
+                      ? `Tap again — you get back ${salvageLabel(item)}`
+                      : `Break down for ${salvageLabel(item)}`,
+                    onclick: (ev) => {
+                      ev.stopPropagation();
+                      if (armedSalvage === item.id) {
+                        salvage(profile, item.id);
+                        armedSalvage = null;
+                        app.save();
+                      } else {
+                        armedSalvage = item.id;
+                      }
+                      render();
+                    },
+                  }, armedSalvage === item.id ? 'Break it?' : 'Salvage')
+                  : null,
+              })),
             ])
             : null,
 

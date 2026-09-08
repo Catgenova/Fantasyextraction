@@ -32,10 +32,10 @@ console.log('=== what the smith will make ===');
 
 {
   const profile = newProfile(1);
-  profile.stash = [];
+  profile.materials = [];
   // Two plates: enough for a helm or gauntlets, one short of a cuirass, so
   // both sides of the affordability line are on screen.
-  for (let i = 0; i < 2; i++) profile.stash.push(part('boulderhide', 'plate', 'fine'));
+  for (let i = 0; i < 2; i++) profile.materials.push(part('boulderhide', 'plate', 'fine'));
   const recipes = availableRecipes(stashParts(profile), 'knight');
 
   check('a pile of one part offers every slot it fits',
@@ -64,15 +64,15 @@ console.log('\n=== the grade of the worst part ===');
   // The rule that makes hoarding good carves the actual progression: one
   // Mythic plate among ragged ones buys nothing.
   const profile = newProfile(2);
-  profile.stash = [part('boulderhide', 'plate', 'mythic')];
-  for (let i = 0; i < 4; i++) profile.stash.push(part('boulderhide', 'plate', 'ragged'));
+  profile.materials = [part('boulderhide', 'plate', 'mythic')];
+  for (let i = 0; i < 4; i++) profile.materials.push(part('boulderhide', 'plate', 'ragged'));
   const chest = availableRecipes(stashParts(profile)).find((r) => r.slot === 'chest');
   check('one great carve among poor ones does not lift the piece',
     chest.quality === 'ragged', `${chest.quality} from a pile containing a mythic`);
 
   // But the smith reaches for the best it can, so five Fine parts make Fine.
   const better = newProfile(3);
-  better.stash = Array.from({ length: 5 }, () => part('boulderhide', 'plate', 'fine'));
+  better.materials = Array.from({ length: 5 }, () => part('boulderhide', 'plate', 'fine'));
   const good = availableRecipes(stashParts(better)).find((r) => r.slot === 'chest');
   check('and the smith reaches for the best it has', good.quality === 'fine', good.quality);
 }
@@ -81,12 +81,12 @@ console.log('\n=== forging spends exactly what it quoted ===');
 
 {
   const profile = newProfile(4);
-  profile.stash = [
+  profile.materials = [
     part('boulderhide', 'plate', 'mythic'),
     ...Array.from({ length: 3 }, () => part('boulderhide', 'plate', 'fine')),
     part('sicklejaw', 'claw', 'sound', 0),
   ];
-  const before = profile.stash.length;
+  const before = stashParts(profile).length;
   const chest = availableRecipes(stashParts(profile)).find((r) => r.slot === 'chest');
   const item = forge(profile, chest, 'knight');
 
@@ -108,14 +108,14 @@ console.log('\n=== forging spends exactly what it quoted ===');
 
 {
   const profile = newProfile(5);
-  profile.stash = Array.from({ length: 3 }, () => part('sicklejaw', 'claw', 'sound', 0));
+  profile.materials = Array.from({ length: 3 }, () => part('sicklejaw', 'claw', 'sound', 0));
   const weapon = availableRecipes(stashParts(profile), 'archer').find((r) => r.slot === 'weapon');
   const made = forge(profile, weapon, 'archer');
   check('a weapon is bound to the class it was forged for',
     canEquip(made, 'archer') && !canEquip(made, 'knight'), made.name);
 
   const armourProfile = newProfile(6);
-  armourProfile.stash = Array.from({ length: 3 }, () => part('boulderhide', 'plate', 'sound'));
+  armourProfile.materials = Array.from({ length: 3 }, () => part('boulderhide', 'plate', 'sound'));
   const chest = availableRecipes(stashParts(armourProfile), 'archer').find((r) => r.slot === 'chest');
   const plate = forge(armourProfile, chest, 'archer');
   check('armour fits anyone', canEquip(plate, 'knight') && canEquip(plate, 'priest'));

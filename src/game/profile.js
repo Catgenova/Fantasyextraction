@@ -12,6 +12,17 @@ import { STARTER_CLASS_IDS } from '../data/classes.js';
 import { CREATURES } from '../data/creatures.js';
 import { sanitizeQuarry } from '../data/hunts.js';
 
+/**
+ * How many forged pieces the stash will hold.
+ *
+ * Only forged pieces. Carves are not counted and never were meant to be: a
+ * raid brings home twenty-odd parts and one or two finished items, so a single
+ * shared cap of 120 filled with material in about six raids and then started
+ * silently dropping carves on the floor — `addToStash` returned false and
+ * `applyMatchResult` simply did not add them to the haul. Material is now
+ * uncapped (see `profile.materials`) and this counts the shelf of finished
+ * gear, which fills slowly enough that most players will never see it.
+ */
 export const STASH_LIMIT = 120;
 
 export function newProfile(seed = Date.now() >>> 0) {
@@ -22,12 +33,15 @@ export function newProfile(seed = Date.now() >>> 0) {
     createHero(rng, 'priest'),
   ];
 
-  // Enough carved material to have something to take to the smith, and
-  // nothing that was not cut off something.
   const stash = [
     makeConsumable('minor_potion', 3),
     makeConsumable('bandage', 3),
     makeConsumable('mana_tonic', 2),
+  ];
+
+  // Enough carved material to have something to take to the smith, and
+  // nothing that was not cut off something.
+  const materials = [
     makePart({ speciesId: 'threshclaw', speciesName: 'Threshclaw', partType: 'hide', quality: 'ragged', tier: 0 }),
     makePart({ speciesId: 'threshclaw', speciesName: 'Threshclaw', partType: 'claw', quality: 'ragged', tier: 0 }),
     makePart({ speciesId: 'plateback', speciesName: 'Plateback', partType: 'plate', quality: 'ragged', tier: 0 }),
@@ -40,7 +54,11 @@ export function newProfile(seed = Date.now() >>> 0) {
     roster,
     squad: roster.slice(0, 3).map((h) => h.id),
     squadTactics: defaultSquadTactics(),
+    // Two stores, because they behave nothing alike. `stash` is the shelf of
+    // finished gear and supplies and it has a ceiling; `materials` is every
+    // carve the player has ever brought home and has none.
     stash,
+    materials,
     gold: 0,
     // Boss trophies, by achievement id -> { at, seed }. Each one unlocks a
     // class; the roster hero it granted is created at the same moment.
@@ -69,6 +87,14 @@ export function squadHeroes(profile) {
 export function sanitizeProfile(profile) {
   profile.roster = (profile.roster ?? []).map(sanitizeHero);
   profile.stash = (profile.stash ?? []).filter(Boolean);
+  profile.materials = (profile.materials ?? []).filter(Boolean);
+  // Saves from before the split kept parts in the stash. Move them across
+  // rather than leaving them where nothing will look for them again.
+  const strandedParts = profile.stash.filter((i) => i.kind === 'part');
+  if (strandedParts.length) {
+    profile.materials.push(...strandedParts);
+    profile.stash = profile.stash.filter((i) => i.kind !== 'part');
+  }
   profile.squadTactics = { ...defaultSquadTactics(), ...(profile.squadTactics ?? {}) };
   profile.squad = (profile.squad ?? []).filter((id) => heroById(profile, id));
   while (profile.squad.length < 3 && profile.roster.length > profile.squad.length) {
@@ -92,7 +118,7 @@ export function sanitizeProfile(profile) {
   for (const [id, record] of Object.entries(journal)) {
     if (CREATURES[id]) profile.bestiary[id] = record;
   }
-  for (const part of profile.stash) {
+  for (const part of profile.materials) {
     if (part?.kind === 'part' && CREATURES[part.speciesId] && !profile.bestiary[part.speciesId]) {
       profile.bestiary[part.speciesId] = { kills: 0, carves: 1, firstAt: profile.createdAt ?? Date.now() };
     }
@@ -108,29 +134,42 @@ export function sanitizeProfile(profile) {
   return profile;
 }
 
+/**
+ * Put something the player brought home away.
+ *
+ * Where it goes depends on what it is, and only one of the three has a
+ * ceiling. Carves go to `materials` and always fit — a hunt is supposed to
+ * reward you with a pile of the same species, and a cap on that is a cap on
+ * playing the game the way it asks you to. Consumables stack. Forged gear is
+ * the only thing that occupies a shelf.
+ */
 export function addToStash(profile, item) {
   if (!item) return false;
+  if (item.kind === 'part') { profile.materials.push(item); return true; }
   // Consumables of the same type merge into one stack entry per pickup.
   if (item.kind === 'consumable') {
     const existing = profile.stash.find((s) => s.kind === 'consumable' && s.defId === item.defId);
     if (existing) { existing.count += item.count; return true; }
+    profile.stash.push(item);
+    return true;
   }
-  if (profile.stash.length >= STASH_LIMIT) return false;
+  if (stashGear(profile).length >= STASH_LIMIT) return false;
   profile.stash.push(item);
   return true;
 }
 
-/**
- * The stash holds two kinds of thing now: carved parts waiting for the smith,
- * and finished equipment nobody is wearing. Both go through here.
- */
+/** Every carve the player is holding. There is no limit on these. */
 export function stashParts(profile) {
-  return profile.stash.filter((i) => i.kind === 'part');
+  return profile.materials;
 }
 
+/** Finished equipment nobody is wearing. This is what STASH_LIMIT counts. */
 export function stashGear(profile) {
-  return profile.stash.filter((i) => i.kind === 'gear');
+  return profile.stash.filter((i) => i?.kind === 'gear');
 }
+
+/** Is there room on the shelf for another forged piece? */
+export const stashHasRoom = (profile) => stashGear(profile).length < STASH_LIMIT;
 
 /** Parts of one species and type, which is the unit the blacksmith works in. */
 export function partsOf(profile, speciesId, partType) {
@@ -138,12 +177,12 @@ export function partsOf(profile, speciesId, partType) {
     && (!partType || i.partType === partType));
 }
 
-/** Remove named parts from the stash. Used by the smith when it consumes them. */
+/** Remove named parts. Used by the smith when it consumes them. */
 export function consumeParts(profile, ids) {
   const doomed = new Set(ids);
-  const taken = profile.stash.filter((i) => doomed.has(i.id));
+  const taken = profile.materials.filter((i) => doomed.has(i.id));
   if (taken.length !== doomed.size) return null;
-  profile.stash = profile.stash.filter((i) => !doomed.has(i.id));
+  profile.materials = profile.materials.filter((i) => !doomed.has(i.id));
   return taken;
 }
 

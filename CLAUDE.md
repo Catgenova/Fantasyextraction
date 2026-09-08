@@ -26,12 +26,12 @@ background rather than blocking on them.
 ```bash
 for t in test-bestiary test-smith test-hunt test-achievements test-progression \
          test-movement test-loot test-extraction test-nav test-heroai \
-         test-ecology test-walkers; do
+         test-ecology test-walkers test-salvage; do
   node tools/$t.js
 done
 
 for t in test-layout test-bags test-unlocks test-navigation \
-         test-forge test-huntpad test-sprites; do
+         test-forge test-huntpad test-sprites test-salvage; do
   node tools/$t.mjs        # need Playwright; they skip without it
 done
 ```

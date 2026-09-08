@@ -113,7 +113,7 @@ export function smithScreen(app) {
       const key = recipe.id;
       const isArmed = armed === key;
       const grade = QUALITIES[recipe.quality];
-      const blocked = forgeBlocker(recipe);
+      const blocked = forgeBlocker(recipe, profileRef);
       return el('div.recipe', { style: { '--rar': grade?.color, '--cls': CREATURES[recipe.speciesId]?.color } }, [
         el('div.spread', null, [
           el('div.nm', { style: { color: grade?.color } }, recipeLabel(recipe)),

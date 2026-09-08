@@ -87,10 +87,12 @@ const seedStash = (page, spec) => page.evaluate(async (rows) => {
   localStorage.setItem('fx.save.v1', JSON.stringify(profile));
 }, spec);
 
+// Carves and forged gear live in different stores now — `materials` has no
+// ceiling, the stash does — so counting both means reading both.
 const stashCounts = (page) => page.evaluate(() => {
   const profile = JSON.parse(localStorage.getItem('fx.save.v1'));
   return {
-    parts: profile.stash.filter((i) => i.kind === 'part').length,
+    parts: (profile.materials ?? []).length,
     gear: profile.stash.filter((i) => i.kind === 'gear').length,
     last: profile.stash.filter((i) => i.kind === 'gear').at(-1) ?? null,
   };

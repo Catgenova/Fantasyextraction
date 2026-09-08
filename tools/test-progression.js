@@ -42,8 +42,10 @@ function runRaid(seed, profile) {
   const profile = newProfile(31);
   const hero = profile.roster[0];
   const worn = Object.values(hero.equipped).filter(Boolean).map((i) => ({ ...i }));
-  const carried = [profile.stash[3], profile.stash[4]].filter(Boolean);
-  const stashBefore = profile.stash.length;
+  // Carves, which is what a hero actually carries home. They live in
+  // `materials` now rather than in the stash, and there is no limit on them.
+  const carried = profile.materials.slice(0, 2);
+  const heldBefore = profile.materials.length + profile.stash.length;
 
   const summary = applyMatchResult(profile, {
     seed: 31, duration: 600, outcome: 'partial', bossesKilled: [],
@@ -73,10 +75,14 @@ function runRaid(seed, profile) {
   check('the report lists what was lost',
     summary.lost.length === worn.length + carried.length,
     `${summary.lost.length} of ${worn.length + carried.length}`);
+  // Nothing was added. The carried parts are the profile's own starting
+  // material rather than something this fake raid moved, so what is asserted
+  // is that neither store grew and that no worn piece turned up in either.
+  const heldAfter = profile.materials.length + profile.stash.length;
   check('none of it reaches the stash',
-    profile.stash.length === stashBefore
-    && !profile.stash.some((i) => worn.some((w) => w.id === i.id)),
-    `${stashBefore} -> ${profile.stash.length}`);
+    heldAfter === heldBefore
+    && ![...profile.stash, ...profile.materials].some((i) => worn.some((w) => w.id === i.id)),
+    `${heldBefore} held -> ${heldAfter}`);
 }
 
 // --- Extraction keeps everything -------------------------------------------
@@ -88,8 +94,8 @@ function runRaid(seed, profile) {
   const profile = newProfile(32);
   const hero = profile.roster[0];
   const worn = { ...hero.equipped };
-  const carried = [profile.stash[3], profile.stash[4]].filter(Boolean);
-  const stashBefore = profile.stash.length;
+  const carried = profile.materials.slice(0, 2);
+  const materialsBefore = profile.materials.length;
 
   const summary = applyMatchResult(profile, {
     seed: 32, duration: 600, outcome: 'clean', bossesKilled: [],
@@ -105,10 +111,10 @@ function runRaid(seed, profile) {
   check('an extracted hero keeps what they were wearing',
     Object.entries(worn).every(([slot, item]) => !item || hero.equipped[slot]?.id === item.id),
     `${Object.values(hero.equipped).filter(Boolean).length} items still equipped`);
-  check('and what they carried reaches the stash',
-    profile.stash.length === stashBefore + carried.length
-    && carried.every((c) => profile.stash.some((i) => i.id === c.id)),
-    `${stashBefore} -> ${profile.stash.length}, carried ${carried.length}`);
+  check('and what they carried is put away',
+    profile.materials.length === materialsBefore + carried.length
+    && carried.every((c) => profile.materials.some((i) => i.id === c.id)),
+    `${materialsBefore} -> ${profile.materials.length}, carried ${carried.length}`);
   check('the report lists what was gained',
     summary.gained.length === carried.length, `${summary.gained.length} of ${carried.length}`);
   check('and nothing was reported lost', summary.lost.length === 0, String(summary.lost.length));
@@ -122,7 +128,7 @@ function runRaid(seed, profile) {
   let lostGearOnce = false;
 
   for (let i = 0; i < 6; i++) {
-    const before = profile.stash.length;
+    const before = profile.materials.length + profile.stash.length;
     const result = runRaid(4242 + i, profile);
     const summary = applyMatchResult(profile, result);
 
@@ -140,15 +146,20 @@ function runRaid(seed, profile) {
     }
     // This used to read `gained === 0 || stash > before || stash >= before`,
     // whose last clause is true unless the stash shrinks — so it could not
-    // fail. What it meant to say is that the stash grew by exactly what the
-    // extracted heroes brought back and by nothing else.
+    // fail. What it meant to say is that what the player holds grew by exactly
+    // what the extracted heroes brought back and by nothing else.
+    //
+    // It is an equality now rather than a `Math.min` against STASH_LIMIT.
+    // Carves are uncapped, so a hunt's haul cannot be silently dropped on the
+    // floor any more — which it was, once a shared 120-item stash filled with
+    // material after about six raids.
     const broughtBack = result.heroes
       .filter((h) => h.extracted)
       .reduce((n, h) => n + h.kept.length, 0);
-    check(`raid ${i}: the stash grew by exactly what came home`,
-      profile.stash.length === Math.min(STASH_LIMIT, before + summary.gained.length)
-      && summary.gained.length <= broughtBack,
-      `${before} -> ${profile.stash.length}, ${summary.gained.length} gained of ${broughtBack} carried`);
+    const held = profile.materials.length + profile.stash.length;
+    check(`raid ${i}: everything that came home was kept`,
+      held === before + summary.gained.length && summary.gained.length === broughtBack,
+      `${before} -> ${held}, ${summary.gained.length} gained of ${broughtBack} carried`);
   }
 
   // Reported, not asserted, for the same reason as the line below it: whether

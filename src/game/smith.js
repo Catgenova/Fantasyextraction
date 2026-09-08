@@ -10,9 +10,10 @@
 // into it, so hoarding good carves of one species is the game's real
 // progression rather than a currency balance.
 
-import { craftItem, slotsForPart, SLOT_NAMES } from '../data/gear.js';
-import { QUALITIES, QUALITY_ORDER, PART_TYPES } from '../data/parts.js';
+import { craftItem, slotsForPart, SLOT_NAMES, isWooden } from '../data/gear.js';
+import { QUALITIES, QUALITY_ORDER, PART_TYPES, makePart } from '../data/parts.js';
 import { CREATURES } from '../data/creatures.js';
+import { stashHasRoom, STASH_LIMIT } from './profile.js';
 
 /** How many parts a slot swallows. Bigger pieces cost more of the same carve. */
 export const SLOT_COST = {
@@ -100,10 +101,15 @@ export function recipeLabel(recipe) {
 }
 
 /** Why a recipe cannot be made, or null when it can. */
-export function forgeBlocker(recipe) {
+export function forgeBlocker(recipe, profile = null) {
   if (!recipe) return 'Nothing selected';
   if (!recipe.affordable) {
     return `Needs ${recipe.cost} — you have ${recipe.have}`;
+  }
+  // The shelf is the only thing in the game with a ceiling, so it is the only
+  // thing that can stop a forge that has the material for it.
+  if (profile && !stashHasRoom(profile)) {
+    return `Stash full — ${STASH_LIMIT} forged pieces. Salvage something.`;
   }
   return null;
 }
@@ -113,9 +119,9 @@ export function forgeBlocker(recipe) {
  * stash no longer holds what the recipe expected.
  */
 export function forge(profile, recipe, classId = null) {
-  if (forgeBlocker(recipe)) return null;
+  if (forgeBlocker(recipe, profile)) return null;
   const doomed = new Set(recipe.parts.map((p) => p.id));
-  const held = profile.stash.filter((i) => doomed.has(i.id));
+  const held = profile.materials.filter((i) => doomed.has(i.id));
   if (held.length !== doomed.size) return null;
 
   const item = craftItem({
@@ -127,9 +133,106 @@ export function forge(profile, recipe, classId = null) {
   });
   if (!item) return null;
 
-  profile.stash = profile.stash.filter((i) => !doomed.has(i.id));
+  profile.materials = profile.materials.filter((i) => !doomed.has(i.id));
   profile.stash.push(item);
   return item;
+}
+
+// ---------------------------------------------------------------------------
+// Salvage: the smith run backwards
+// ---------------------------------------------------------------------------
+
+/**
+ * Breaking a piece down returns material, and deliberately not all of it.
+ *
+ * Half the parts, rounded up, one grade below what the piece was. A chest cost
+ * three and gives back two; a helm cost two and gives back one. Nothing about
+ * forging is random, so a lossless salvage would be a plain undo button and
+ * the choice of what to make would stop being a choice — the cost is what
+ * makes "break this down and make the other thing" a decision rather than a
+ * formality.
+ *
+ * Grade is where most of the loss lives. Three pristine plates make a pristine
+ * chest; breaking that chest gives two *fine* plates, so the way back to
+ * pristine is another hunt rather than a reshuffle of what you already have.
+ *
+ * Wooden gear yields nothing. It was never carved off anything, it costs
+ * nothing to replace, and the camp hands out another set the moment a hero
+ * dies.
+ */
+export function salvageYield(item) {
+  if (!item || item.kind !== 'gear' || isWooden(item)) return null;
+  const species = CREATURES[item.speciesId];
+  if (!species || !item.partType) return null;
+
+  const grade = QUALITY_ORDER.indexOf(item.quality);
+  if (grade < 0) return null;
+  const quality = QUALITY_ORDER[Math.max(0, grade - 1)];
+
+  return {
+    count: Math.ceil(costFor(item.slot) / 2),
+    quality,
+    speciesId: item.speciesId,
+    speciesName: species.name,
+    partType: item.partType,
+    tier: species.tier,
+  };
+}
+
+/** A one-line description of what breaking this down gives back. */
+export function salvageLabel(item) {
+  const y = salvageYield(item);
+  if (!y) return null;
+  const part = PART_TYPES[y.partType]?.name ?? y.partType;
+  return `${y.count}× ${QUALITIES[y.quality]?.name ?? y.quality} ${y.speciesName} ${part}`;
+}
+
+export const canSalvage = (item) => salvageYield(item) !== null;
+
+/**
+ * Break a forged piece down. The piece is gone and the parts are in materials.
+ *
+ * @returns {{item, parts}|null} what was destroyed and what came back
+ */
+export function salvage(profile, itemId) {
+  const idx = profile.stash.findIndex((i) => i.id === itemId);
+  if (idx < 0) return null;
+  const item = profile.stash[idx];
+  const y = salvageYield(item);
+  if (!y) return null;
+
+  profile.stash.splice(idx, 1);
+  const parts = [];
+  for (let i = 0; i < y.count; i++) {
+    const part = makePart({
+      speciesId: y.speciesId, speciesName: y.speciesName,
+      partType: y.partType, quality: y.quality, tier: y.tier,
+    });
+    profile.materials.push(part);
+    parts.push(part);
+  }
+  return { item, parts };
+}
+
+/**
+ * Break down every forged piece at or below a grade. The sweep for a shelf
+ * that has filled with things nobody will ever wear.
+ */
+export function salvageAllUpTo(profile, maxQuality) {
+  const limit = QUALITY_ORDER.indexOf(maxQuality);
+  if (limit < 0) return { items: 0, parts: [] };
+  const doomed = profile.stash
+    .filter((i) => canSalvage(i) && QUALITY_ORDER.indexOf(i.quality) <= limit)
+    .map((i) => i.id);
+  const parts = [];
+  let items = 0;
+  for (const id of doomed) {
+    const got = salvage(profile, id);
+    if (!got) continue;
+    items++;
+    parts.push(...got.parts);
+  }
+  return { items, parts };
 }
 
 /** Quality colour, for the smith's own UI. */

@@ -424,6 +424,54 @@ and no damage.
 Only weapons are bound to a class. Armour fits anyone — a Plateback cuirass
 does not care who is in it.
 
+## Two stores, and only one of them fills
+
+Carves and forged gear used to share a stash with a single 120-item ceiling.
+That does not work, because they arrive at wildly different rates: a raid comes
+home with twenty-odd parts and one or two finished pieces. The shared stash
+filled with material after about six raids and then started **silently dropping
+the haul** — `addToStash` returned false, and `applyMatchResult` reads false as
+"not gained", so carves went on the floor without a word.
+
+So they are two stores now:
+
+- **`profile.materials`** — every carve, uncapped. A hunt is meant to reward
+  you with a pile of the same species, and a cap on that is a cap on playing
+  the game the way it asks you to.
+- **`profile.stash`** — the shelf of forged gear and supplies. `STASH_LIMIT`
+  counts only the gear on it, which accumulates slowly enough that most players
+  will never see the ceiling. That is the point: the ceiling is a backstop, not
+  a pressure.
+
+A save from before the split has its parts moved across on load, including for
+the journal-reconstruction path that reads held parts to tell a long-standing
+profile what it has met.
+
+## Salvage: the smith run backwards
+
+Gear you do not want breaks back down into material. Half the parts, rounded
+up, one grade below what the piece was — a chest cost three and gives back two,
+a helm cost two and gives back one.
+
+The loss is the design. Nothing about forging is random, so a lossless salvage
+would be a plain undo button and the choice of what to make would stop being a
+choice. Grade is where most of it lives: three pristine plates make a pristine
+chest, and breaking that chest gives two **fine** plates, so the way back to
+pristine is another hunt rather than a reshuffle of what you already have. You
+cannot re-forge what you just broke.
+
+Wooden gear yields nothing. It was never cut off anything, and the camp hands
+out another set the moment a hero dies.
+
+Salvaging cannot be undone, so a row arms on the first tap and only breaks the
+piece on the second — the same two taps the forge takes to spend parts, and the
+in-raid Destroy button to throw something away. A "salvage ragged" sweep
+handles the usual case of a shelf filling with things nobody will ever wear,
+and arms the same way.
+
+The forge checks the shelf before it spends anything: a full stash blocks the
+recipe with a reason rather than eating the parts and returning nothing.
+
 ## Sets
 
 Wear enough of one creature and you start fighting like it. Every species
@@ -1066,6 +1114,7 @@ node tools/test-smith.js
 node tools/test-hunt.js
 node tools/test-extraction.js
 node tools/test-achievements.js
+node tools/test-salvage.js
 node tools/test-ecology.js
 node tools/test-walkers.js
 node tools/test-bags.mjs        # needs Playwright; skips if absent
@@ -1074,6 +1123,7 @@ node tools/test-layout.mjs      # needs Playwright; skips if absent
 node tools/test-unlocks.mjs     # needs Playwright; skips if absent
 node tools/test-forge.mjs       # needs Playwright; skips if absent
 node tools/test-huntpad.mjs     # needs Playwright; skips if absent
+node tools/test-salvage.mjs     # needs Playwright; skips if absent
 node tools/test-sprites.mjs     # browser half needs Playwright
 ```
 
@@ -1125,6 +1175,17 @@ hit, which against a rock is a closed loop — some spent entire raids pinned to
 one spot. It measures ground actually covered, because the hardest case looks
 fine to any simpler check: a hero wedged in a corner is running at full speed
 and going nowhere.
+
+`test-salvage.js` covers the two stores and the way back out of one of them.
+The check worth naming is the one that asserts you *cannot* re-forge what you
+just broke — that is the whole design of the loss stated as something a player
+would notice, rather than as arithmetic about counts and grades. Its browser
+half, `test-salvage.mjs`, only guards the rail: that one tap arms and destroys
+nothing, that an armed button left unconfirmed keeps its item, and that the
+sweep takes exactly the grade it names. Both halves were verified by injecting
+the bugs they guard — capping carves again, making salvage lossless, dropping
+the save migration, letting the forge ignore a full shelf, firing salvage on
+the first tap, and widening the sweep past ragged.
 
 `test-ecology.js` covers how the map allocates its animals, what happens once
 they are dead, and what a squad is allowed to know about it. Three of its five
