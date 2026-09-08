@@ -17,7 +17,7 @@
 //
 //   node tools/test-ecology.js
 
-import { Match, TICK } from '../src/sim/match.js';
+import { Match, TICK, EYES_ON } from '../src/sim/match.js';
 import { generateMap, WORLD_SIZE, RING_CORE, RING_MID, tierAt } from '../src/sim/map.js';
 import { newProfile, sanitizeProfile, squadHeroes } from '../src/game/profile.js';
 import { generateBotSquads } from '../src/sim/bots.js';
@@ -252,6 +252,85 @@ console.log('\n=== 5. what is dead stays dead ===');
     match.findQuarry({ x: done.x, y: done.y },
       { speciesId: done.speciesId, kind: done.packKind })?.id !== done.id,
     done.id);
+}
+
+// ------------------------------------------------- 6. and squads know it --
+console.log('\n=== and a squad stops going back ===');
+{
+  // A cleared camp is not a worse destination than a live one, it is not a
+  // destination — and nothing told the plan that. `findQuarry` had learned to
+  // skip cleared camps; `pickRoamGoal`, which is what a squad follows between
+  // hunts and after one is spent, had not. Measured over ten raids, 92.6% of
+  // the camp goals a plan chose were camps that had already been emptied, and
+  // a squad spent 86 seconds of every raid standing on ground it had been
+  // deliberately sent to and that had nothing on it.
+  const seed = 8207;
+  const profile = sanitizeProfile(newProfile(seed));
+  for (const h of profile.roster) h.level = 10;
+  profile.squadTactics.extractPlan = 'late';
+  const match = new Match({
+    seed,
+    playerSquad: {
+      id: 'player', name: 'Yours', isPlayer: true,
+      heroes: squadHeroes(profile), tactics: profile.squadTactics,
+    },
+    botSquads: generateBotSquads(seed, 5, 10),
+  });
+
+  let goals = 0;
+  let deadGoals = 0;
+  let standingOnDead = 0;
+  let walkingToDead = 0;
+  let lastGoal = null;
+  // Everywhere the squad has actually been close enough to look.
+  const wentNear = new Set();
+  let knownWithoutLooking = 0;
+  while (match.phase === 'running') {
+    match.update(TICK);
+    const squad = match.playerSquad;
+    const order = squad.order;
+    const centre0 = match.squadCentroid(squad);
+    if (centre0) {
+      for (const p of match.map.pois) {
+        if (p.kind === 'camp' && dist(centre0, p) <= EYES_ON + 1) wentNear.add(p.id);
+      }
+    }
+    // Knowledge has to be earned. A camp crossed off that this squad has never
+    // been near is the global `poi.cleared` flag — which is true the instant
+    // anybody empties a camp — leaking into what a squad is supposed to have
+    // gone and found out.
+    for (const id of squad.emptied) if (!wentNear.has(id)) knownWithoutLooking++;
+
+    if (!order || order.mode !== 'travel') { lastGoal = null; continue; }
+    const camp = match.map.pois.find((p) => p.kind === 'camp'
+      && Math.abs(p.x - order.pos.x) < 1 && Math.abs(p.y - order.pos.y) < 1);
+    if (!camp) { lastGoal = null; continue; }
+    const key = `${camp.id}`;
+    if (key !== lastGoal) { lastGoal = key; goals++; if (camp.cleared) deadGoals++; }
+    const centre = match.squadCentroid(squad);
+    if (centre && dist(centre, camp) < 300 && camp.cleared) standingOnDead += TICK;
+    // Still walking toward something it has already crossed off. Learning a
+    // camp is dead and then finishing the trip anyway is the same wasted walk
+    // with an extra step in it.
+    if (squad.emptied.has(camp.id)) walkingToDead += TICK;
+  }
+
+  check('a squad is never sent to a camp it has already found empty',
+    standingOnDead < 2,
+    `${standingOnDead.toFixed(1)}s standing on a cleared camp it was sent to`);
+  // Not zero. What survives is camps a *rival* emptied, which this squad has
+  // no way of knowing about until it goes and looks — and going and looking is
+  // the whole point. It walks over, sees the clearing, crosses it off, and
+  // never picks it again.
+  check('and the ones it still walks to are ones somebody else cleared',
+    deadGoals / Math.max(1, goals) < 0.55,
+    `${deadGoals} of ${goals} camp goals were already cleared`);
+  check('nothing is crossed off that the squad never went near',
+    knownWithoutLooking === 0, `${knownWithoutLooking} ticks`);
+  check('and a goal it crosses off is dropped rather than walked out',
+    walkingToDead < 1, `${walkingToDead.toFixed(1)}s still heading for a camp it had written off`);
+  check('it does learn as it goes', match.playerSquad.emptied.size > 3,
+    `${match.playerSquad.emptied.size} camps crossed off`);
 }
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll ecology checks passed');

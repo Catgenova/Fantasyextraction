@@ -227,6 +227,60 @@ put the difficulty back; measured over eight raids it changes the outcome mix
 not at all, which is why `PACK_BUDGET` was left alone rather than tuned to hide
 the shift.
 
+### Knowing a camp is finished
+
+Camps stopping coming back was a change to the world, and the squad AI only
+half heard it. `findQuarry` learned to skip a cleared camp; `pickRoamGoal` —
+which is what a squad follows between hunts, after a hunt is spent, and for the
+whole raid when no hunt is set — did not. Measured over ten raids, **92.6% of
+the camp goals a plan chose were camps that had already been emptied**, and a
+squad spent 86 seconds of every raid standing on ground it had been
+deliberately sent to and that had nothing on it. The share climbs as the raid
+goes on, because the pool of dead camps only grows.
+
+The fix is not to read `poi.cleared` in more places. That flag is true the
+instant *anybody* empties a camp, and a squad on the far side of the map has no
+business acting on it — using it for routing hands every squad a live map of
+everyone else's kills. So knowledge is a squad-local thing that has to be
+earned: `squad.emptied` is the set of camps this squad has stood next to and
+found empty, filled by `#observeCamps`, and it is what both the hunt and the
+plan consult.
+
+`EYES_ON` is 420 — a camp is 220 across, so this is standing at its edge. It is
+well under `CAMP_ACTIVATE` on purpose: inside that range a camp with anything
+left in it has already spawned, so nothing at 420 means nothing at all, and the
+squad is not guessing. Swept at 350, 900 and 1700 it turns out to be a weak
+lever — the share of plan goals that are already cleared moves 42% / 42% / 36%,
+because what survives a squad's own kills is camps *rivals* emptied and no
+radius short of the whole map tells you about those. What it does change is
+pacing, and the haul fell from 14.3 parts to 10.5 across the sweep, so it sits
+at the tight end, which is also the only end that matches what it claims to
+model.
+
+Standing on ground it was sent to and that had nothing on it: **86 seconds a
+raid, now zero**. Around 40% of camp goals are still camps somebody else
+cleared, and that is correct — the squad walks over, sees the clearing, crosses
+it off, and never picks it again.
+
+**It moved the balance more than the walkers did, and not the way you would
+guess.** All six squads route on this, so all six got better at finding fights
+at once:
+
+| Same seeds, level 5, farm | Before | After |
+|---|---|---|
+| Kills (all squads) | 259.8 | 422.0 |
+| Parts kept | 22.0 | 9.0 |
+| Outcomes | 4 clean / 7 partial / 1 wiped | 0 / 8 / 4 |
+
+More fighting, a smaller haul, and more wipes. The mechanism is worth writing
+down because it is not obvious: **there is no out-of-combat health
+regeneration.** A squad's health is a finite resource for the whole raid, spent
+down and topped up only by a healer's mana and a few potions — and under the
+old routing, the minute and a half a raid spent walking to empty clearings was
+where that topping up happened. Fixing the routing deleted the recovery window
+along with the waste. That is a real gap in the design rather than a number to
+tune, so nothing here has been re-tuned to hide it.
+
 ## The three that walk
 
 Everything else on the map is somewhere. A camp is a place, a solo ground is a
@@ -1072,8 +1126,15 @@ one spot. It measures ground actually covered, because the hardest case looks
 fine to any simpler check: a hero wedged in a corner is running at full speed
 and going nowhere.
 
-`test-ecology.js` covers how the map allocates its animals and what happens
-once they are dead. None of it is a property of a function — it is a property
+`test-ecology.js` covers how the map allocates its animals, what happens once
+they are dead, and what a squad is allowed to know about it. Three of its five
+knowledge checks were written wrong first and only found out by injection: two
+of them passed with the bug they were meant to guard put back, because they
+were asserting the wrong property — "crossed off something not cleared" cannot
+detect knowledge taken without looking, when the thing being taken is the
+cleared flag itself. They assert provenance now: everywhere the squad has
+actually been within `EYES_ON` of is recorded, and nothing outside that set may
+appear in `squad.emptied`. None of it is a property of a function — it is a property
 of a generated world — so every check is measured over sixty maps rather than
 asserted about one. Two of its numbers were chosen the hard way. The clustering
 threshold is 0.78, not something safely low, because a loose bound passes on
@@ -1206,7 +1267,7 @@ with no hunt order set:
 
 | Raid plan | Level | Runs | Clean | Partial | Wiped | Avg parts kept | Solo kills |
 |---|---|---|---|---|---|---|---|
-| Farm the ring | 5 | 12 | 4 | 7 | 1 | 22.0 | 1.25 |
+| Farm the ring | 5 | 12 | 0 | 8 | 4 | 9.0 | 0.83 |
 | Solo hunt | 5 | 8 | 0 | 1 | 7 | 1.5 | 0.38 |
 | Solo hunt | 14 | 8 | 0 | 3 | 5 | 7.0 | 3.25 |
 | Squad hunter | 10 | 8 | 7 | 0 | 1 | 41.1 | 1.88 |
@@ -1216,8 +1277,12 @@ monsters are a place you earn the right to visit. A level-5 solo hunt wipes
 seven times in eight and brings home under two parts; the same plan at 14 kills
 3.25 of them a raid and still wipes five times in eight.
 
-The farming row moved twice, in opposite directions, and both moves are worth
-reading as one thing. Spacing the camps out and stopping them respawning made
+The farming row has moved three times and the last move was the largest.
+Teaching the plan that camps do not come back (see **Knowing a camp is
+finished**) took it from 4 clean / 7 partial / 1 wiped at 22.0 parts to
+0 / 8 / 4 at 9.0, because all six squads got better at finding fights on the
+same day and nothing in the game restores health between them. The two earlier
+moves are worth reading together as well. Spacing the camps out and stopping them respawning made
 farming markedly safer — over eight seeds it went from 2 clean / 5 partial / 1
 wiped to 6 / 2 / 0 with the haul roughly doubled, because being chain-pulled by
 two camps at once was what had been killing squads. Raising `PACK_BUDGET` by

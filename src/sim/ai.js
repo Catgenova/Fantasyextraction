@@ -2001,7 +2001,7 @@ export function squadObjective(match, squad) {
   // moves to the next one, which is what "hunt Sicklejaw" means to a player
   // five parts short of a set.
   if (quarry?.speciesId) {
-    const found = match.findQuarry(centroid, quarry);
+    const found = match.findQuarry(centroid, quarry, squad);
     if (found) {
       return { mode: 'travel', pos: { x: found.x, y: found.y }, label: `Hunting ${quarryLabel(quarry)}` };
     }
@@ -2029,9 +2029,16 @@ export function squadObjective(match, squad) {
     if (rival) return { mode: 'travel', pos: rival, label: 'Hunting squads' };
   }
 
+  // Repick on arrival, or the moment the squad writes off the place it was
+  // heading for. The second half is worth about two seconds a raid on its own —
+  // the squad can only cross a camp off from EYES_ON, which is barely outside
+  // the range it would repick at anyway — but it costs nothing now that the
+  // goal remembers which point of interest it is.
   const goal = squad.roamGoal;
-  if (!goal || dist(centroid, goal) < 220) {
-    squad.roamGoal = match.pickRoamGoal(centroid, plan.zoneBias, squadLevel(match, squad));
+  if (!goal || squad.emptied?.has(squad.roamPoi) || dist(centroid, goal) < 220) {
+    const poi = match.pickRoamGoal(centroid, plan.zoneBias, squadLevel(match, squad), squad);
+    squad.roamPoi = poi?.id ?? null;
+    squad.roamGoal = poi ? { x: poi.x, y: poi.y } : { ...centroid };
   }
   return { mode: 'travel', pos: squad.roamGoal ?? centroid, label: planLabel(plan) };
 }

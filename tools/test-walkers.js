@@ -205,9 +205,15 @@ check('they stay in the band they were given',
 // 24 — so the per-walker claim is made about *any* squad, which is stable at
 // 71-88%, and the player-specific claim is made in aggregate.
 for (const c of walkers) {
-  check(`somebody runs into the ${c.name} in most raids`,
-    metByAnyone.get(c.id) >= RUNS * 0.5,
-    `${metByAnyone.get(c.id)}/${RUNS} raids`);
+  // Against the raids it was actually on the map for, not against every run.
+  // A raid that ended at minute twelve never gave the Duskherald a chance to
+  // be met, and counting those made this a check on how long raids last —
+  // which is the same denominator mistake as the arrival check above, left in
+  // one place after being fixed in the other.
+  const could = Math.max(1, wasDue.get(c.id));
+  check(`somebody runs into the ${c.name} in most of the raids it walks in`,
+    metByAnyone.get(c.id) >= could * 0.5,
+    `${metByAnyone.get(c.id)}/${could} raids it was on the map for (of ${RUNS})`);
 }
 check('and the player squad runs into one in most raids',
   playerMetSomething >= RUNS * 0.5,
