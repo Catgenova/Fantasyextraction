@@ -186,6 +186,32 @@ for (const [label, opts] of [
   check(`${label}: tapping it again calls it off`, (await live()) === null,
     JSON.stringify(await live()));
 
+  // --- A tap that lands a frame late ---------------------------------------
+  // The pad is rebuilt eight times a second while the raid runs, so a real
+  // tap can land on a row that was replaced between the finger going down and
+  // the event firing. That stale row's handler used to carry the on/off state
+  // it was built with, so "call it off" on a stale row re-armed the same hunt.
+  //
+  // Reproduced rather than waited for: click a row (which sets the order and
+  // re-renders, detaching the node), then click the very same detached node
+  // again, all inside one synchronous evaluate so no render can intervene.
+  await page.evaluate(() => { window.__ashenveil.liveMatch.playerSquad.tactics.quarry = null; });
+  await page.waitForTimeout(250);   // let the pad render with nothing ordered
+
+  const stale = await page.evaluate(() => {
+    const squad = window.__ashenveil.liveMatch.playerSquad;
+    const row = document.querySelector('.huntpad .hunt-row button:not([disabled])');
+    if (!row) return { error: 'no row' };
+    row.click();                    // orders it; the pad re-renders and detaches `row`
+    const ordered = squad.tactics.quarry;
+    row.click();                    // the same tap, one frame late
+    return { ordered, after: squad.tactics.quarry, attached: row.isConnected };
+  });
+  check(`${label}: the fixture really did go stale`,
+    stale.attached === false && !!stale.ordered?.speciesId, JSON.stringify(stale));
+  check(`${label}: a stale row calls the hunt off rather than re-arming it`,
+    stale.after === null, JSON.stringify(stale.after));
+
   check(`${label}: no console errors`, errors.length === 0, errors.slice(0, 2).join(' | '));
   await ctx.close();
 }

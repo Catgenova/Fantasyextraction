@@ -31,6 +31,22 @@ export function createHuntPad(match) {
   // else.
   const current = () => match.playerSquad.tactics.quarry;
 
+  /**
+   * Is this hunt the one currently ordered? Asked at click time, never at
+   * render time.
+   *
+   * The pad is rebuilt eight times a second while a raid runs, so a tap that
+   * lands a frame after a re-render lands on a row whose closure was built
+   * before it. Capturing the answer meant the "call it off" tap on a stale
+   * row read as "not ordered" and re-armed the same hunt instead of clearing
+   * it — a mistap for a player, and an intermittent failure in
+   * test-huntpad.mjs that looked like a harness race.
+   */
+  const isActive = (quarry) => {
+    const active = current();
+    return active?.speciesId === quarry.speciesId && active?.kind === quarry.kind;
+  };
+
   function order(quarry) {
     match.playerSquad.tactics.quarry = quarry;
     match.playerSquad.huntSpent = false;
@@ -89,7 +105,8 @@ export function createHuntPad(match) {
           ]),
           el('div.row', { style: { gap: '4px', flexWrap: 'wrap' } }, kinds.map((kind) => {
             const quarry = { speciesId: entry.speciesId, kind };
-            const on = active?.speciesId === entry.speciesId && active?.kind === kind;
+            // Render-time, and only for the highlight. The handler asks again.
+            const on = isActive(quarry);
             const d = reach(quarry);
             return el('button.sm' + (on ? '.primary' : ''), {
               // A hunt whose last site is gone is still listed, greyed, rather
@@ -99,7 +116,7 @@ export function createHuntPad(match) {
               title: d === null
                 ? `Nothing left: ${quarryLabel(quarry)}`
                 : `${quarryLabel(quarry)} — ${km(d)} away`,
-              onclick: () => order(on ? null : quarry),
+              onclick: () => order(isActive(quarry) ? null : quarry),
             }, `${HUNT_KINDS[kind].short}${d === null ? '' : ` · ${km(d)}`}`);
           })),
         ]));
