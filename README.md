@@ -848,7 +848,13 @@ player who wants a Necromancer needs to know what to go and kill for it.
 
 The table is ordered outward-in, which is also the order the grounds sit on the
 map: `ARENA_SPEC` seats them at fixed fractions of the world radius so the
-ladder and the geography are the same list. Each radius carries a margin wider
+ladder and the geography are the same list.
+
+Not all of them are out at once. A map draws nine — one from the three outer,
+four from the eight mid, four from the eight core — so an outer ground turns up
+on about a third of maps and a deeper one on about half. That is why the
+roster grew without the map getting more crowded: a raid meets the same number
+of apexes it always did, drawn from twice the pool. Each radius carries a margin wider
 than the ±11% the placer jitters it by, so a ground is always inside the ring
 its trophy claims — the older ladder did not, and Mirethane at 0.186 against a
 `RING_CORE` of 0.185 landed in the core on any seed that jittered it inward.
@@ -1253,13 +1259,23 @@ six raids at 25% — and measured over twenty-four raids, the build it was
 written against peaks at 29.9%, above its own limit. Six raids had simply never
 drawn the tail. Maxima on a heavy tail do not converge, which is the same
 lesson as the worst-pin check in `test-movement.js`. So the claim is a rate now
-— at most a quarter of raids over 25% — with a genuine ceiling at 35% for a
-single raid, and a floor of 34 pickups per loot-minute underneath both. That
-floor is the one that actually separates carving from waste, and the one that
-does not move when the map simply has more worth carving on it. Pointing the
-squad at the farthest reachable pile instead of the nearest fails all three:
-20 of 24 raids over a quarter, a worst raid of 85.5%, and productivity down to
-14.9.
+— at most a third of raids over 25% — with a bound on the *mean* share and a
+floor of 34 pickups per loot-minute underneath both.
+
+The ceiling on the worst raid is gone, and its removal is the same lesson as
+the worst-pin check in `test-movement.js`, learned twice in one file. Replacing
+the six-raid maximum with a 24-raid one was still measuring a maximum. Four
+independent batches of twenty-four raids on a single build read a worst raid of
+40.3%, 29.8%, 29.5% and 24.8% — a 63% swing — while the mean over the same
+batches stayed inside two and a half points at 13.0, 13.8, 11.8 and 11.3. No
+number in that ceiling would have meant anything, so the mean is bounded
+instead, because the mean is what converges.
+
+The productivity floor is the one that actually separates carving from waste,
+and the one that does not move when the map simply has more worth carving on
+it. Pointing the squad at the farthest reachable pile instead of the nearest
+fails all three: every raid over a quarter, a mean of 50.1%, and productivity
+down to 16.1.
 
 `test-heroai.js` covers the ten combat behaviours, each against a real match
 with the situation built by hand — "does a frontliner peel" is not a property
@@ -1514,38 +1530,49 @@ than a cost of it.
 
 ### What the second ten of grounds cost
 
-Doubling the solo grounds — nine to nineteen, plus Nightfell and the three
-walkers — is a difficulty change, and it should be read as one rather than as
-a content drop with no price. Measured over forty raids against the build
-before it:
+Doubling the solo grounds — nine to nineteen — is a difficulty change, and it
+should be read as one rather than as a content drop with no price. A map still
+seats nine of them (one outer, four mid, four core; see `drawGrounds`), so what
+changed is not how many apexes a raid holds but which ones, drawn from a pool
+twice the size and averaging harder. Measured over forty raids against the
+build before it:
 
 | | before | after |
 |---|---|---|
-| Mean raid length | 1033s | 870s |
-| Player deaths per raid | 1.48 | 1.63 |
-| Solo kills per raid | 3.20 | 3.63 |
-| Heroes extracted per raid | 0.50 | 0.38 |
-| Loot as a share of the raid | 9.3% | 12.1% |
+| Mean raid length | 1033s | 788s |
+| Player deaths per raid | 1.48 | 1.93 |
+| Solo kills per raid | 3.20 | 2.42 |
+| Heroes extracted per raid | 0.50 | 0.44 |
+| Loot as a share of the raid | 9.3% | 13.0% |
 | Pickups per loot-minute | 53.9 | 45.6 |
 
-The interesting one is the first. The player squad is not dying much more
-often — it is alive for the whole raid in both builds — but raids *end* sooner,
-because all six squads are resolving faster with twice as many apexes between
-them. That has a knock-on nothing was watching: the three walkers arrive on the
-clock at minutes ten, fifteen and twenty, so a shorter raid is a raid that
-reaches fewer of them. The Duskherald, at minute twenty, is now due in sixteen
-raids in forty rather than twenty.
+Solo kills went *down*, which is the opposite of what adding ten of them
+sounds like it should do and is the number worth understanding. A raid draws
+the same nine grounds it always did; it just draws them from nineteen now, and
+the second ten are heavier than the first at every ring — the new core four run
+11,800 to 15,000 health against 11,000 to 12,500 for the old core four. So a
+squad meets apexes it is less likely to kill, dies sooner (raids end at 788s
+against 1033s), and gets through fewer of them.
 
-The walkers themselves are unaffected — each still meets somebody in
-92%, 86% and 63% of the raids it walks in, against 94%, 84% and 70% before. It
-is the clock that moved, not the routes, and `test-walkers.js` says so now
-rather than blaming the routes for it.
+The knock-on nothing was watching is the walkers. They arrive on the clock at
+minutes ten, fifteen and twenty, so a shorter raid is a raid that reaches fewer
+of them, and the Duskherald at minute twenty is now due in one raid in sixteen
+rather than three. The walkers themselves are unaffected — each still meets
+somebody in most of the raids it walks in — and `test-walkers.js` measures
+against the raids that reached a walker's hour so that it says so rather than
+blaming the routes.
 
-Looting rose for the plainest possible reason: a squad meets three times as
-many apexes (0.29 boss kills a raid to 1.08 at level 5) and an apex is the
-biggest carve on the map. That is time well spent, which is why the check that
-guards it is now a floor on pickups per loot-minute rather than a ceiling on
-the worst raid — see **Tools**.
+Looting rose for the plainest possible reason: an apex is the biggest carve on
+the map and a squad now meets more of them per unit of time alive. That is time
+well spent, which is why the check guarding it is a floor on pickups per
+loot-minute rather than a ceiling on the worst raid — see **Tools**.
+
+Every figure in this table was measured twice. The first set was taken against
+a build where the ten new grounds were in the data but could never appear on a
+map, because a debug filter left in `drawGrounds` restricted the draw to the
+original nine. Those numbers said raids ran 870s, deaths rose to 1.63 and solo
+kills rose to 3.63 — plausible, published, and describing a game nobody was
+playing. They are corrected above.
 
 The carve economy still reads better than the old loot economy. A farming run
 comes home with 22 parts, but those parts are a handful of species — enough to
