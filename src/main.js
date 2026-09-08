@@ -14,8 +14,14 @@ import { generateBotSquads } from './sim/bots.js';
 import { SQUAD_PLANS, EXTRACT_PLANS, FORMATIONS } from './data/tactics.js';
 import { MATCH_SECONDS } from './data/enemies.js';
 import { CLASSES } from './data/classes.js';
+import { VERSION } from './version.js';
+import { watchForNewBuild } from './freshness.js';
 
 const RIVAL_SQUADS = 5;
+
+// Set once the deployed build stops matching the one running. Read by the
+// topbar, which is rebuilt on every screen change anyway.
+let staleBuild = null;
 
 const app = {
   profile: null,
@@ -102,6 +108,15 @@ function topbar(screen) {
   return el('div.topbar', null, [
     el('div.brand', null, ['ASHENVEIL', el('span', null, 'PVPVE EXTRACTION AUTOBATTLER')]),
     el('div.grow'),
+    // Which build this is. It is here for one reason: "did my push go live"
+    // should be answerable by looking at the page rather than by reading a
+    // deploy log, and when the answer is no this is where it says so.
+    staleBuild
+      ? el('button.sm.danger', {
+        title: `You are running ${VERSION}. ${staleBuild} is deployed.`,
+        onclick: () => window.location.reload(),
+      }, 'New build — reload')
+      : el('span.tiny.dim.build', { title: `Build ${VERSION}` }, VERSION),
     inRaid ? null : el('button.sm.ghost', {
       onclick: () => app.go('hub'),
       disabled: screen === 'hub',
@@ -207,6 +222,16 @@ function boot() {
   app.profile = sanitizeProfile(saved ?? newProfile());
   app.save();
   app.go('hub');
+
+  // Never during a raid: a reload mid-raid throws the run away, and the whole
+  // point of the notice is to be acted on. It waits for the camp.
+  // Exposed on the app object for the same reason everything else is: a test
+  // that can only read the DOM can tell that a button appeared but not that
+  // the check that should have produced it ever ran.
+  app.checkBuild = watchForNewBuild((live) => {
+    staleBuild = live;
+    if (app.current !== 'match') app.go(app.current ?? 'hub');
+  });
 }
 
 boot();

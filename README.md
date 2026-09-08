@@ -21,6 +21,42 @@ python3 -m http.server 8080
 
 Then open <http://localhost:8080>. Progress is saved to `localStorage`.
 
+### Knowing which build you are on
+
+The site is plain ES modules on GitHub Pages: no bundler, no content hashes, no
+service worker, and no way to set cache headers. Pages serves everything with a
+ten-minute max-age, so a tab left open across a deploy keeps running the old
+build with nothing to say so. That is not hypothetical — a stash panel from two
+commits ago turned up in a screenshot while the deploy log said success.
+
+So every build carries an id, stamped into four places at once by
+`tools/stamp-version.mjs`:
+
+| Where | What it is for |
+|---|---|
+| `src/version.js` | compiled in, so it names the build you are *running* |
+| `version.json` | fetched with `no-store`, so it names the build that is *deployed* |
+| `index.html` `?v=` on the entry module | a new URL every build, so the entry is never the cached one |
+| `index.html` `?v=` on the stylesheet | same, for the one other file loaded by URL |
+
+The id is a UTC timestamp, not a commit SHA, because the stamp runs *before*
+the commit it belongs to exists — a SHA there would always name the previous
+commit, which is worse than useless on a page whose job is to tell you what you
+are running.
+
+The topbar shows the running id. When the deployed one moves past it, that
+chip becomes a **New build — reload** button naming both. It checks on boot and
+whenever the tab is looked at again, throttled to once a minute, and it never
+interrupts a raid — a reload mid-raid throws the run away.
+
+**What this does not do.** It does not hash every module URL, so it cannot
+*guarantee* that a reload pulls a completely fresh graph: the entry is a new
+URL every build, but its imports are revalidated by ETag rather than renamed,
+which on Pages means fresh within the ten-minute window. Closing that last gap
+needs content hashing, which needs a build step, which this project does not
+have. What it does close is the failure that actually happens — the long-open
+tab that has no idea it is out of date.
+
 ## The loop
 
 1. **Camp** — choose a squad of three, take your carved parts to the
@@ -1115,6 +1151,7 @@ node tools/test-hunt.js
 node tools/test-extraction.js
 node tools/test-achievements.js
 node tools/test-salvage.js
+node tools/test-version.js
 node tools/test-ecology.js
 node tools/test-walkers.js
 node tools/test-bags.mjs        # needs Playwright; skips if absent
@@ -1124,6 +1161,8 @@ node tools/test-unlocks.mjs     # needs Playwright; skips if absent
 node tools/test-forge.mjs       # needs Playwright; skips if absent
 node tools/test-huntpad.mjs     # needs Playwright; skips if absent
 node tools/test-salvage.mjs     # needs Playwright; skips if absent
+node tools/test-version.mjs     # needs Playwright; skips if absent
+node tools/stamp-version.mjs    # stamp a build id before pushing
 node tools/test-sprites.mjs     # browser half needs Playwright
 ```
 
@@ -1175,6 +1214,18 @@ hit, which against a rock is a closed loop — some spent entire raids pinned to
 one spot. It measures ground actually covered, because the hardest case looks
 fine to any simpler check: a hero wedged in a corner is running at full speed
 and going nowhere.
+
+`test-version.js` and `test-version.mjs` cover the build stamp. It is worth a
+test for a reason that generalises: nothing in the game *stops working* when
+the stamp goes stale, it just stops being true, and a version number that lies
+is worse than none at all. The browser half checks the parts that only exist
+for a player — the id is on the page, a page whose deployed version has moved
+says so, and it stays quiet during a raid.
+
+Writing it turned up a defect in the tool it tests. `stamp-version.mjs` ran its
+work at module load, so the test importing `readStamps` from it restamped the
+repository as a side effect of being read. It only acts when run as a program
+now.
 
 `test-salvage.js` covers the two stores and the way back out of one of them.
 The check worth naming is the one that asserts you *cannot* re-forge what you

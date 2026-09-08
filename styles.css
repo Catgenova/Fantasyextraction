@@ -677,3 +677,23 @@ body:not([data-screen="match"]) .panel.grow { flex: none; }
   .hud-right { top: 6px; bottom: auto; }
   .banner { top: 46px; }
 }
+
+/* The build stamp in the topbar. Small and quiet — it is there to be checked,
+   not read. Its stale-build sibling reuses .danger, which is loud on purpose.
+
+   It has to be able to shrink. Eighteen tabular digits next to Camp and New
+   account overflowed a 320px topbar the moment it was added, and a topbar that
+   pushes the page sideways is a worse bug than a build id nobody can finish
+   reading — the full value is on the title, and the comparison that actually
+   matters is done in code rather than by eye. */
+.topbar .build {
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .04em;
+  opacity: .45;
+  padding: 0 4px;
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

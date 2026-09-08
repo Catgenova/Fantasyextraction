@@ -8,9 +8,17 @@ branch waiting to be asked — the owner has said so explicitly and it stands
 until they say otherwise.
 
 ```bash
+node tools/stamp-version.mjs     # stamp the build id first — see below
 git push -u origin <branch>
 git push origin HEAD:main        # fast-forward; never force
 ```
+
+**Stamp the version before pushing.** The site is plain ES modules with no
+bundler and no content hashes, and GitHub Pages will not let you set cache
+headers, so a browser can hold the last build with nothing to say it has. The
+stamp is what tells a player — and you — which build is on the page.
+`tools/stamp-version.mjs --check` fails if the four copies have drifted, and
+`test-version.js` fails if you forgot entirely.
 
 `main` is what GitHub Pages serves, so pushing it is publishing. That is the
 intent, but it means a broken `main` is a broken live build: run the suites
@@ -26,12 +34,12 @@ background rather than blocking on them.
 ```bash
 for t in test-bestiary test-smith test-hunt test-achievements test-progression \
          test-movement test-loot test-extraction test-nav test-heroai \
-         test-ecology test-walkers test-salvage; do
+         test-ecology test-walkers test-salvage test-version; do
   node tools/$t.js
 done
 
 for t in test-layout test-bags test-unlocks test-navigation \
-         test-forge test-huntpad test-sprites test-salvage; do
+         test-forge test-huntpad test-sprites test-salvage test-version; do
   node tools/$t.mjs        # need Playwright; they skip without it
 done
 ```
