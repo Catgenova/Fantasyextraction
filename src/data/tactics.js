@@ -135,24 +135,63 @@ export const COHESION = {
   escalateAfter: 6,
 };
 
+/**
+ * What each class does when nobody is telling it otherwise.
+ *
+ * Exported because the table is the thing that has to stay in step with
+ * CLASSES, and `defaultHeroTactics` deliberately papers over a gap — a test
+ * that only went through the function could not see a missing row.
+ * `test-achievements.js` asserts this object covers every class id.
+ */
+export const CLASS_TACTICS = {
+  knight: { stance: 'aggressive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.18, potionHpPct: 0.45 },
+  archer: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.35, potionHpPct: 0.5 },
+  priest: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.4, potionHpPct: 0.55 },
+  rogue: { stance: 'aggressive', priority: 'lowest_hp', lootPolicy: 'greedy', retreatHpPct: 0.4, potionHpPct: 0.5 },
+  berserker: { stance: 'aggressive', priority: 'closest', lootPolicy: 'greedy', retreatHpPct: 0.2, potionHpPct: 0.4 },
+  slayer: { stance: 'aggressive', priority: 'highest_threat', lootPolicy: 'valuable', retreatHpPct: 0.25, potionHpPct: 0.45 },
+  paladin: { stance: 'defensive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.2, potionHpPct: 0.5 },
+  necromancer: { stance: 'balanced', priority: 'highest_threat', lootPolicy: 'valuable', retreatHpPct: 0.35, potionHpPct: 0.5 },
+  ice_mage: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.38, potionHpPct: 0.55 },
+  fire_mage: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.45, potionHpPct: 0.6 },
+  lightning_mage: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.4, potionHpPct: 0.55 },
+  warden: { stance: 'defensive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.2, potionHpPct: 0.5 },
+  lancer: { stance: 'balanced', priority: 'elites_first', lootPolicy: 'valuable', retreatHpPct: 0.3, potionHpPct: 0.5 },
+  // A Monk hits faster the longer it has been moving, so it takes the
+  // nearest thing and keeps going rather than crossing the field for a
+  // better target. Light armour, so it leaves early.
+  monk: { stance: 'aggressive', priority: 'closest', lootPolicy: 'greedy', retreatHpPct: 0.35, potionHpPct: 0.5 },
+  // An Alchemist wins fights that have already finished: everything it
+  // throws keeps working after it lands, so it starts on whatever is
+  // closest to dying and drinks early, because it cannot take a hit.
+  alchemist: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.45, potionHpPct: 0.6 },
+  // A Warlord is worth more to the other two than to itself. It stands
+  // where the squad has to be anyway, holds the thing hitting hardest, and
+  // is the last one to leave.
+  warlord: { stance: 'defensive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.18, potionHpPct: 0.5 },
+};
+
+/**
+ * What a class gets when the table above has forgotten it. Deliberately
+ * middling: a hero it applies to is playable but not tuned, which is the
+ * honest result of an omission.
+ */
+const FALLBACK_TACTICS = {
+  stance: 'balanced', priority: 'closest', lootPolicy: 'valuable',
+  retreatHpPct: 0.3, potionHpPct: 0.5,
+};
+
 /** Tactics for a single hero. */
 export function defaultHeroTactics(classId) {
-  const byClass = {
-    knight: { stance: 'aggressive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.18, potionHpPct: 0.45 },
-    archer: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.35, potionHpPct: 0.5 },
-    priest: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.4, potionHpPct: 0.55 },
-    rogue: { stance: 'aggressive', priority: 'lowest_hp', lootPolicy: 'greedy', retreatHpPct: 0.4, potionHpPct: 0.5 },
-    berserker: { stance: 'aggressive', priority: 'closest', lootPolicy: 'greedy', retreatHpPct: 0.2, potionHpPct: 0.4 },
-    slayer: { stance: 'aggressive', priority: 'highest_threat', lootPolicy: 'valuable', retreatHpPct: 0.25, potionHpPct: 0.45 },
-    paladin: { stance: 'defensive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.2, potionHpPct: 0.5 },
-    necromancer: { stance: 'balanced', priority: 'highest_threat', lootPolicy: 'valuable', retreatHpPct: 0.35, potionHpPct: 0.5 },
-    ice_mage: { stance: 'defensive', priority: 'closest', lootPolicy: 'valuable', retreatHpPct: 0.38, potionHpPct: 0.55 },
-    fire_mage: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.45, potionHpPct: 0.6 },
-    lightning_mage: { stance: 'evasive', priority: 'lowest_hp', lootPolicy: 'valuable', retreatHpPct: 0.4, potionHpPct: 0.55 },
-    warden: { stance: 'defensive', priority: 'highest_threat', lootPolicy: 'greedy', retreatHpPct: 0.2, potionHpPct: 0.5 },
-    lancer: { stance: 'balanced', priority: 'elites_first', lootPolicy: 'valuable', retreatHpPct: 0.3, potionHpPct: 0.5 },
-  }[classId];
-  return { ...byClass, focusFire: true, spellPolicy: {} };
+  const byClass = CLASS_TACTICS[classId];
+  // Every class needs an entry. Spreading `undefined` silently produced a
+  // hero with no priority and no retreat threshold — the deploy briefing
+  // called `.replace()` on the missing priority and blanked the whole page,
+  // which is how three classes shipped without tactics and nothing said so.
+  // `test-achievements.js` asserts CLASS_TACTICS covers CLASSES; this is the
+  // belt to that pair of braces, so a gap is a dull hero rather than a dead
+  // screen.
+  return { ...FALLBACK_TACTICS, ...byClass, focusFire: true, spellPolicy: {} };
 }
 
 /** Tactics for the squad as a whole. */

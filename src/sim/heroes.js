@@ -119,12 +119,21 @@ export function respec(hero) {
  * The branch each class leans on when nobody is choosing for it. A Priest that
  * randomly dumps everything into Wrath has no heals, which is a legitimate
  * rival build but useless as a baseline.
+ *
+ * Only the three starting classes are named, because they are the only ones a
+ * baseline is measured against. Everything else falls back to its own tree
+ * order via `branchesFor` — an unnamed class used to hand `autoAllocate` an
+ * undefined list, which threw the moment the hero had a point to spend.
  */
 export const DEFAULT_BRANCHES = {
   knight: ['bulwark', 'arms', 'banner'],
   archer: ['marksman', 'skirmish', 'trapper'],
   priest: ['light', 'ward', 'wrath'],
 };
+
+/** The branch order to spend into, named or not. */
+export const branchesFor = (classId) =>
+  DEFAULT_BRANCHES[classId] ?? TREES[classId].branches.map((b) => b.id);
 
 /**
  * Spend every available point, committing hard to one branch and spilling the
@@ -137,7 +146,7 @@ export const DEFAULT_BRANCHES = {
 export function autoAllocate(rng, hero, branchOrder = null) {
   const branches = branchOrder === 'random'
     ? shuffle(rng, TREES[hero.classId].branches).map((b) => b.id)
-    : (branchOrder ?? DEFAULT_BRANCHES[hero.classId]);
+    : (branchOrder ?? branchesFor(hero.classId));
   let guard = 0;
   while (availablePoints(hero) > 0 && guard++ < 400) {
     const branch = chance(rng, 0.7) ? branches[0] : branches[1 % branches.length];

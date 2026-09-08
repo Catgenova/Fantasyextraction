@@ -27,12 +27,17 @@ import { CLASSES, CLASS_IDS, STARTER_CLASS_IDS } from '../src/data/classes.js';
 import { TREES, unlockedSpells } from '../src/data/skilltrees.js';
 import { spellsForClass, SPELL_SLOTS } from '../src/data/spells.js';
 import { computeStats } from '../src/sim/stats.js';
-import { createHero, autoAllocate, availableSpells, sanitizeHero } from '../src/sim/heroes.js';
+import {
+  createHero, autoAllocate, availableSpells, sanitizeHero, availablePoints,
+} from '../src/sim/heroes.js';
 import { craftItem, SLOTS, slotsForPart, canEquip, packCapacity, woodenLoadout } from '../src/data/gear.js';
 import { QUALITY_ORDER } from '../src/data/parts.js';
 import { CREATURES } from '../src/data/creatures.js';
 import { makeRng } from '../src/core/rng.js';
-import { defaultSquadTactics } from '../src/data/tactics.js';
+import {
+  defaultSquadTactics, defaultHeroTactics, CLASS_TACTICS,
+  STANCES, TARGET_PRIORITIES, LOOT_POLICIES,
+} from '../src/data/tactics.js';
 import { squadHeroes } from '../src/game/profile.js';
 
 // Kit forged from species of the squad's own depth — the tests need a squad
@@ -163,6 +168,56 @@ console.log('\n=== the unlocked classes are actually playable ===');
     if (!ok) { broken++; detail.push(classId); }
   }
   check(`all ${CLASS_IDS.length} classes build a usable hero`, broken === 0, detail.join(','));
+
+  // Every per-class table has to grow when the roster does. Three classes
+  // shipped with no row in `defaultHeroTactics` at all, so their heroes had
+  // no priority and no retreat threshold — and the deploy briefing, which
+  // prints the priority, threw and blanked the whole page on the way into a
+  // raid. Nothing said so, because the check above passes 'random' to
+  // autoAllocate and never reads tactics.
+  const FIELDS = {
+    stance: STANCES, priority: TARGET_PRIORITIES, lootPolicy: LOOT_POLICIES,
+  };
+  const valid = (table, value) => (Array.isArray(table)
+    ? table.some((o) => (o.id ?? o) === value)
+    : Object.prototype.hasOwnProperty.call(table, value));
+  // Read the table itself, not `defaultHeroTactics`. The function falls back
+  // to a middling row so a gap cannot blank a screen again, which means a
+  // check that went through it would pass with all three rows deleted — the
+  // exact shape of test this repo has been bitten by before.
+  const unlisted = CLASS_IDS.filter((id) => !CLASS_TACTICS[id]);
+  check('every class has its own row in the tactics table', unlisted.length === 0,
+    unlisted.join(','));
+
+  const gaps = [];
+  for (const classId of CLASS_IDS) {
+    const t = defaultHeroTactics(classId);
+    for (const [field, table] of Object.entries(FIELDS)) {
+      if (!valid(table, t[field])) gaps.push(`${classId}.${field}=${t[field]}`);
+    }
+    for (const field of ['retreatHpPct', 'potionHpPct']) {
+      const v = t[field];
+      if (!(typeof v === 'number' && v > 0 && v < 1)) gaps.push(`${classId}.${field}=${v}`);
+    }
+  }
+  check('and the row it hands out is complete and valid', gaps.length === 0,
+    gaps.join(' '));
+
+  // The same omission one file over: `DEFAULT_BRANCHES` names only the three
+  // starters, so an unnamed class handed autoAllocate an undefined branch
+  // list. It threw the moment the hero had a point to spend, which is why a
+  // level-1 fixture never found it.
+  const threw = [];
+  for (const classId of CLASS_IDS) {
+    const hero = createHero(rng, classId);
+    hero.level = 20;
+    try {
+      autoAllocate(rng, hero);
+      if (availablePoints(hero) > 0) threw.push(`${classId}:${availablePoints(hero)} unspent`);
+    } catch (e) { threw.push(`${classId}:${e.message}`); }
+  }
+  check('every class can spend its tree with no branch order given',
+    threw.length === 0, threw.join(' '));
 
   // Every spell in a class's pool must be reachable from its own tree.
   let unreachable = [];

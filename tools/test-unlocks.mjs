@@ -7,6 +7,12 @@
 // can be put in the squad and named leader, and it deploys. A class that
 // unlocks and then cannot be equipped is worse than one that stays locked.
 //
+// The deploy briefing is swept across every class rather than the one this
+// test happens to unlock. Three classes shipped with no row in the tactics
+// table, and the briefing prints a hero's target priority — so entering a
+// raid with a Monk threw on `undefined.replace` and left a blank page under
+// the topbar. The check that should have caught it deployed a Slayer.
+//
 //   node tools/test-unlocks.mjs
 //
 // Needs Playwright. Skips rather than fails if it is missing.
@@ -195,6 +201,37 @@ for (const [label, opts] of [
   check(`${label}: a squad containing it deploys`, await page.locator('canvas#stage').isVisible());
   const clock = await page.locator('.hud-top').innerText();
   check(`${label}: and the raid is running`, /\d+:\d\d/.test(clock), clock.split('\n')[0]);
+
+  // --- The briefing renders for every class, not just this one -------------
+  // Pure DOM: set the squad through the harness and open the briefing. No
+  // raid is started, so all sixteen are checked in about a second.
+  const briefing = await page.evaluate(async () => {
+    const app = window.__ashenveil;
+    const { CLASS_IDS } = await import('/src/data/classes.js');
+    const heroes = await import('/src/sim/heroes.js');
+    const { makeRng } = await import('/src/core/rng.js');
+    const rng = makeRng(9);
+    const bad = [];
+    for (const classId of CLASS_IDS) {
+      const trio = [0, 1, 2].map(() => heroes.createHero(rng, classId));
+      app.profile.roster.push(...trio);
+      app.profile.squad = trio.map((h) => h.id);
+      app.profile.squadTactics.leaderId = trio[0].id;
+      try {
+        app.go('deploy');
+        const root = document.getElementById('app');
+        const panels = root.querySelectorAll('.squad-grid > .panel').length;
+        const heading = /Deployment Briefing/.test(root.innerText);
+        if (!heading || panels !== 3) bad.push(`${classId}:${panels} panels`);
+      } catch (e) {
+        bad.push(`${classId}:${e.message}`);
+      }
+      app.profile.roster = app.profile.roster.filter((h) => !trio.includes(h));
+    }
+    return bad;
+  });
+  check(`${label}: the deploy briefing renders for every class`,
+    briefing.length === 0, briefing.join(' '));
 
   check(`${label}: no console errors`, errors.length === 0, errors.slice(0, 2).join(' | '));
   await ctx.close();
