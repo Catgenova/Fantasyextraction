@@ -2034,8 +2034,22 @@ export function squadObjective(match, squad) {
   // the squad can only cross a camp off from EYES_ON, which is barely outside
   // the range it would repick at anyway — but it costs nothing now that the
   // goal remembers which point of interest it is.
+  // A goal can die on the way there. Crossing off on arrival is not enough for
+  // a boss ground: rivals kill most of the apexes, so the ground the squad set
+  // out for is often a corpse long before the squad is close enough to see it,
+  // and it kept walking the whole way. That is what "the boss hunt rotates
+  // between defeated grounds and stalls" actually was — not a loop, a queue of
+  // wasted walks, each one a fresh discovery.
+  //
+  // Grounds are read globally because a boss death is announced to the feed
+  // and `findQuarry` has always read it that way. Camps stay squad-local: a
+  // squad may not know what somebody emptied on the far side of the map.
   const goal = squad.roamGoal;
-  if (!goal || squad.emptied?.has(squad.roamPoi) || dist(centroid, goal) < 220) {
+  const goalPoi = match.poiById(squad.roamPoi);
+  const goalSpent = goalPoi?.kind === 'boss'
+    ? !!goalPoi.cleared
+    : squad.emptied?.has(squad.roamPoi);
+  if (!goal || goalSpent || dist(centroid, goal) < 220) {
     const poi = match.pickRoamGoal(centroid, plan.zoneBias, squadLevel(match, squad), squad);
     squad.roamPoi = poi?.id ?? null;
     squad.roamGoal = poi ? { x: poi.x, y: poi.y } : { ...centroid };

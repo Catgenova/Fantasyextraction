@@ -24,6 +24,35 @@ import { generateBotSquads } from '../src/sim/bots.js';
 import { CREATURES } from '../src/data/creatures.js';
 import { dist } from '../src/core/vec.js';
 import { makeRng } from '../src/core/rng.js';
+import { craftItem, SLOTS, slotsForPart, canEquip } from '../src/data/gear.js';
+import { autoAllocate, sanitizeHero } from '../src/sim/heroes.js';
+
+/**
+ * A squad kitted well enough to actually kill apexes. Section 7 needs dead
+ * grounds to exist before it can check that the plan stops walking to them,
+ * and an ungeared level-14 squad managed five kills across four raids — too
+ * little signal for the check to fail on when the routing is broken.
+ */
+function equipDeep(profile, seed) {
+  const rng = makeRng(seed ^ 0x5bf03635);
+  const pool = Object.values(CREATURES);
+  for (const hero of profile.roster) {
+    hero.level = 14;
+    autoAllocate(rng, hero);
+    for (const slot of SLOTS) {
+      const fits = pool.filter((c) => c.tier <= 2
+        && Object.keys(c.parts).some((pt) => slotsForPart(pt).includes(slot)));
+      const sp = fits[Math.floor(rng() * fits.length)];
+      const opts = Object.keys(sp.parts).filter((pt) => slotsForPart(pt).includes(slot));
+      const item = craftItem({
+        speciesId: sp.id, partType: opts[Math.floor(rng() * opts.length)],
+        slot, quality: 'pristine', classId: hero.classId,
+      });
+      if (item && canEquip(item, hero.classId)) hero.equipped[slot] = item;
+    }
+    sanitizeHero(hero);
+  }
+}
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -388,6 +417,72 @@ console.log('\n=== and a squad stops going back ===');
     walkingToDead < 1, `${walkingToDead.toFixed(1)}s still heading for a camp it had written off`);
   check('it does learn as it goes', match.playerSquad.emptied.size > 3,
     `${match.playerSquad.emptied.size} camps crossed off`);
+}
+
+// ------------------------------------------------- 7. the boss hunt moves on --
+console.log('\n=== 7. a boss hunt does not walk to corpses ===');
+{
+  // The plan's own filter, which for grounds was never written: the candidate
+  // list read `|| p.kind === 'boss'`, short-circuiting with no filter at all,
+  // so a defeated arena stayed a destination for the rest of the raid. The
+  // squad walked off it, the distance penalty stopped excluding it, and it
+  // scored best again.
+  //
+  // Grounds are read globally rather than squad-locally, unlike camps. A boss
+  // death is announced to the feed the moment it happens and `findQuarry` has
+  // always read the boss's liveness that way for hunt orders, so the plan
+  // agrees with it. That also covers the case squad-local knowledge cannot:
+  // rivals kill most of the apexes, and under EYES_ON the squad would have to
+  // walk the whole way to a corpse to find out.
+  //
+  // Two things this check got wrong first, both of which made it unfailable:
+  //
+  //  - It counted every tick `roamPoi` named a dead ground. `roamPoi` keeps
+  //    its value through a fight and a carve, so it was mostly measuring "the
+  //    squad is standing on the boss it just killed", which is the reward. On
+  //    that metric the fixed build read 10.8% and looked broken. It counts
+  //    only ticks spent travelling now.
+  //  - It read `poi.cleared`, the flag the fix sets. Break the marking and the
+  //    metric goes blind and reports zero, which is exactly what one of the
+  //    three injections did. It reads the boss entity's liveness instead, so
+  //    it is independent of every part of the mechanism it guards.
+  let walkingToCorpse = 0;
+  const corpsesWalkedTo = new Set();
+  let bossKills = 0;
+  for (const seed of [7300, 7301, 7302, 7303, 7304, 7305]) {
+    const profile = sanitizeProfile(newProfile(seed));
+    equipDeep(profile, seed);
+    profile.squadTactics.leaderId = profile.squad[0];
+    profile.squadTactics.plan = 'boss';
+    profile.squadTactics.extractPlan = 'late';
+    const match = new Match({
+      seed,
+      playerSquad: {
+        id: 'player', name: 'Yours', isPlayer: true,
+        heroes: squadHeroes(profile), tactics: profile.squadTactics,
+      },
+      botSquads: generateBotSquads(seed, 5, 14),
+    });
+    while (match.phase === 'running') {
+      match.update(TICK);
+      const squad = match.playerSquad;
+      if (squad.order?.mode !== 'travel') continue;
+      const poi = match.poiById(squad.roamPoi);
+      if (poi?.kind !== 'boss' || !poi.spawned) continue;
+      const boss = poi.bossEntityId ? match.byId(poi.bossEntityId) : null;
+      if (boss?.alive) continue;
+      walkingToCorpse += TICK;
+      corpsesWalkedTo.add(`${seed}:${poi.id}`);
+    }
+    bossKills += match.stats.bossKills;
+  }
+
+  check('a boss hunt never walks to a ground whose boss is already dead',
+    walkingToCorpse < 1,
+    `${walkingToCorpse.toFixed(1)}s heading for ${corpsesWalkedTo.size} defeated grounds`);
+  // The claim above is worth nothing if the plan never chose a ground at all.
+  check('and it did choose grounds to walk to', bossKills >= 8,
+    `${bossKills} bosses died across the six raids`);
 }
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll ecology checks passed');

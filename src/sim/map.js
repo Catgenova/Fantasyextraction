@@ -190,8 +190,7 @@ const GROUNDS_PER_RING = { 0: 1, 1: 4, 2: 4 };
 function drawGrounds(rng) {
   const out = [];
   for (const tier of [0, 1, 2]) {
-    const OLD = new Set(['bastionback','tyrannoclast','deepdelver','glaciermaw','mirethane','pyroclast','stormcrest','venomcoil','skyrender']);
-    const pool = ARENA_SPEC.filter((s) => s.tier === tier && OLD.has(s.bossId));
+    const pool = ARENA_SPEC.filter((s) => s.tier === tier);
     const want = Math.min(GROUNDS_PER_RING[tier] ?? 0, pool.length);
     out.push(...shuffle(rng, pool.slice()).slice(0, want));
   }

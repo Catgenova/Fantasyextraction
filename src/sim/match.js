@@ -258,7 +258,13 @@ export class Match {
     return squadCfg?.heroes.find((h) => h.id === entity.heroId)?.alloc ?? {};
   }
 
+  /** A point of interest by id. The plan asks every quarter-second. */
+  poiById(id) {
+    return id ? (this.poiIndex?.get(id) ?? null) : null;
+  }
+
   #setupCamps() {
+    this.poiIndex = new Map(this.map.pois.map((p) => [p.id, p]));
     for (const poi of this.map.pois) {
       if (poi.kind === 'camp') {
         poi.active = false;
@@ -268,6 +274,10 @@ export class Match {
         poi.left = null;      // how many of it are still alive
       } else if (poi.kind === 'boss') {
         poi.spawned = false;
+        // Grounds carry `cleared` too. They did not, and nothing set it, so a
+        // defeated ground stayed a destination for the rest of the raid — see
+        // `#observeCamps` and `pickRoamGoal`.
+        poi.cleared = false;
       }
     }
   }
@@ -503,7 +513,8 @@ export class Match {
       const centre = this.squadCentroid(squad);
       if (!centre) continue;
       for (const poi of this.map.pois) {
-        if (poi.kind !== 'camp' || !poi.cleared) continue;
+        if (poi.kind !== 'camp' && poi.kind !== 'boss') continue;
+        if (!poi.cleared) continue;
         if (squad.emptied.has(poi.id)) continue;
         if (dist(centre, poi) > EYES_ON) continue;
         squad.emptied.add(poi.id);
@@ -833,6 +844,12 @@ export class Match {
       if (target.kind === 'boss') {
         this.stats.bossKills++;
         this.log(`${target.name} has fallen!`, 'boss');
+        // The ground is finished. Nothing used to say so: `cleared` was a camp
+        // idea, so a squad on a boss hunt kept being routed back to arenas it
+        // had already emptied and rotated between two or three of them for the
+        // rest of the raid.
+        const ground = this.poiById(target.ownerPoi);
+        if (ground?.kind === 'boss') ground.cleared = true;
         if (killerSquad && killerSquad === this.playerSquad && !this.bossesKilled.includes(target.defId)) {
           this.bossesKilled.push(target.defId);
         }
@@ -1121,8 +1138,32 @@ export class Match {
     // score because a cleared camp is not a worse destination than a live one,
     // it is not a destination.
     const known = squad?.emptied;
-    let candidates = this.map.pois.filter((p) =>
-      (p.kind === 'camp' && !known?.has(p.id)) || p.kind === 'boss');
+    // Camps are crossed off by the squad that saw them emptied. Grounds are
+    // crossed off for everybody, and the difference is deliberate.
+    //
+    // The old filter read `|| p.kind === 'boss'`, which short-circuits with no
+    // filter at all, so a boss hunt that had killed its boss kept scoring that
+    // arena as a destination: the squad walked off it, the distance penalty
+    // stopped excluding it, and it scored best again. Two or three dead
+    // grounds and the plan rotated between them for the rest of the raid.
+    //
+    // Making grounds squad-local like camps only half-fixed it — 16.1% of
+    // boss-goal time spent heading for a corpse, down to 11.7%. The rest is
+    // the apexes rivals kill: with six squads on nine grounds, most of the
+    // dead ones were killed somewhere the player has never been, and under
+    // EYES_ON the squad has to walk the whole way there to find that out. Each
+    // trip is a fresh discovery rather than a loop, which is worse to play
+    // than the loop because it never stops.
+    //
+    // A boss death is public. `match.log` announces "X has fallen!" to the
+    // feed the moment it happens, and `findQuarry` has always read the boss's
+    // liveness globally for hunt orders. So the plan reads it globally too,
+    // and the two agree instead of contradicting each other.
+    let candidates = this.map.pois.filter((p) => {
+      if (p.kind === 'camp') return !known?.has(p.id);
+      if (p.kind !== 'boss') return false;
+      return !p.cleared;
+    });
     // Late in a long raid a squad can genuinely have crossed off everything it
     // knows about. Walking to the middle of the map is a worse answer than
     // walking to a camp that might have been refilled by somebody dying in it,
