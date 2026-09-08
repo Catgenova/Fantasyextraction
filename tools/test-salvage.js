@@ -9,6 +9,11 @@
 // parts always make the same piece — so a lossless salvage would be an undo
 // button, and choosing what to make would stop being a choice.
 //
+// Camp kit is the other half of the same rule. It is free, infinite, worse
+// than anything the smith makes, and salvage cannot touch it — so it is
+// destroyed at every point where a real piece would be stored, and the checks
+// for that live here because "what the shelf will hold" is one rule.
+//
 //   node tools/test-salvage.js
 
 import {
@@ -19,8 +24,10 @@ import {
   salvage, salvageYield, salvageLabel, salvageAllUpTo, canSalvage,
   forge, forgeBlocker, availableRecipes, costFor,
 } from '../src/game/smith.js';
-import { craftItem, woodenItem, SLOTS } from '../src/data/gear.js';
+import { craftItem, woodenItem, woodenLoadout, SLOTS, packCapacity } from '../src/data/gear.js';
 import { makePart, QUALITY_ORDER } from '../src/data/parts.js';
+import { makeHeroEntity } from '../src/sim/entity.js';
+import { equipFromBackpack, unequipToBackpack } from '../src/sim/inventory.js';
 
 let failures = 0;
 const check = (name, ok, detail = '') => {
@@ -177,6 +184,97 @@ console.log('\n=== a full shelf stops the forge rather than eating the parts ===
   salvageAllUpTo(p, 'ragged');
   check('salvaging makes room', stashHasRoom(p) && !forgeBlocker(recipe, p));
   check('and then it forges', forge(p, recipe, 'knight')?.kind === 'gear');
+}
+
+// ------------------------------------------------------------- camp kit ---
+console.log('\n=== camp kit is destroyed, never stored ===');
+{
+  const p = sanitizeProfile(newProfile(17));
+  const before = stashGear(p).length;
+  const taken = SLOTS.map((slot) => addToStash(p, woodenItem(slot)));
+  check('the shelf turns every wooden piece away',
+    taken.every((ok) => ok === false), taken.filter(Boolean).length + ' accepted');
+  check('and none of them landed on it',
+    stashGear(p).length === before, `${stashGear(p).length} gear`);
+  check('nor did any land in materials',
+    !p.materials.some((i) => i?.wooden), String(p.materials.filter((i) => i?.wooden).length));
+
+  // Salvage is not the way out either — a wooden piece was never carved off
+  // anything, so there is nothing to give back. That is exactly why the shelf
+  // must refuse it: an accepted one could never be removed.
+  check('and salvage cannot clear one either',
+    !canSalvage(woodenItem('chest')) && salvageYield(woodenItem('weapon')) === null);
+}
+
+// A real account reached seven wooden pieces on the shelf before this rule
+// existed. Loading that save has to clean it up, or the shelf stays clogged
+// with items nothing in the game can remove.
+{
+  const p = sanitizeProfile(newProfile(18));
+  const real = craftItem({ speciesId: 'sicklejaw', partType: 'claw', slot: 'hands', quality: 'fine' });
+  p.stash.push(...SLOTS.map((slot) => woodenItem(slot)), real);
+  const clogged = stashGear(p).length;
+  sanitizeProfile(p);
+  check('loading an old save sweeps the wooden gear off the shelf',
+    stashGear(p).length === 1 && stashGear(p)[0].id === real.id,
+    `${clogged} before, ${stashGear(p).length} after`);
+  check('and leaves the supplies alone',
+    p.stash.filter((i) => i.kind === 'consumable').length === 3,
+    String(p.stash.filter((i) => i.kind === 'consumable').length));
+}
+
+// --------------------------------------------------------- and in a raid ---
+console.log('\n=== a raid throws camp kit away rather than carrying it home ===');
+{
+  const match = { pushFloat() {}, rarityColor: () => '#fff' };
+  const p = sanitizeProfile(newProfile(19));
+  const hero = p.roster.find((h) => h.classId === 'knight');
+  hero.equipped = woodenLoadout();
+  const e = makeHeroEntity(hero, { team: 0, squadId: 's' });
+
+  const found = craftItem({ speciesId: 'sicklejaw', partType: 'claw', slot: 'hands', quality: 'fine' });
+  e.inventory = [found];
+  const wooden = e.equipped.hands;
+  check('the fixture starts in camp kit', !!wooden?.wooden);
+  check('equipping over it works', equipFromBackpack(match, e, 0) === true);
+  check('the upgrade is worn', e.equipped.hands?.id === found.id);
+  // This is the bug the player hit: the displaced wooden piece took a pack
+  // slot for the rest of the raid and then came home to the shelf.
+  check('and the wooden piece is gone, not in the pack',
+    e.inventory.length === 0, `${e.inventory.length} in the pack`);
+
+  check('camp kit cannot be taken off into the pack',
+    unequipToBackpack(match, e, 'chest') === false && !!e.equipped.chest?.wooden);
+  check('but a real piece still can',
+    unequipToBackpack(match, e, 'hands') === true && e.inventory.length === 1
+    && e.equipped.hands === null);
+}
+
+// The pouch refusal is the one place the pack maths changes: the wooden pouch
+// coming off no longer needs a slot to come back to.
+{
+  const match = { pushFloat() {}, rarityColor: () => '#fff' };
+  const p = sanitizeProfile(newProfile(20));
+  const hero = p.roster.find((h) => h.classId === 'knight');
+  hero.equipped = woodenLoadout();
+  const e = makeHeroEntity(hero, { team: 0, squadId: 's' });
+
+  const pouch = craftItem({ speciesId: 'sicklejaw', partType: 'sinew', slot: 'pouch', quality: 'ragged' });
+  const filler = () => craftItem({ speciesId: 'sicklejaw', partType: 'claw', slot: 'hands', quality: 'ragged' });
+  const room = packCapacity({ ...e.equipped, pouch });
+  e.inventory = [pouch, ...Array.from({ length: room + 1 }, filler)];
+  check('a pack that would overflow the new pouch refuses the swap',
+    equipFromBackpack(match, e, 0) === false, `${e.inventory.length - 1} carried, ${room} slots`);
+
+  e.inventory.pop();
+  check('and one slot under, it goes through',
+    equipFromBackpack(match, e, 0) === true && e.equipped.pouch?.id === pouch.id);
+  // The old maths had to leave a slot for the wooden pouch to come back to.
+  // Now it does not come back, so a pack that fills the new pouch exactly is
+  // legal — and nothing wooden is left holding a slot.
+  check('and the pack sits exactly at capacity with nothing wooden in it',
+    e.inventory.length === room && !e.inventory.some((i) => i.wooden),
+    `${e.inventory.length} carried, ${packCapacity(e.equipped)} slots`);
 }
 
 console.log(failures ? `\n${failures} check(s) failed` : '\nAll salvage checks passed');

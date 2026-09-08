@@ -6,7 +6,7 @@ import { heroPortrait } from '../portrait.js';
 import { ANIMATION_IDS } from '../../art/anim.js';
 import { itemRow } from '../items.js';
 import { CLASSES } from '../../data/classes.js';
-import { SLOTS, SLOT_NAMES, canEquip, itemScore } from '../../data/gear.js';
+import { SLOTS, SLOT_NAMES, canEquip, itemScore, isWooden } from '../../data/gear.js';
 import { SPELLS, SPELL_SLOTS, spellsForClass } from '../../data/spells.js';
 import { CONSUMABLE_SLOTS } from '../../data/consumables.js';
 import { TREES, nodeBlocker, pointsInBranch } from '../../data/skilltrees.js';
@@ -112,16 +112,24 @@ export function heroScreen(app, hero, initialTab = 'gear') {
           el('h3', { style: { marginBottom: '8px' } }, 'Equipped'),
           el('div.col', { style: { gap: '6px' } }, SLOTS.map((slot) => {
             const item = hero.equipped[slot];
+            // Camp kit has no unequip. The stash will not take it, so the
+            // button could only ever destroy a free piece and leave the slot
+            // emptier than it found it — a click with no upside. It comes off
+            // when something better goes on, which is the only reason to
+            // touch it.
+            const takeOff = item && !isWooden(item) ? () => {
+              addToStash(app.profile, item);
+              hero.equipped[slot] = null;
+              app.save();
+              render();
+            } : null;
             return itemRow(item, {
               slotLabel: SLOT_NAMES[slot],
               emptyText: `No ${SLOT_NAMES[slot].toLowerCase()}`,
-              onclick: item ? () => {
-                addToStash(app.profile, item);
-                hero.equipped[slot] = null;
-                app.save();
-                render();
-              } : null,
-              right: item ? el('span.tiny.dim', null, 'unequip') : null,
+              onclick: takeOff,
+              right: item
+                ? el('span.tiny.dim', null, takeOff ? 'unequip' : 'camp kit')
+                : null,
             });
           })),
 
@@ -187,6 +195,8 @@ export function heroScreen(app, hero, initialTab = 'gear') {
       } else {
         const current = hero.equipped[item.slot];
         removeFromStash(app.profile, item.id);
+        // Whatever comes off goes back on the shelf, unless it is camp kit —
+        // `addToStash` throws that away rather than storing something free.
         if (current) addToStash(app.profile, current);
         hero.equipped[item.slot] = item;
       }

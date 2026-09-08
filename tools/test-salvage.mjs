@@ -6,6 +6,10 @@
 // first tap and only breaks the piece on the second, and an armed button that
 // is never confirmed has to destroy nothing at all.
 //
+// Camp kit is the other rail. It cannot be salvaged and the shelf will not
+// hold it, so the loadout screen must not offer an unequip that could only
+// strip a hero for nothing.
+//
 //   node tools/test-salvage.mjs
 //
 // Needs Playwright. Skips rather than fails if it is missing.
@@ -147,6 +151,32 @@ for (const [label, opts] of [
   const abandoned = await counts(page);
   check(`${label}: an armed sweep that is never confirmed sweeps nothing`,
     abandoned.gear === after.gear, `${after.gear} -> ${abandoned.gear}`);
+
+  // --- Camp kit has no unequip ---------------------------------------------
+  // A hero in wooden gear, on the loadout screen. Clicking the row used to
+  // put the piece on the shelf; the shelf refuses it now, so the click would
+  // destroy a free item and leave the slot empty for nothing.
+  await page.evaluate(() => {
+    const app = window.__ashenveil;
+    const hero = app.profile.roster[0];
+    app.go('hero', { heroId: hero.id, tab: 'gear' });
+  });
+  await page.waitForTimeout(300);
+
+  const worn = page.locator('.item').filter({ hasText: 'camp kit' });
+  const wornCount = await worn.count();
+  check(`${label}: wooden slots are labelled camp kit, not unequip`,
+    wornCount === 8, `${wornCount} rows`);
+  check(`${label}: and none of them offers an unequip`,
+    (await page.locator('.item').filter({ hasText: 'unequip' }).count()) === 0);
+
+  const gearBefore = (await counts(page)).gear;
+  await worn.first().click();
+  await page.waitForTimeout(250);
+  check(`${label}: clicking one changes nothing`,
+    (await counts(page)).gear === gearBefore
+    && (await page.locator('.item').filter({ hasText: 'camp kit' }).count()) === 8,
+    `${gearBefore} -> ${(await counts(page)).gear} gear`);
 
   check(`${label}: no page errors`, errors.length === 0, errors.slice(0, 2).join(' | '));
   await ctx.close();

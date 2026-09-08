@@ -113,6 +113,27 @@ The reason it exists is that death used to strip a hero to nothing, and a hero
 wearing nothing cannot fight their way back to anything. One bad run ended the
 account. Losing a raid should cost the raid.
 
+### It is destroyed, never stored
+
+Wooden gear only ever leaves a slot by being replaced, and the piece it
+replaces is thrown away on the spot. There is no unequip: the camp row reads
+*camp kit* and does nothing, and the in-raid Remove button is disabled.
+
+That is not tidiness. A wooden piece is free, infinite, strictly better than an
+empty slot and worth nothing to anyone, so every other destination for it is a
+cost with no upside — a pack slot spent for the rest of a raid, a shelf slot
+that `STASH_LIMIT` counts, an unequip that can only make a hero worse. And the
+shelf was a one-way door: salvage refuses wooden gear, so anything wooden that
+got onto it could never be taken off again.
+
+It got onto it constantly. Taking an upgrade mid-raid pushed the wooden piece
+it replaced into the pack, the pack came home, and the haul went to the stash.
+A real account had seven wooden pieces filling its shelf after a handful of
+raids — a satchel, two jerkins, a cap, two shields and a set of wraps, none of
+which could be worn, sold or broken down. `addToStash` is the one place every
+route out of a slot ends, so that is where the refusal lives, and
+`sanitizeProfile` sweeps the wooden gear off shelves that already have it.
+
 ## Choosing a fight
 
 Three kinds of fight are on the map, and they are a real choice rather than a
@@ -497,7 +518,9 @@ pristine is another hunt rather than a reshuffle of what you already have. You
 cannot re-forge what you just broke.
 
 Wooden gear yields nothing. It was never cut off anything, and the camp hands
-out another set the moment a hero dies.
+out another set the moment a hero dies — which is why it is never allowed onto
+the shelf in the first place (see **Wooden gear**), since salvage is the only
+way off it.
 
 Salvaging cannot be undone, so a row arms on the first tap and only breaks the
 piece on the second — the same two taps the forge takes to spend parts, and the

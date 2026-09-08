@@ -5,7 +5,7 @@ import { createHero, sanitizeHero, addXp } from '../sim/heroes.js';
 import { defaultSquadTactics } from '../data/tactics.js';
 import { makeConsumable } from '../data/consumables.js';
 import { makePart } from '../data/parts.js';
-import { craftItem, canEquip, itemScore, woodenLoadout } from '../data/gear.js';
+import { craftItem, canEquip, itemScore, woodenLoadout, isWooden } from '../data/gear.js';
 import { QUALITY_ORDER, partValue } from '../data/parts.js';
 import { achievementForBoss, ACHIEVEMENT_BY_ID, ACHIEVEMENTS } from '../data/achievements.js';
 import { STARTER_CLASS_IDS } from '../data/classes.js';
@@ -95,6 +95,12 @@ export function sanitizeProfile(profile) {
     profile.materials.push(...strandedParts);
     profile.stash = profile.stash.filter((i) => i.kind !== 'part');
   }
+  // Camp kit is not stock. Saves from before `addToStash` turned it away are
+  // holding a shelf of wooden pieces nobody will ever wear again and nothing
+  // can break down — seven of them on a real account after a handful of
+  // raids, because every upgrade taken mid-raid pushed the wooden piece it
+  // replaced into the pack and the pack came home.
+  profile.stash = profile.stash.filter((i) => !isWooden(i));
   profile.squadTactics = { ...defaultSquadTactics(), ...(profile.squadTactics ?? {}) };
   profile.squad = (profile.squad ?? []).filter((id) => heroById(profile, id));
   while (profile.squad.length < 3 && profile.roster.length > profile.squad.length) {
@@ -145,6 +151,12 @@ export function sanitizeProfile(profile) {
  */
 export function addToStash(profile, item) {
   if (!item) return false;
+  // Camp kit is destroyed, not put away. It is free, infinite and worse than
+  // anything the smith makes, so a shelf slot spent on it is a shelf slot
+  // wasted — and salvage cannot reclaim it, since it was never carved off
+  // anything. Every route out of a slot ends here, so this is the one place
+  // that has to say no.
+  if (isWooden(item)) return false;
   if (item.kind === 'part') { profile.materials.push(item); return true; }
   // Consumables of the same type merge into one stack entry per pickup.
   if (item.kind === 'consumable') {

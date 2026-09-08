@@ -5,7 +5,7 @@
 // change has to rebuild it — otherwise the stat block silently keeps whatever
 // they landed with.
 
-import { canEquip, SLOTS, packCapacity, pouchSlots } from '../data/gear.js';
+import { canEquip, SLOTS, packCapacity, pouchSlots, isWooden } from '../data/gear.js';
 import { dist } from '../core/vec.js';
 import { rebuildHeroMods } from './entity.js';
 import { CONSUMABLE_SLOTS, CONSUMABLES } from '../data/consumables.js';
@@ -25,26 +25,40 @@ export function canEquipItem(e, item) {
 /**
  * Equip a backpack item. Whatever was in the slot goes back into the pack —
  * there is always room, since the incoming item just left it.
+ *
+ * Unless it is camp kit, which is thrown away instead. A wooden piece is free
+ * and the camp reissues it, so carrying one home is a pack slot spent on
+ * nothing; every upgrade taken mid-raid used to cost a slot for the rest of
+ * the run and then land on the stash shelf, where it could not even be
+ * salvaged.
+ *
  * @returns {boolean} whether anything changed
  */
 export function equipFromBackpack(match, e, index) {
   const item = e.inventory[index];
   if (!canEquipItem(e, item)) return false;
 
+  const previous = e.equipped[item.slot] ?? null;
+  const keepsPrevious = !!previous && !isWooden(previous);
+
   // A pouch decides how much the pack holds, so swapping down into a smaller
   // one can leave a hero over capacity. Refuse rather than silently binning
   // the overflow — the player can destroy or hand over the difference first.
-  // The incoming pouch leaves the pack as it is equipped, hence the -1.
+  // The incoming pouch leaves the pack as it is equipped, hence the -1; the
+  // one coming off goes back in unless it is wooden.
   if (item.slot === 'pouch'
-      && e.inventory.length - 1 > packCapacity({ ...e.equipped, pouch: item })) return false;
+      && e.inventory.length - 1 + (keepsPrevious ? 1 : 0)
+         > packCapacity({ ...e.equipped, pouch: item })) return false;
 
-  const previous = e.equipped[item.slot] ?? null;
   e.inventory.splice(index, 1);
   e.equipped[item.slot] = item;
-  if (previous) e.inventory.push(previous);
+  if (keepsPrevious) e.inventory.push(previous);
 
   rebuildHeroMods(e);
   match.pushFloat(e.pos, `equipped ${item.name}`, match.rarityColor(item));
+  if (previous && !keepsPrevious) {
+    match.pushFloat(e.pos, `discarded ${previous.name}`, '#9b9084');
+  }
   return true;
 }
 
@@ -52,10 +66,16 @@ export function equipFromBackpack(match, e, index) {
  * Unequip into the pack. Refuses when the pack is full rather than putting the
  * gear on the floor — silently discarding something a hero was wearing is not
  * a reasonable answer to a full bag.
+ *
+ * Camp kit cannot come off at all. Wooden gear is strictly better than an
+ * empty slot and worth nothing in the pack, so taking it off is a move with
+ * no upside; it leaves a slot when something better replaces it, and only
+ * then.
  */
 export function unequipToBackpack(match, e, slot) {
   const item = e.equipped[slot];
   if (!item) return false;
+  if (isWooden(item)) return false;
   if (e.inventory.length >= packCapacity(e.equipped)) return false;
 
   e.equipped[slot] = null;

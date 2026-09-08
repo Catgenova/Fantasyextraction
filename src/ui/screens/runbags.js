@@ -6,7 +6,7 @@
 
 import { el, clear, hideTooltip } from '../dom.js';
 import { itemRow } from '../items.js';
-import { SLOTS, SLOT_NAMES, packCapacity } from '../../data/gear.js';
+import { SLOTS, SLOT_NAMES, packCapacity, isWooden } from '../../data/gear.js';
 import { QUALITIES } from '../../data/parts.js';
 import { LOOT_FLOORS } from '../../data/tactics.js';
 import { CONSUMABLE_SLOTS } from '../../data/consumables.js';
@@ -205,9 +205,13 @@ export function createRunBags(match, controls = null) {
         emptyText: `No ${SLOT_NAMES[slot].toLowerCase()}`,
         right: item
           ? el('button.sm', {
-            disabled: hero.inventory.length >= packCapacity(hero.equipped),
-            title: hero.inventory.length >= packCapacity(hero.equipped)
-              ? 'Pack is full — make room first' : `Move ${item.name} to the pack`,
+            // Camp kit stays on. It is worth nothing in the pack and the slot
+            // is worse empty, so the only way it comes off is being replaced.
+            disabled: isWooden(item) || hero.inventory.length >= packCapacity(hero.equipped),
+            title: isWooden(item)
+              ? 'Camp kit — it comes off when you equip something better'
+              : (hero.inventory.length >= packCapacity(hero.equipped)
+                ? 'Pack is full — make room first' : `Move ${item.name} to the pack`),
             onclick: () => act(() => unequipToBackpack(match, hero, slot)),
           }, 'Remove')
           : null,
